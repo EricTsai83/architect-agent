@@ -9,6 +9,7 @@ import {
   BroomIcon,
   SparkleIcon,
   PaperPlaneTiltIcon,
+  ChatCircleIcon,
 } from '@phosphor-icons/react';
 import { api } from '../convex/_generated/api';
 import type { Doc, Id } from '../convex/_generated/dataModel';
@@ -239,6 +240,69 @@ function WorkspaceShell() {
               ))
             )}
           </div>
+
+          {workspace && workspace.threads.length > 0 ? (
+            <>
+              <div className="border-t border-border" />
+              <div className="flex flex-col gap-1 p-3">
+                <div className="flex items-center justify-between px-1 pb-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threads</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    disabled={isCreatingThread}
+                    onClick={() => void handleCreateThread()}
+                    aria-label="New thread"
+                    title="New thread"
+                  >
+                    <PlusIcon weight="bold" size={14} />
+                  </Button>
+                </div>
+                {workspace.threads.map((thread) => (
+                  <button
+                    key={thread._id}
+                    type="button"
+                    onClick={() => setSelectedThreadId(thread._id)}
+                    className={cn(
+                      'flex w-full items-center gap-2 border px-3 py-1.5 text-left transition-colors',
+                      selectedThreadId === thread._id
+                        ? 'border-primary bg-muted text-foreground'
+                        : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    <ChatCircleIcon
+                      size={14}
+                      weight={selectedThreadId === thread._id ? 'fill' : 'regular'}
+                      className="shrink-0"
+                    />
+                    <span className="truncate text-xs font-medium">{thread.title}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : workspace ? (
+            <>
+              <div className="border-t border-border" />
+              <div className="flex flex-col gap-1 p-3">
+                <div className="flex items-center justify-between px-1 pb-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threads</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    disabled={isCreatingThread}
+                    onClick={() => void handleCreateThread()}
+                    aria-label="New thread"
+                    title="New thread"
+                  >
+                    <PlusIcon weight="bold" size={14} />
+                  </Button>
+                </div>
+                <p className="px-1 text-xs text-muted-foreground">No threads yet.</p>
+              </div>
+            </>
+          ) : null}
         </SidebarContent>
 
         <SidebarFooter>
@@ -342,17 +406,13 @@ function WorkspaceShell() {
 
             <TabsContent value="chat">
               <ChatPanel
-                workspace={workspace}
                 selectedThreadId={selectedThreadId}
-                setSelectedThreadId={setSelectedThreadId}
                 messages={messages}
                 chatInput={chatInput}
                 setChatInput={setChatInput}
                 chatMode={chatMode}
                 setChatMode={setChatMode}
                 isSending={isSending}
-                isCreatingThread={isCreatingThread}
-                onCreateThread={handleCreateThread}
                 onSendMessage={handleSendMessage}
               />
             </TabsContent>
@@ -526,60 +586,26 @@ function ImportRepoDialog({ onImported }: { onImported: (repoId: RepositoryId, t
 }
 
 function ChatPanel({
-  workspace,
   selectedThreadId,
-  setSelectedThreadId,
   messages,
   chatInput,
   setChatInput,
   chatMode,
   setChatMode,
   isSending,
-  isCreatingThread,
-  onCreateThread,
   onSendMessage,
 }: {
-  workspace: NonNullable<ReturnType<typeof useQuery<typeof api.repositories.getWorkspace>>>;
   selectedThreadId: ThreadId | null;
-  setSelectedThreadId: (id: ThreadId | null) => void;
   messages: Doc<'messages'>[] | undefined;
   chatInput: string;
   setChatInput: (v: string) => void;
   chatMode: 'fast' | 'deep';
   setChatMode: (v: 'fast' | 'deep') => void;
   isSending: boolean;
-  isCreatingThread: boolean;
-  onCreateThread: () => Promise<void>;
   onSendMessage: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {workspace.threads.length > 0 ? (
-        <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border px-3 py-1.5">
-          {workspace.threads.map((thread) => (
-            <button
-              key={thread._id}
-              type="button"
-              onClick={() => setSelectedThreadId(thread._id)}
-              className={cn(
-                'shrink-0 border px-2.5 py-1 text-xs font-medium transition-colors',
-                selectedThreadId === thread._id
-                  ? 'border-primary bg-muted text-foreground'
-                  : 'border-transparent bg-transparent text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {thread.title}
-            </button>
-          ))}
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
-            <Button variant="ghost" size="xs" disabled={isCreatingThread} onClick={() => void onCreateThread()}>
-              <PlusIcon weight="bold" />
-              {isCreatingThread ? 'Creating…' : 'New thread'}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-6">
           {messages === undefined ? (
