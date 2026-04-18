@@ -76,8 +76,8 @@ export function Sidebar({
     <aside
       data-state={open ? 'open' : 'closed'}
       className={cn(
-        'hidden shrink-0 flex-col border-r border-border bg-background transition-[width] duration-200 ease-out md:flex',
-        open ? 'w-72' : 'w-0 overflow-hidden border-r-0',
+        'hidden shrink-0 flex-col overflow-hidden border-r border-border bg-background transition-[width] duration-200 ease-out md:flex',
+        open ? 'w-72' : 'w-0 border-r-0',
         className,
       )}
     >

@@ -1,27 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@workos-inc/authkit-react';
 import { Authenticated, Unauthenticated, useMutation, useQuery } from 'convex/react';
-import {
-  GithubLogoIcon,
-  PlusIcon,
-  MagnifyingGlassIcon,
-  DotsThreeVerticalIcon,
-  BroomIcon,
-  SparkleIcon,
-  PaperPlaneTiltIcon,
-  ChatCircleIcon,
-  TrashIcon,
-} from '@phosphor-icons/react';
+import { GithubLogoIcon } from '@phosphor-icons/react';
+import { TrashIcon } from '@phosphor-icons/react';
 import { api } from '../convex/_generated/api';
-import type { Doc, Id } from '../convex/_generated/dataModel';
+import type { Id } from '../convex/_generated/dataModel';
 import { ModeToggle } from './components/mode-toggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -29,28 +18,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
+import { AppSidebar } from '@/components/app-sidebar';
+import { TopBar } from '@/components/top-bar';
+import { ChatPanel } from '@/components/chat-panel';
+import { JobRow } from '@/components/job-row';
+import { DeepAnalysisDialog } from '@/components/deep-analysis-dialog';
+import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 
 type RepositoryId = Id<'repositories'>;
 type ThreadId = Id<'threads'>;
@@ -75,7 +53,7 @@ function RepositoryShell() {
   const requestDeepAnalysis = useMutation(api.analysis.requestDeepAnalysis);
   const sendMessage = useMutation(api.chat.sendMessage);
   const createThread = useMutation(api.chat.createThread);
-  const requestSandboxCleanup = useMutation(api.ops.requestSandboxCleanup);
+  const syncRepository = useMutation(api.repositories.syncRepository);
   const deleteThread = useMutation(api.chat.deleteThread);
   const deleteRepository = useMutation(api.repositories.deleteRepository);
 
@@ -93,9 +71,9 @@ function RepositoryShell() {
   const [isSending, setIsSending] = useState(false);
   const [isCreatingThread, setIsCreatingThread] = useState(false);
   const [isRunningAnalysis, setIsRunningAnalysis] = useState(false);
-  const [isCleaningSandbox, setIsCleaningSandbox] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chat' | 'jobs' | 'artifacts' | 'analysis'>('chat');
-  const [repoSearch, setRepoSearch] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'jobs' | 'artifacts'>('chat');
+  const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
 
   useEffect(() => {
     if (!repositories || repositories.length === 0) {
@@ -111,6 +89,13 @@ function RepositoryShell() {
     selectedRepositoryId ? { repositoryId: selectedRepositoryId } : 'skip',
   );
 
+  // Derive repo name from the already-loaded list so the TopBar title is
+  // available immediately when switching repos (no flash of "Repository").
+  const selectedRepoName = repositories?.find((r) => r._id === selectedRepositoryId)?.sourceRepoFullName;
+
+  // Check GitHub for new remote commits on tab-focus and repo-switch
+  useCheckForUpdates(selectedRepositoryId);
+
   useEffect(() => {
     if (!repoDetail?.threads?.length) {
       setSelectedThreadId(null);
@@ -125,13 +110,6 @@ function RepositoryShell() {
   const messages = useQuery(api.chat.listMessages, selectedThreadId ? { threadId: selectedThreadId } : 'skip');
   const artifacts = useMemo(() => repoDetail?.artifacts ?? [], [repoDetail?.artifacts]);
   const jobs = useMemo(() => repoDetail?.jobs ?? [], [repoDetail?.jobs]);
-
-  const filteredRepos = useMemo(() => {
-    if (!repositories) return [];
-    const q = repoSearch.trim().toLowerCase();
-    if (!q) return repositories;
-    return repositories.filter((r) => r.sourceRepoFullName.toLowerCase().includes(q));
-  }, [repoSearch, repositories]);
 
   async function handleSendMessage(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -176,13 +154,13 @@ function RepositoryShell() {
     }
   }
 
-  async function handleCleanupSandbox() {
+  async function handleSync() {
     if (!selectedRepositoryId) return;
-    setIsCleaningSandbox(true);
+    setIsSyncing(true);
     try {
-      await requestSandboxCleanup({ repositoryId: selectedRepositoryId });
+      await syncRepository({ repositoryId: selectedRepositoryId });
     } finally {
-      setIsCleaningSandbox(false);
+      setIsSyncing(false);
     }
   }
 
@@ -215,266 +193,42 @@ function RepositoryShell() {
 
   return (
     <>
-      <Sidebar>
-        <SidebarHeader>
-          <Logo size={30} />
-          <div className="min-w-0 leading-tight">
-            <div className="truncate text-sm font-semibold tracking-tight">Architect Agent</div>
-            <div className="truncate text-[11px] text-muted-foreground">Grounded codebase answers</div>
-          </div>
-        </SidebarHeader>
-
-        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-          <div className="flex flex-1 items-center gap-2 border border-border bg-card px-2.5 py-1.5">
-            <MagnifyingGlassIcon size={14} className="shrink-0 text-muted-foreground" weight="bold" />
-            <input
-              value={repoSearch}
-              onChange={(e) => setRepoSearch(e.target.value)}
-              placeholder="Search…"
-              className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
-            />
-          </div>
-          <ImportRepoDialog
-            onImported={(repoId, threadId) => {
-              setSelectedRepositoryId(repoId);
-              if (threadId) setSelectedThreadId(threadId);
-            }}
-          />
-        </div>
-
-        <SidebarContent>
-          <div className="flex flex-col gap-1 p-3" aria-live="polite">
-            {repositories === undefined ? (
-              <p className="px-3 py-2 text-xs text-muted-foreground">Loading…</p>
-            ) : filteredRepos.length === 0 ? (
-              <div className="px-3 py-6 text-center text-xs">
-                <p className="font-semibold">No repositories</p>
-                <p className="mt-1 text-muted-foreground">Import a public GitHub repo to get started.</p>
-              </div>
-            ) : (
-              filteredRepos.map((repository) => (
-                <button
-                  key={repository._id}
-                  type="button"
-                  onClick={() => setSelectedRepositoryId(repository._id)}
-                  className={cn(
-                    'flex w-full items-center gap-2 border px-3 py-2 text-left transition-colors',
-                    selectedRepositoryId === repository._id
-                      ? 'border-primary bg-muted'
-                      : 'border-transparent hover:border-border hover:bg-muted',
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{repository.sourceRepoFullName}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {[
-                        repository.defaultBranch,
-                        repository.detectedFramework,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ') || 'Import pending'}
-                    </p>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-
-          {repoDetail && repoDetail.threads.length > 0 ? (
-            <>
-              <div className="border-t border-border" />
-              <div className="flex flex-col gap-1 p-3">
-                <div className="flex items-center justify-between px-1 pb-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threads</p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                    disabled={isCreatingThread}
-                    onClick={() => void handleCreateThread()}
-                    aria-label="New thread"
-                    title="New thread"
-                  >
-                    <PlusIcon weight="bold" size={14} />
-                  </Button>
-                </div>
-                {repoDetail.threads.map((thread) => (
-                  <div
-                    key={thread._id}
-                    className={cn(
-                      'group flex w-full items-center border transition-colors',
-                      selectedThreadId === thread._id
-                        ? 'border-primary bg-muted text-foreground'
-                        : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedThreadId(thread._id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left"
-                    >
-                      <ChatCircleIcon
-                        size={14}
-                        weight={selectedThreadId === thread._id ? 'fill' : 'regular'}
-                        className="shrink-0"
-                      />
-                      <span className="truncate text-xs font-medium">{thread.title}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setThreadToDelete(thread._id);
-                      }}
-                      className="mr-1.5 hidden shrink-0 p-1 text-muted-foreground hover:text-destructive group-hover:block"
-                      aria-label="Delete thread"
-                      title="Delete thread"
-                    >
-                      <TrashIcon size={13} weight="bold" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : repoDetail ? (
-            <>
-              <div className="border-t border-border" />
-              <div className="flex flex-col gap-1 p-3">
-                <div className="flex items-center justify-between px-1 pb-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threads</p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                    disabled={isCreatingThread}
-                    onClick={() => void handleCreateThread()}
-                    aria-label="New thread"
-                    title="New thread"
-                  >
-                    <PlusIcon weight="bold" size={14} />
-                  </Button>
-                </div>
-                <p className="px-1 text-xs text-muted-foreground">No threads yet.</p>
-              </div>
-            </>
-          ) : null}
-        </SidebarContent>
-
-        <SidebarFooter>
-          <ModeToggle />
-          <Button asChild variant="ghost" size="icon" aria-label="GitHub" title="GitHub">
-            <a href="https://github.com" rel="noreferrer" target="_blank">
-              <GithubLogoIcon weight="bold" />
-            </a>
-          </Button>
-          <div className="ml-auto">
-            <AuthButton size="sm" />
-          </div>
-        </SidebarFooter>
-      </Sidebar>
+      <AppSidebar
+        repositories={repositories}
+        selectedRepositoryId={selectedRepositoryId}
+        onSelectRepository={setSelectedRepositoryId}
+        selectedThreadId={selectedThreadId}
+        onSelectThread={setSelectedThreadId}
+        threads={repoDetail?.threads ?? null}
+        isCreatingThread={isCreatingThread}
+        onCreateThread={() => void handleCreateThread()}
+        onDeleteThread={setThreadToDelete}
+        onImported={(repoId, threadId) => {
+          setSelectedRepositoryId(repoId);
+          if (threadId) setSelectedThreadId(threadId);
+        }}
+        authButton={<AuthButton size="sm" />}
+      />
 
       <SidebarInset>
-        {!repoDetail ? (
-          <>
-            <TopBar title="Repository" />
-            <EmptyState />
-          </>
+        <TopBar
+          repoDetail={repoDetail}
+          repoName={selectedRepoName}
+          isSyncing={isSyncing}
+          onSync={() => void handleSync()}
+          onDeleteRepo={() => setShowDeleteRepoDialog(true)}
+          onRunAnalysis={() => setShowAnalysisDialog(true)}
+        />
+
+        {!selectedRepositoryId ? (
+          <EmptyState />
         ) : (
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as typeof activeTab)}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <TopBar title={repoDetail.repository.sourceRepoFullName}>
-              <StatusBadge status={repoDetail.repository.importStatus} />
-              <div className="ml-auto flex items-center gap-1.5">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Repository actions"
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <DotsThreeVerticalIcon weight="bold" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem
-                      disabled={isRunningAnalysis || !analysisPrompt.trim()}
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        void handleRunAnalysis();
-                      }}
-                    >
-                      <SparkleIcon weight="bold" />
-                      {isRunningAnalysis ? 'Queuing…' : 'Run deep analysis'}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={isCleaningSandbox}
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        void handleCleanupSandbox();
-                      }}
-                    >
-                      <BroomIcon weight="bold" />
-                      {isCleaningSandbox ? 'Cleaning…' : 'Clean sandbox'}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        setShowDeleteRepoDialog(true);
-                      }}
-                    >
-                      <TrashIcon weight="bold" />
-                      Delete repository
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel>Summary</DropdownMenuLabel>
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                      <div className="flex justify-between gap-4">
-                        <span>Branch</span>
-                        <span className="truncate text-foreground">
-                          {repoDetail.repository.defaultBranch ?? 'Unknown'}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex justify-between gap-4">
-                        <span>Framework</span>
-                        <span className="truncate text-foreground">
-                          {repoDetail.repository.detectedFramework ?? 'Unknown'}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex justify-between gap-4">
-                        <span>Files indexed</span>
-                        <span className="text-foreground">{repoDetail.fileCount}</span>
-                      </div>
-                      <div className="mt-1 flex justify-between gap-4">
-                        <span>Languages</span>
-                        <span className="max-w-[60%] truncate text-right text-foreground">
-                          {repoDetail.repository.detectedLanguages.join(', ') || 'Unknown'}
-                        </span>
-                      </div>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </TopBar>
-
-            <TabsList className="border-b border-border px-4">
-              <TabsTrigger value="chat">Chat</TabsTrigger>
-              <TabsTrigger value="jobs">
-                Jobs
-                {jobs.length > 0 ? <CountBadge count={jobs.length} /> : null}
-              </TabsTrigger>
-              <TabsTrigger value="artifacts">
-                Artifacts
-                {artifacts.length > 0 ? <CountBadge count={artifacts.length} /> : null}
-              </TabsTrigger>
-              <TabsTrigger value="analysis">Deep analysis</TabsTrigger>
-            </TabsList>
+            <MainTabsList jobCount={jobs.length} artifactCount={artifacts.length} />
 
             <TabsContent value="chat">
               <ChatPanel
@@ -486,6 +240,9 @@ function RepositoryShell() {
                 setChatMode={setChatMode}
                 isSending={isSending}
                 onSendMessage={handleSendMessage}
+                deepModeAvailable={repoDetail?.deepModeAvailable ?? false}
+                isSyncing={isSyncing}
+                onSync={() => void handleSync()}
               />
             </TabsContent>
 
@@ -521,29 +278,6 @@ function RepositoryShell() {
                   </Card>
                 ))}
               </ListPanel>
-            </TabsContent>
-
-            <TabsContent value="analysis">
-              <div className="mx-auto w-full max-w-3xl flex-1 overflow-y-auto px-6 py-8">
-                <h2 className="text-lg font-semibold tracking-tight">Deep analysis prompt</h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Sends a sandbox investigation. The deep path re-reads files inside the sandbox.
-                </p>
-                <Textarea
-                  value={analysisPrompt}
-                  onChange={(e) => setAnalysisPrompt(e.target.value)}
-                  className="mt-4 min-h-40"
-                />
-                <Button
-                  variant="default"
-                  className="mt-3"
-                  disabled={isRunningAnalysis || !analysisPrompt.trim()}
-                  onClick={() => void handleRunAnalysis()}
-                >
-                  <SparkleIcon weight="bold" />
-                  {isRunningAnalysis ? 'Queuing…' : 'Run deep analysis'}
-                </Button>
-              </div>
             </TabsContent>
           </Tabs>
         )}
@@ -605,204 +339,55 @@ function RepositoryShell() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Deep analysis dialog */}
+      <DeepAnalysisDialog
+        open={showAnalysisDialog}
+        onOpenChange={setShowAnalysisDialog}
+        analysisPrompt={analysisPrompt}
+        onAnalysisPromptChange={setAnalysisPrompt}
+        isRunning={isRunningAnalysis}
+        onRun={() => void handleRunAnalysis()}
+      />
     </>
-  );
-}
-
-function TopBar({ title, children }: { title: string; children?: React.ReactNode }) {
-  return (
-    <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
-      <SidebarTrigger />
-      <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight md:text-base">{title}</h1>
-      {children}
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const lower = status.toLowerCase();
-  const variant: React.ComponentProps<typeof Badge>['variant'] =
-    lower.includes('ready') || lower.includes('complete') || lower.includes('success')
-      ? 'accent'
-      : lower.includes('fail') || lower.includes('error')
-        ? 'destructive'
-        : 'muted';
-  return (
-    <Badge variant={variant} className="ml-1 text-[10px] uppercase tracking-wide">
-      {status}
-    </Badge>
   );
 }
 
 function CountBadge({ count }: { count: number }) {
   return (
-    <span className="ml-1.5 inline-flex min-w-5 items-center justify-center bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
+    <span
+      className="ml-1.5 inline-flex min-w-5 items-center justify-center px-1 py-px text-[10px] font-semibold bg-muted text-muted-foreground"
+    >
       {count}
     </span>
   );
 }
 
-function ImportRepoDialog({ onImported }: { onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void }) {
-  const createRepositoryImport = useMutation(api.repositories.createRepositoryImport);
-  const [open, setOpen] = useState(false);
-  const [importUrl, setImportUrl] = useState('');
-  const [branch, setBranch] = useState('');
-  const [importError, setImportError] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setImportError(null);
-    setIsImporting(true);
-    try {
-      const result = await createRepositoryImport({
-        url: importUrl,
-        branch: branch.trim() || undefined,
-      });
-      setImportUrl('');
-      setBranch('');
-      setOpen(false);
-      onImported(result.repositoryId, result.defaultThreadId ?? null);
-    } catch (error) {
-      setImportError(error instanceof Error ? error.message : 'Import failed.');
-    } finally {
-      setIsImporting(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="secondary" size="icon" aria-label="Import repository" title="Import repository">
-          <PlusIcon weight="bold" />
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Import a repository</DialogTitle>
-          <DialogDescription>
-            Paste a public GitHub URL. We will clone the source and spin up a sandbox.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            void handleSubmit(e);
-          }}
-        >
-          <Input
-            value={importUrl}
-            onChange={(e) => setImportUrl(e.target.value)}
-            placeholder="https://github.com/owner/repo"
-            autoFocus
-          />
-          <Input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="Branch (leave empty for repo default)" />
-          {importError ? <p className="text-xs text-destructive">{importError}</p> : null}
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="secondary">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" variant="default" disabled={isImporting || !importUrl.trim()}>
-              {isImporting ? 'Queuing import…' : 'Import repository'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ChatPanel({
-  selectedThreadId,
-  messages,
-  chatInput,
-  setChatInput,
-  chatMode,
-  setChatMode,
-  isSending,
-  onSendMessage,
+/**
+ * Memoised tab bar – only re-renders when the badge counts actually change,
+ * not on every repo switch or repoDetail reload.
+ */
+const MainTabsList = memo(function MainTabsList({
+  jobCount,
+  artifactCount,
 }: {
-  selectedThreadId: ThreadId | null;
-  messages: Doc<'messages'>[] | undefined;
-  chatInput: string;
-  setChatInput: (v: string) => void;
-  chatMode: 'fast' | 'deep';
-  setChatMode: (v: 'fast' | 'deep') => void;
-  isSending: boolean;
-  onSendMessage: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  jobCount: number;
+  artifactCount: number;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-6">
-          {messages === undefined ? (
-            <p className="text-sm text-muted-foreground">Loading conversation…</p>
-          ) : messages.length === 0 ? (
-            <EmptyChatHint />
-          ) : (
-            messages.map((message) => <MessageBubble key={message._id} message={message} />)
-          )}
-        </div>
-      </div>
-
-      <div className="border-t border-border bg-background">
-        <form
-          className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-6 py-3"
-          onSubmit={(e) => {
-            void onSendMessage(e);
-          }}
-        >
-          <Textarea
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="Ask about architecture, module boundaries, data flow, risks…"
-            className="min-h-20 resize-none border-border"
-          />
-          <div className="flex items-center justify-between gap-3">
-            <Select value={chatMode} onValueChange={(v) => setChatMode(v as 'fast' | 'deep')}>
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fast">Fast path</SelectItem>
-                <SelectItem value="deep">Deep path</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              type="submit"
-              variant="default"
-              size="sm"
-              disabled={isSending || !selectedThreadId || !chatInput.trim()}
-            >
-              <PaperPlaneTiltIcon weight="bold" />
-              {isSending ? 'Sending…' : 'Send'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <TabsList className="border-b border-border px-4">
+      <TabsTrigger value="chat">Chat</TabsTrigger>
+      <TabsTrigger value="jobs">
+        Jobs
+        <CountBadge count={jobCount} />
+      </TabsTrigger>
+      <TabsTrigger value="artifacts">
+        Artifacts
+        <CountBadge count={artifactCount} />
+      </TabsTrigger>
+    </TabsList>
   );
-}
-
-function EmptyChatHint() {
-  const hints = [
-    'How is the codebase layered, and where do requests flow?',
-    'What are the main modules and how do they depend on each other?',
-    'Where are the risky areas or likely hotspots?',
-  ];
-  return (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
-      <p className="text-sm font-medium text-foreground">Ask anything about this repo</p>
-      <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-        {hints.map((hint) => (
-          <li key={hint}>“{hint}”</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+});
 
 function ListPanel({
   emptyText,
@@ -819,41 +404,6 @@ function ListPanel({
         {isEmpty ? <p className="text-sm text-muted-foreground">{emptyText}</p> : children}
       </div>
     </div>
-  );
-}
-
-function MessageBubble({ message }: { message: Doc<'messages'> }) {
-  const isUser = message.role === 'user';
-  return (
-    <Card className={cn('p-4', isUser ? 'bg-muted' : 'border-transparent bg-transparent px-0')}>
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{message.role}</p>
-        <p className="text-[10px] text-muted-foreground">{message.status}</p>
-      </div>
-      <p className="whitespace-pre-wrap text-sm leading-6">{message.content || '…'}</p>
-      {message.errorMessage ? <p className="mt-2 text-xs text-destructive">{message.errorMessage}</p> : null}
-    </Card>
-  );
-}
-
-function JobRow({ job }: { job: Doc<'jobs'> }) {
-  return (
-    <Card className="p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">{job.kind}</p>
-          <p className="text-xs text-muted-foreground">
-            {job.stage} · {Math.round(job.progress * 100)}%
-          </p>
-        </div>
-        <Badge variant="outline" className="uppercase">
-          {job.status}
-        </Badge>
-      </div>
-      {job.outputSummary ? <p className="mt-2 text-xs text-muted-foreground">{job.outputSummary}</p> : null}
-      {job.errorMessage ? <p className="mt-2 text-xs text-destructive">{job.errorMessage}</p> : null}
-      <p className="mt-2 text-[10px] text-muted-foreground">{formatTimestamp(job._creationTime)}</p>
-    </Card>
   );
 }
 
@@ -962,8 +512,8 @@ function SignedOutShell() {
             {
               label: 'Ask',
               eyebrow: 'step 2',
-              title: 'Pick fast or deep mode.',
-              body: 'Fast answers from the index. Deep re-reads files inside the sandbox.',
+              title: 'Pick Quick or Deep mode.',
+              body: 'Quick answers from indexed data. Deep searches the live sandbox for any file.',
             },
             {
               label: 'Capture',
@@ -992,13 +542,4 @@ function SignedOutShell() {
       </main>
     </div>
   );
-}
-
-function formatTimestamp(timestamp: number) {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(timestamp));
 }

@@ -11,7 +11,9 @@
 import type * as analysis from "../analysis.js";
 import type * as analysisNode from "../analysisNode.js";
 import type * as chat from "../chat.js";
+import type * as crons from "../crons.js";
 import type * as daytona from "../daytona.js";
+import type * as githubCheck from "../githubCheck.js";
 import type * as imports from "../imports.js";
 import type * as importsNode from "../importsNode.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -31,7 +33,9 @@ declare const fullApi: ApiFromModules<{
   analysis: typeof analysis;
   analysisNode: typeof analysisNode;
   chat: typeof chat;
+  crons: typeof crons;
   daytona: typeof daytona;
+  githubCheck: typeof githubCheck;
   imports: typeof imports;
   importsNode: typeof importsNode;
   "lib/auth": typeof lib_auth;

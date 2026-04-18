@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
-import { internalMutation, mutation } from './_generated/server';
+import { internalMutation, internalQuery, mutation } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
 
 export const requestSandboxCleanup = mutation({
@@ -105,6 +105,49 @@ export const failSandboxCleanup = internalMutation({
       progress: 1,
       completedAt: Date.now(),
       errorMessage: args.errorMessage,
+    });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Scheduled sweep: find sandboxes whose TTL has expired
+// ---------------------------------------------------------------------------
+
+export const getExpiredSandboxes = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    // Query sandboxes that are still 'ready' but past their TTL.
+    // The index `by_status_and_ttlExpiresAt` lets us efficiently scan.
+    const candidates = await ctx.db
+      .query('sandboxes')
+      .withIndex('by_status_and_ttlExpiresAt', (q) =>
+        q.eq('status', 'ready').lt('ttlExpiresAt', now),
+      )
+      .take(20);
+
+    return candidates.map((s) => ({
+      sandboxId: s._id,
+      remoteId: s.remoteId,
+      repositoryId: s.repositoryId,
+      ttlExpiresAt: s.ttlExpiresAt,
+    }));
+  },
+});
+
+export const markSandboxSwept = internalMutation({
+  args: {
+    sandboxId: v.id('sandboxes'),
+    newStatus: v.union(v.literal('stopped'), v.literal('archived')),
+  },
+  handler: async (ctx, args) => {
+    const sandbox = await ctx.db.get(args.sandboxId);
+    if (!sandbox || sandbox.status === 'archived') {
+      return;
+    }
+    await ctx.db.patch(args.sandboxId, {
+      status: args.newStatus,
+      lastUsedAt: Date.now(),
     });
   },
 });

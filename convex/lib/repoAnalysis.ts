@@ -34,7 +34,6 @@ export type RepositorySnapshot = {
 };
 
 export type RepositoryManifest = {
-  detectedFramework?: string;
   detectedLanguages: string[];
   packageManagers: string[];
   entrypoints: string[];
@@ -92,16 +91,14 @@ export function buildRepositoryManifest(snapshot: RepositorySnapshot): Repositor
   const packageManagers = detectPackageManagers(snapshot);
   const entrypoints = snapshot.files.filter((file) => file.isEntryPoint).map((file) => file.path).slice(0, 12);
   const importantFiles = snapshot.files.filter((file) => file.isImportant).map((file) => file.path).slice(0, 20);
-  const detectedFramework = detectFramework(snapshot);
 
   const summaryParts = [
-    detectedFramework ? `${detectedFramework} repository` : 'Repository',
+    'Repository',
     detectedLanguages.length > 0 ? `using ${detectedLanguages.join(', ')}` : undefined,
     entrypoints.length > 0 ? `with ${entrypoints.length} likely entrypoints` : undefined,
   ].filter(Boolean);
 
   return {
-    detectedFramework,
     detectedLanguages,
     packageManagers,
     entrypoints,
@@ -152,7 +149,6 @@ export function createManifestArtifactMarkdown(manifest: RepositoryManifest) {
   const lines = [
     '# Repository Manifest',
     '',
-    `- Framework: ${manifest.detectedFramework ?? 'Unknown'}`,
     `- Languages: ${manifest.detectedLanguages.join(', ') || 'Unknown'}`,
     `- Package managers: ${manifest.packageManagers.join(', ') || 'Unknown'}`,
     '',
@@ -177,9 +173,7 @@ export function createArchitectureArtifactMarkdown(manifest: RepositoryManifest,
   const lines = [
     '# Architecture Overview',
     '',
-    manifest.detectedFramework
-      ? `This repository looks like a **${manifest.detectedFramework}** application.`
-      : 'This repository does not clearly match a single framework yet.',
+    'Architecture overview generated from repository layout.',
     '',
     manifest.entrypoints.length > 0
       ? `Primary execution candidates: ${manifest.entrypoints.map((path) => `\`${path}\``).join(', ')}.`
@@ -199,26 +193,6 @@ export function createArchitectureArtifactMarkdown(manifest: RepositoryManifest,
 
 export function createDeepAnalysisMarkdown(prompt: string, inspectionLog: string) {
   return ['# Deep Analysis', '', `Prompt: ${prompt}`, '', '## Sandbox Notes', inspectionLog].join('\n');
-}
-
-function detectFramework(snapshot: RepositorySnapshot) {
-  const paths = snapshot.files.map((file) => file.path);
-  if (paths.some((path) => path.startsWith('convex/')) && paths.some((path) => path.startsWith('src/'))) {
-    return 'Vite + Convex';
-  }
-  if (paths.some((path) => path.startsWith('src/')) && paths.some((path) => path === 'vite.config.ts')) {
-    return 'Vite';
-  }
-  if (paths.some((path) => path === 'next.config.js' || path === 'next.config.mjs')) {
-    return 'Next.js';
-  }
-  if (paths.some((path) => path === 'pyproject.toml')) {
-    return 'Python';
-  }
-  if (paths.some((path) => path === 'Cargo.toml')) {
-    return 'Rust';
-  }
-  return undefined;
 }
 
 function detectPackageManagers(snapshot: RepositorySnapshot) {

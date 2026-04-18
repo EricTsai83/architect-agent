@@ -86,12 +86,14 @@ export default defineSchema({
     summary: v.optional(v.string()),
     readmeSummary: v.optional(v.string()),
     architectureSummary: v.optional(v.string()),
-    detectedFramework: v.optional(v.string()),
     detectedLanguages: v.array(v.string()),
     packageManagers: v.array(v.string()),
     entrypoints: v.array(v.string()),
     lastImportedAt: v.optional(v.number()),
     lastIndexedAt: v.optional(v.number()),
+    lastSyncedCommitSha: v.optional(v.string()),
+    latestRemoteSha: v.optional(v.string()),
+    lastCheckedForUpdatesAt: v.optional(v.number()),
   })
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_ownerTokenIdentifier_and_sourceUrl', ['ownerTokenIdentifier', 'sourceUrl'])

@@ -135,7 +135,6 @@ export const persistImportResults = internalMutation({
     sandboxId: v.id('sandboxes'),
     commitSha: v.string(),
     branch: v.optional(v.string()),
-    detectedFramework: v.optional(v.string()),
     detectedLanguages: v.array(v.string()),
     packageManagers: v.array(v.string()),
     entrypoints: v.array(v.string()),
@@ -252,12 +251,12 @@ export const persistImportResults = internalMutation({
       summary: args.summary,
       readmeSummary: args.readmeSummary,
       architectureSummary: args.architectureSummary,
-      detectedFramework: args.detectedFramework,
       detectedLanguages: args.detectedLanguages,
       packageManagers: args.packageManagers,
       entrypoints: args.entrypoints,
       lastImportedAt: Date.now(),
       lastIndexedAt: Date.now(),
+      lastSyncedCommitSha: args.commitSha,
     });
     await ctx.db.patch(args.sandboxId, {
       status: 'ready',

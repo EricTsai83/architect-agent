@@ -52,12 +52,37 @@ export const getRepositoryDetail = query({
         ).length
       : 0;
 
+    const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
+
+    // Determine whether Deep mode is available right now
+    const deepModeAvailable =
+      sandbox !== null &&
+      sandbox.status !== 'archived' &&
+      sandbox.status !== 'failed' &&
+      Date.now() <= sandbox.ttlExpiresAt;
+
+    // Determine whether the remote has commits we haven't synced yet
+    const hasRemoteUpdates =
+      !!repository.latestRemoteSha &&
+      !!repository.lastSyncedCommitSha &&
+      repository.latestRemoteSha !== repository.lastSyncedCommitSha;
+
     return {
       repository,
       artifacts,
       jobs: jobs.sort((left, right) => (right._creationTime ?? 0) - (left._creationTime ?? 0)),
       threads,
       fileCount,
+      deepModeAvailable,
+      hasRemoteUpdates,
+      sandbox: sandbox
+        ? {
+            status: sandbox.status,
+            ttlExpiresAt: sandbox.ttlExpiresAt,
+            autoStopIntervalMinutes: sandbox.autoStopIntervalMinutes,
+            autoArchiveIntervalMinutes: sandbox.autoArchiveIntervalMinutes,
+          }
+        : null,
     };
   },
 });
@@ -156,6 +181,62 @@ export const createRepositoryImport = mutation({
       jobId,
       defaultThreadId,
     };
+  },
+});
+
+export const syncRepository = mutation({
+  args: {
+    repositoryId: v.id('repositories'),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireViewerIdentity(ctx);
+    const repository = await ctx.db.get(args.repositoryId);
+    if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
+      throw new Error('Repository not found.');
+    }
+
+    // Prevent duplicate syncs while one is already running
+    if (repository.importStatus === 'queued' || repository.importStatus === 'running') {
+      throw new Error('A sync is already in progress for this repository.');
+    }
+
+    const now = Date.now();
+    const jobId = await ctx.db.insert('jobs', {
+      repositoryId: args.repositoryId,
+      ownerTokenIdentifier: identity.tokenIdentifier,
+      kind: 'import',
+      status: 'queued',
+      stage: 'queued',
+      progress: 0,
+      costCategory: 'indexing',
+      triggerSource: 'user',
+    });
+
+    const importId = await ctx.db.insert('imports', {
+      repositoryId: args.repositoryId,
+      ownerTokenIdentifier: identity.tokenIdentifier,
+      sourceUrl: repository.sourceUrl,
+      branch: repository.defaultBranch,
+      adapterKind: 'git_clone',
+      status: 'queued',
+      jobId,
+    });
+
+    await ctx.db.patch(args.repositoryId, {
+      importStatus: 'queued',
+      latestImportId: importId,
+      latestImportJobId: jobId,
+      lastImportedAt: now,
+      // Clear remote SHA so the "updates available" indicator disappears
+      // immediately when the user triggers a sync.
+      latestRemoteSha: undefined,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.importsNode.runImportPipeline, {
+      importId,
+    });
+
+    return { jobId, importId };
   },
 });
 

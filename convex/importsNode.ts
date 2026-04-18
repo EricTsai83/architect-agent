@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
-import { cloneRepositoryInSandbox, collectRepositorySnapshot, isDaytonaConfigured, provisionSandbox } from './daytona';
+import { cloneRepositoryInSandbox, collectRepositorySnapshot, isDaytonaConfigured, provisionSandbox, stopSandbox } from './daytona';
 import {
   buildRepositoryManifest,
   createArchitectureArtifactMarkdown,
@@ -109,15 +109,12 @@ export const runImportPipeline = internalAction({
         sandboxId,
         commitSha: cloneResult.commitSha,
         branch: cloneResult.branch,
-        detectedFramework: manifest.detectedFramework,
         detectedLanguages: manifest.detectedLanguages,
         packageManagers: manifest.packageManagers,
         entrypoints: manifest.entrypoints,
         summary: manifest.summary,
         readmeSummary: summarizeReadme(snapshot.readmeContent),
-        architectureSummary: manifest.detectedFramework
-          ? `${manifest.detectedFramework} workspace with ${manifest.entrypoints.length || 1} likely entrypoint(s).`
-          : 'Repository imported and indexed for architecture review.',
+        architectureSummary: 'Repository imported and indexed for architecture review.',
         repoFiles: fileRecords,
         repoChunks: chunkRecords,
         artifacts: [
@@ -141,9 +138,7 @@ export const runImportPipeline = internalAction({
           {
             kind: 'architecture' as const,
             title: 'Architecture Overview',
-            summary: manifest.detectedFramework
-              ? `${manifest.detectedFramework} structure detected.`
-              : 'Initial architecture map created from repository layout.',
+            summary: 'Initial architecture map created from repository layout.',
             contentMarkdown: createArchitectureArtifactMarkdown(manifest, {
               ...snapshot,
               files: fileRecords,
@@ -152,6 +147,20 @@ export const runImportPipeline = internalAction({
           },
         ],
       });
+
+      // Immediately stop the sandbox to release CPU and memory.
+      // All indexed data is now persisted in Convex. The sandbox stays on disk
+      // and will auto-wake if Deep Path needs it later.
+      try {
+        await stopSandbox(sandbox.remoteId);
+        console.log(`[import] Sandbox ${sandbox.remoteId} stopped after import to save resources.`);
+      } catch (stopError) {
+        // Non-fatal: sandbox will auto-stop after the idle interval anyway.
+        console.warn(
+          `[import] Failed to eagerly stop sandbox ${sandbox.remoteId}:`,
+          stopError instanceof Error ? stopError.message : stopError,
+        );
+      }
     } catch (error) {
       await ctx.runMutation(internal.imports.markImportFailed, {
         importId: args.importId,

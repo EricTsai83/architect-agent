@@ -3,12 +3,12 @@
 import { CodeLanguage, Daytona, type Sandbox } from '@daytona/sdk';
 import { shouldReadFile, type RepositorySnapshot } from './lib/repoAnalysis';
 
-const DEFAULT_AUTO_STOP_MINUTES = 30;
+const DEFAULT_AUTO_STOP_MINUTES = 10;
 const DEFAULT_AUTO_ARCHIVE_MINUTES = 60 * 24;
-const DEFAULT_AUTO_DELETE_MINUTES = 60 * 24 * 2;
+const DEFAULT_AUTO_DELETE_MINUTES = 60 * 24;
 const DEFAULT_CPU_LIMIT = 2;
 const DEFAULT_MEMORY_GIB = 4;
-const DEFAULT_DISK_GIB = 20;
+const DEFAULT_DISK_GIB = 10;
 const MAX_LISTED_FILES = 400;
 const MAX_DEPTH = 6;
 
@@ -85,6 +85,38 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
 export async function deleteSandbox(remoteId: string) {
   const sandbox = await getSandbox(remoteId);
   await sandbox.delete();
+}
+
+/**
+ * Stops a running sandbox to release CPU and memory resources.
+ * The sandbox remains on disk and can be auto-woken by any subsequent
+ * SDK interaction (e.g., `process.executeCommand`).
+ */
+export async function stopSandbox(remoteId: string) {
+  const sandbox = await getSandbox(remoteId);
+  await sandbox.stop(60);
+}
+
+/**
+ * Returns the current Daytona-side state of a sandbox.
+ * Useful for syncing Convex DB status with reality.
+ */
+export async function getSandboxState(
+  remoteId: string,
+): Promise<'started' | 'stopped' | 'archived' | 'destroyed' | 'unknown'> {
+  try {
+    const sandbox = await getSandbox(remoteId);
+    await sandbox.refreshData();
+    const state = sandbox.state;
+    if (state === 'started' || state === 'stopped' || state === 'archived') {
+      return state;
+    }
+    // Daytona may report other transient states (e.g., 'stopping', 'starting')
+    return 'unknown';
+  } catch {
+    // If the sandbox can't be retrieved at all it has been destroyed/deleted
+    return 'destroyed';
+  }
 }
 
 export async function cloneRepositoryInSandbox(args: {
