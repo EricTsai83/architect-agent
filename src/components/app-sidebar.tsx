@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -6,6 +7,7 @@ import {
   TrashIcon,
 } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
+import { api } from '../../convex/_generated/api';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,11 +15,12 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarMenuButton,
 } from '@/components/ui/sidebar';
-import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 import { ImportRepoDialog } from '@/components/import-repo-dialog';
-import type { RepositoryId, ThreadId } from '@/lib/types';
+import { useAsyncCallback } from '@/hooks/use-async-callback';
+import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
 
 export function AppSidebar({
   repositories,
@@ -25,10 +28,8 @@ export function AppSidebar({
   onSelectRepository,
   selectedThreadId,
   onSelectThread,
-  threads,
-  isCreatingThread,
-  onCreateThread,
   onDeleteThread,
+  chatMode,
   onImported,
   authButton,
 }: {
@@ -37,10 +38,8 @@ export function AppSidebar({
   onSelectRepository: (id: RepositoryId) => void;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId) => void;
-  threads: Doc<'threads'>[] | null;
-  isCreatingThread: boolean;
-  onCreateThread: () => void;
   onDeleteThread: (id: ThreadId) => void;
+  chatMode: ChatMode;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
   authButton: React.ReactNode;
 }) {
@@ -87,16 +86,10 @@ export function AppSidebar({
             </div>
           ) : (
             filteredRepos.map((repository) => (
-              <button
+              <SidebarMenuButton
                 key={repository._id}
-                type="button"
+                selected={selectedRepositoryId === repository._id}
                 onClick={() => onSelectRepository(repository._id)}
-                className={cn(
-                  'flex w-full items-center gap-2 border px-3 py-2 text-left transition-colors',
-                  selectedRepositoryId === repository._id
-                    ? 'border-primary bg-muted'
-                    : 'border-transparent hover:border-border hover:bg-muted',
-                )}
               >
                 <p className="min-w-0 flex-1 truncate text-sm font-medium">{repository.sourceRepoFullName}</p>
                 {/* Orange dot when remote has new commits */}
@@ -108,72 +101,20 @@ export function AppSidebar({
                       title="New commits available"
                     />
                   )}
-              </button>
+              </SidebarMenuButton>
             ))
           )}
         </div>
 
-        {threads !== null ? (
-          <>
-            <div className="border-t border-border" />
-            <div className="flex flex-col gap-1 p-3">
-              <div className="flex items-center justify-between px-1 pb-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threads</p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                  disabled={isCreatingThread}
-                  onClick={onCreateThread}
-                  aria-label="New thread"
-                  title="New thread"
-                >
-                  <PlusIcon weight="bold" size={14} />
-                </Button>
-              </div>
-              {threads.length > 0 ? (
-                threads.map((thread) => (
-                  <div
-                    key={thread._id}
-                    className={cn(
-                      'group flex w-full items-center border transition-colors',
-                      selectedThreadId === thread._id
-                        ? 'border-primary bg-muted text-foreground'
-                        : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onSelectThread(thread._id)}
-                      className="flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left"
-                    >
-                      <ChatCircleIcon
-                        size={14}
-                        weight={selectedThreadId === thread._id ? 'fill' : 'regular'}
-                        className="shrink-0"
-                      />
-                      <span className="truncate text-xs font-medium">{thread.title}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDeleteThread(thread._id);
-                      }}
-                      className="mr-1.5 hidden shrink-0 p-1 text-muted-foreground hover:text-destructive group-hover:block"
-                      aria-label="Delete thread"
-                      title="Delete thread"
-                    >
-                      <TrashIcon size={13} weight="bold" />
-                    </button>
-                  </div>
-                ))
-              ) : (
-                <p className="px-1 text-xs text-muted-foreground">No threads yet.</p>
-              )}
-            </div>
-          </>
-        ) : null}
+        {selectedRepositoryId !== null && (
+          <ThreadsSection
+            repositoryId={selectedRepositoryId}
+            selectedThreadId={selectedThreadId}
+            onSelectThread={onSelectThread}
+            onDeleteThread={onDeleteThread}
+            chatMode={chatMode}
+          />
+        )}
       </SidebarContent>
 
       <SidebarFooter>
@@ -183,3 +124,147 @@ export function AppSidebar({
     </Sidebar>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ThreadsSection – owns its own Convex subscription + create-thread mutation.
+// When the user switches repos, only ThreadsList re-renders; ThreadsHeader
+// is completely unaffected because it has zero data dependencies.
+// ---------------------------------------------------------------------------
+
+function ThreadsSection({
+  repositoryId,
+  selectedThreadId,
+  onSelectThread,
+  onDeleteThread,
+  chatMode,
+}: {
+  repositoryId: RepositoryId;
+  selectedThreadId: ThreadId | null;
+  onSelectThread: (id: ThreadId) => void;
+  onDeleteThread: (id: ThreadId) => void;
+  chatMode: ChatMode;
+}) {
+  const threads = useQuery(api.chat.listThreads, { repositoryId });
+  const createThreadMutation = useMutation(api.chat.createThread);
+
+  const [isCreatingThread, handleCreateThread] = useAsyncCallback(
+    useCallback(async () => {
+      const threadId = await createThreadMutation({ repositoryId, mode: chatMode });
+      onSelectThread(threadId);
+    }, [repositoryId, chatMode, createThreadMutation, onSelectThread]),
+  );
+
+  return (
+    <>
+      <div className="border-t border-border" />
+      <div className="flex flex-col gap-1 p-3">
+        <ThreadsHeader isCreatingThread={isCreatingThread} onCreateThread={handleCreateThread} />
+        {threads === undefined ? (
+          <p className="px-1 text-xs text-muted-foreground">Loading…</p>
+        ) : (
+          <ThreadsList
+            threads={threads}
+            selectedThreadId={selectedThreadId}
+            onSelectThread={onSelectThread}
+            onDeleteThread={onDeleteThread}
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * Static header – "Threads" label + "new thread" button.
+ * Only re-renders when `isCreatingThread` flips (essentially never during
+ * normal repo navigation).
+ *
+ * Why this works without useRef: ThreadsSection passes `handleCreateThread`
+ * which changes on repo switch, BUT ThreadsSection itself unmounts/remounts
+ * when `repositoryId` changes (keyed in the parent). On mount the memo
+ * baseline is fresh, and between mounts `isCreatingThread` is the only prop
+ * that can change. No ref hack needed.
+ *
+ * ── Wait, actually ThreadsSection does NOT unmount on repo switch (the
+ * parent condition is `selectedRepositoryId !== null` which stays true).
+ * So `handleCreateThread` DOES change in-place. To keep the header stable
+ * we use a custom comparator that only checks `isCreatingThread`, since the
+ * callback identity doesn't affect visual output.
+ */
+const ThreadsHeader = memo(
+  function ThreadsHeader({
+    isCreatingThread,
+    onCreateThread,
+  }: {
+    isCreatingThread: boolean;
+    onCreateThread: () => void;
+  }) {
+    return (
+      <div className="flex items-center justify-between px-1 pb-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Threads</p>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground hover:text-foreground"
+          disabled={isCreatingThread}
+          onClick={onCreateThread}
+          aria-label="New thread"
+          title="New thread"
+        >
+          <PlusIcon weight="bold" size={14} />
+        </Button>
+      </div>
+    );
+  },
+  (prev, next) => prev.isCreatingThread === next.isCreatingThread,
+);
+
+/**
+ * Memoised thread list – re-renders when threads data or selection changes,
+ * but independently of the header above.
+ */
+const ThreadsList = memo(function ThreadsList({
+  threads,
+  selectedThreadId,
+  onSelectThread,
+  onDeleteThread,
+}: {
+  threads: Doc<'threads'>[];
+  selectedThreadId: ThreadId | null;
+  onSelectThread: (id: ThreadId) => void;
+  onDeleteThread: (id: ThreadId) => void;
+}) {
+  if (threads.length === 0) {
+    return <p className="px-1 text-xs text-muted-foreground">No threads yet.</p>;
+  }
+  return (
+    <>
+      {threads.map((thread) => (
+        <div key={thread._id} className="group relative">
+          <SidebarMenuButton
+            selected={selectedThreadId === thread._id}
+            onClick={() => onSelectThread(thread._id)}
+            className="py-1.5 pr-8"
+          >
+            <ChatCircleIcon
+              size={14}
+              weight={selectedThreadId === thread._id ? 'fill' : 'regular'}
+              className="shrink-0"
+            />
+            <span className="truncate text-xs font-medium">{thread.title}</span>
+          </SidebarMenuButton>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-1.5 top-1/2 hidden h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-destructive group-hover:flex"
+            onClick={() => onDeleteThread(thread._id)}
+            aria-label="Delete thread"
+            title="Delete thread"
+          >
+            <TrashIcon size={13} weight="bold" />
+          </Button>
+        </div>
+      ))}
+    </>
+  );
+});

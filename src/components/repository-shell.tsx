@@ -21,7 +21,6 @@ export function RepositoryShell() {
   const repositories = useQuery(api.repositories.listRepositories);
   const requestDeepAnalysis = useMutation(api.analysis.requestDeepAnalysis);
   const sendMessageMutation = useMutation(api.chat.sendMessage);
-  const createThreadMutation = useMutation(api.chat.createThread);
   const syncRepositoryMutation = useMutation(api.repositories.syncRepository);
   const deleteThreadMutation = useMutation(api.chat.deleteThread);
   const deleteRepositoryMutation = useMutation(api.repositories.deleteRepository);
@@ -84,14 +83,6 @@ export function RepositoryShell() {
     ),
   );
 
-  const [isCreatingThread, handleCreateThread] = useAsyncCallback(
-    useCallback(async () => {
-      if (!selectedRepositoryId) return;
-      const threadId = await createThreadMutation({ repositoryId: selectedRepositoryId, mode: chatMode });
-      setSelectedThreadId(threadId);
-    }, [selectedRepositoryId, chatMode, createThreadMutation]),
-  );
-
   const [isRunningAnalysis, handleRunAnalysis] = useAsyncCallback(
     useCallback(async () => {
       if (!selectedRepositoryId) return;
@@ -133,10 +124,8 @@ export function RepositoryShell() {
         onSelectRepository={setSelectedRepositoryId}
         selectedThreadId={selectedThreadId}
         onSelectThread={setSelectedThreadId}
-        threads={repoDetail?.threads ?? null}
-        isCreatingThread={isCreatingThread}
-        onCreateThread={() => void handleCreateThread()}
         onDeleteThread={setThreadToDelete}
+        chatMode={chatMode}
         onImported={(repoId, threadId) => {
           setSelectedRepositoryId(repoId);
           if (threadId) setSelectedThreadId(threadId);
