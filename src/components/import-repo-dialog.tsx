@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAction, useMutation } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import {
   PlusIcon,
   GlobeIcon,
   LockIcon,
-  ArrowClockwiseIcon,
-  InfoIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   CircleNotchIcon,
+  CheckCircleIcon,
+  ArrowsClockwiseIcon,
+  ArrowSquareOutIcon,
+  GithubLogoIcon,
 } from '@phosphor-icons/react';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
@@ -25,8 +27,15 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { useGitHubConnection } from '@/hooks/use-github-connection';
 import type { RepositoryId, ThreadId } from '@/lib/types';
+
+type ImportSummary = {
+  importStatus: string;
+  lastImportedAt: number | undefined;
+  hasRemoteUpdates: boolean;
+};
 
 type RepoInfo = {
   fullName: string;
@@ -67,16 +76,22 @@ function RepoRow({
   repo,
   isImporting,
   onImport,
+  importSummary,
 }: {
   repo: RepoInfo;
   isAuthorized: boolean;
   isImporting: boolean;
   onImport: () => void;
+  importSummary?: ImportSummary;
 }) {
   const ownerInitial = (repo.fullName.split('/')[0] ?? '?')[0].toUpperCase();
+  const isImported = !!importSummary;
+  const isRunning =
+    isImported && (importSummary.importStatus === 'queued' || importSummary.importStatus === 'running');
+  const hasUpdates = isImported && importSummary.hasRemoteUpdates;
 
   return (
-    <div className="flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0">
+    <div className={`flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${isImported ? 'opacity-60' : ''}`}>
       {/* Avatar */}
       {repo.ownerAvatarUrl ? (
         <img
@@ -101,16 +116,36 @@ function RepoRow({
         </span>
       </div>
 
-      {/* Import button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className="shrink-0 text-xs"
-        disabled={isImporting}
-        onClick={onImport}
-      >
-        {isImporting ? 'Importing...' : 'Import'}
-      </Button>
+      {/* Action area: status badge or import/sync button */}
+      {isImported ? (
+        hasUpdates ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1 text-xs"
+            disabled={isImporting || isRunning}
+            onClick={onImport}
+          >
+            <ArrowsClockwiseIcon size={12} weight="bold" />
+            {isImporting || isRunning ? 'Syncing...' : 'Sync'}
+          </Button>
+        ) : (
+          <Badge variant="muted" className="shrink-0 gap-1">
+            <CheckCircleIcon size={12} weight="fill" />
+            Imported
+          </Badge>
+        )
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 text-xs"
+          disabled={isImporting}
+          onClick={onImport}
+        >
+          {isImporting ? 'Importing...' : 'Import'}
+        </Button>
+      )}
     </div>
   );
 }
@@ -128,6 +163,7 @@ export function ImportRepoDialog({
   const listRepos = useAction(api.githubAppNode.listInstallationRepos);
   const searchReposAction = useAction(api.githubAppNode.searchGitHubRepos);
   const verifyAccess = useAction(api.githubAppNode.verifyRepoAccess);
+  const importedSummaries = useQuery(api.repositories.getImportedRepoSummaries);
   const { isConnected, installationId } = useGitHubConnection();
   const [open, setOpen] = useState(false);
 
@@ -146,11 +182,18 @@ export function ImportRepoDialog({
     return new Set(authorizedRepos.map((r) => r.fullName));
   }, [authorizedRepos]);
 
-  // Derived: authorized private repos for the Private tab
+  // Derived: authorized private repos for the Private tab, sorted so
+  // not-yet-imported repos appear first and imported ones sink to the bottom.
   const authorizedPrivateRepos = useMemo(() => {
     if (!authorizedRepos) return null;
-    return authorizedRepos.filter((r) => r.isPrivate);
-  }, [authorizedRepos]);
+    const privateRepos = authorizedRepos.filter((r) => r.isPrivate);
+    if (!importedSummaries) return privateRepos;
+    return privateRepos.slice().sort((a, b) => {
+      const aImported = a.fullName in importedSummaries ? 1 : 0;
+      const bImported = b.fullName in importedSummaries ? 1 : 0;
+      return aImported - bImported;
+    });
+  }, [authorizedRepos, importedSummaries]);
 
   // --- Public tab state ---
   const [publicInput, setPublicInput] = useState('');
@@ -178,6 +221,29 @@ export function ImportRepoDialog({
       setIsLoadingAuthorized(false);
     }
   }, [listRepos]);
+
+  // Fetch authorized repos when the dialog is open and the connection becomes
+  // available. This covers the race condition where the dialog opens before
+  // the GitHub connection status query has resolved — without this effect
+  // fetchAuthorizedRepos would never be called and the Private tab stays empty.
+  useEffect(() => {
+    if (open && isConnected && !authorizedRepos && !isLoadingAuthorized) {
+      void fetchAuthorizedRepos();
+    }
+  }, [open, isConnected, authorizedRepos, isLoadingAuthorized, fetchAuthorizedRepos]);
+
+  // Auto-refresh authorized repos when the user returns to the window (e.g.
+  // after configuring repos on GitHub in another tab).
+  useEffect(() => {
+    if (!open || !isConnected) return;
+
+    const handleFocus = () => {
+      void fetchAuthorizedRepos();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [open, isConnected, fetchAuthorizedRepos]);
 
   // Debounced search effect
   useEffect(() => {
@@ -426,6 +492,7 @@ export function ImportRepoDialog({
                             isAuthorized={authorizedSet.has(repo.fullName)}
                             isImporting={importingRepo === repo.fullName}
                             onImport={() => void handleImportFromList(repo)}
+                            importSummary={importedSummaries?.[repo.fullName]}
                           />
                         ))}
                       </div>
@@ -451,25 +518,27 @@ export function ImportRepoDialog({
 
             {/* ---- Tab 2: Private Repo ---- */}
             <TabsContent value="private" className="pt-3">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground">
-                  Your authorized private repositories
-                </p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                  onClick={() => void fetchAuthorizedRepos()}
-                  disabled={isLoadingAuthorized}
-                  title="Refresh list"
+              {installationId && (
+                <a
+                  href={`https://github.com/settings/installations/${installationId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-3 flex items-center gap-3 border-l-2 border-l-primary bg-muted px-3 py-2.5 transition-colors hover:bg-muted/80"
                 >
-                  <ArrowClockwiseIcon
-                    size={14}
-                    weight="bold"
-                    className={isLoadingAuthorized ? 'animate-spin' : ''}
-                  />
-                </Button>
-              </div>
+                  <GithubLogoIcon size={20} weight="fill" className="shrink-0 text-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">Manage repo access</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Select which private repos are available for import
+                    </p>
+                  </div>
+                  <ArrowSquareOutIcon size={16} weight="bold" className="shrink-0 text-muted-foreground" />
+                </a>
+              )}
+
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                Your authorized private repositories
+              </p>
 
               {isLoadingAuthorized && !authorizedRepos ? (
                 <div className="flex h-[200px] items-center justify-center">
@@ -485,22 +554,11 @@ export function ImportRepoDialog({
               ) : authorizedPrivateRepos && authorizedPrivateRepos.length === 0 ? (
                 <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
                   <p className="text-sm text-muted-foreground">
-                    No private repositories are currently authorized.
+                    No private repos authorized yet.
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Authorize your private repos on GitHub to import them here.
+                    Use the link above to select repos on GitHub.
                   </p>
-                  {installationId && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a
-                        href={`https://github.com/settings/installations/${installationId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Authorize on GitHub
-                      </a>
-                    </Button>
-                  )}
                 </div>
               ) : authorizedPrivateRepos ? (
                 <ScrollArea className="h-[280px]">
@@ -512,6 +570,7 @@ export function ImportRepoDialog({
                         isAuthorized={true}
                         isImporting={importingRepo === repo.fullName}
                         onImport={() => void handleImportFromList(repo)}
+                        importSummary={importedSummaries?.[repo.fullName]}
                       />
                     ))}
                   </div>
@@ -521,29 +580,6 @@ export function ImportRepoDialog({
               {importError && (
                 <p className="mt-2 text-xs text-destructive">{importError}</p>
               )}
-
-              <div className="mt-3 rounded-md border border-border/50 bg-muted/50 px-3 py-2">
-                <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                  <InfoIcon size={14} className="mt-0.5 shrink-0" weight="fill" />
-                  <span>
-                    Private repos must be authorized via your GitHub App installation before they
-                    can be imported.{' '}
-                    {installationId ? (
-                      <a
-                        href={`https://github.com/settings/installations/${installationId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium underline underline-offset-2 hover:text-foreground"
-                      >
-                        Update your authorized repos on GitHub
-                      </a>
-                    ) : (
-                      'Update your authorized repos on GitHub'
-                    )}
-                    .
-                  </span>
-                </p>
-              </div>
             </TabsContent>
           </Tabs>
         )}
