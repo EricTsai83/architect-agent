@@ -37,8 +37,8 @@ export const requestDeepAnalysis = mutation({
 
     const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
     const unavailableReason = getDeepModeUnavailableReason(sandbox);
-    if (unavailableReason) {
-      throw new Error(unavailableReason);
+    if (!sandbox || unavailableReason) {
+      throw new Error(unavailableReason ?? 'Deep analysis is unavailable.');
     }
 
     const jobId = await ctx.db.insert('jobs', {
