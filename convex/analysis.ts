@@ -18,6 +18,7 @@ export const listArtifacts = query({
     return await ctx.db
       .query('analysisArtifacts')
       .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
       .take(40);
   },
 });

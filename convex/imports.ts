@@ -1,5 +1,7 @@
 import { v } from 'convex/values';
+import { internal } from './_generated/api';
 import { internalMutation, internalQuery } from './_generated/server';
+import { CASCADE_BATCH_SIZE } from './lib/constants';
 
 export const getImportContext = internalQuery({
   args: {
@@ -192,6 +194,8 @@ export const persistImportResults = internalMutation({
     if (!repository || !sandbox) {
       throw new Error('Repository or sandbox not found while persisting import results.');
     }
+    const previousCompletedImportId = repository.latestImportId;
+    const previousCompletedImportJobId = repository.latestImportJobId;
 
     const fileIdsByPath = new Map<string, string>();
     for (const file of args.repoFiles) {
@@ -263,6 +267,58 @@ export const persistImportResults = internalMutation({
       lastHeartbeatAt: Date.now(),
       lastUsedAt: Date.now(),
     });
+
+    if (
+      previousCompletedImportId &&
+      (previousCompletedImportId !== args.importId || previousCompletedImportJobId !== args.jobId)
+    ) {
+      await ctx.scheduler.runAfter(0, internal.imports.cleanupSupersededImportSnapshot, {
+        importId: previousCompletedImportId,
+        importJobId: previousCompletedImportJobId,
+      });
+    }
+  },
+});
+
+export const cleanupSupersededImportSnapshot = internalMutation({
+  args: {
+    importId: v.id('imports'),
+    importJobId: v.optional(v.id('jobs')),
+  },
+  handler: async (ctx, args) => {
+    const repoFiles = await ctx.db
+      .query('repoFiles')
+      .withIndex('by_importId', (q) => q.eq('importId', args.importId))
+      .take(CASCADE_BATCH_SIZE);
+    const repoChunks = await ctx.db
+      .query('repoChunks')
+      .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', args.importId))
+      .take(CASCADE_BATCH_SIZE);
+    const importArtifacts = args.importJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', args.importJobId))
+          .take(CASCADE_BATCH_SIZE)
+      : [];
+
+    for (const doc of repoChunks) {
+      await ctx.db.delete(doc._id);
+    }
+    for (const doc of repoFiles) {
+      await ctx.db.delete(doc._id);
+    }
+    for (const doc of importArtifacts) {
+      await ctx.db.delete(doc._id);
+    }
+
+    const hasMore =
+      repoFiles.length === CASCADE_BATCH_SIZE ||
+      repoChunks.length === CASCADE_BATCH_SIZE ||
+      importArtifacts.length === CASCADE_BATCH_SIZE;
+
+    if (hasMore) {
+      await ctx.scheduler.runAfter(0, internal.imports.cleanupSupersededImportSnapshot, args);
+    }
   },
 });
 
@@ -290,6 +346,12 @@ export const markImportFailed = internalMutation({
       completedAt: Date.now(),
       errorMessage: args.errorMessage,
     });
+    if (importRecord.sandboxId) {
+      await ctx.db.patch(importRecord.sandboxId, {
+        status: 'failed',
+        lastErrorMessage: args.errorMessage,
+      });
+    }
     await ctx.db.patch(importRecord.repositoryId, {
       importStatus: 'failed',
     });

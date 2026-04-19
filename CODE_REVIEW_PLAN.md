@@ -46,7 +46,7 @@
 - [x] 完成第一輪高風險修復（1、2、5、9）
 - [x] 重新驗證並修正既有中風險 findings（3、4、6、7、8）
 - [x] 補齊更多證據與測試建議
-- [ ] 完成下一批模組的第二輪中低風險審查
+- [x] 完成下一批模組的第二輪中低風險審查
 - [ ] 對每個 finding 排修復優先序
 
 ## First-Pass Findings
@@ -250,7 +250,64 @@
 - Resolved:
   - 已新增 `vitest` 測試基礎設施與 `npm test` script。
   - 已補上 installation status selection、expired sandbox sweep、thread selection effect 的聚焦測試。
-  - deep mode submit guard 仍可在後續處理中低風險項目時補上，但不影響這輪高風險修復的回歸保護。
+  - deep mode submit guard、latest import snapshot、duplicate import guard 也已補上聚焦回歸測試。
+
+### 10. Import snapshot 會累積舊資料，runtime context 也可能混入歷史版本（已完成）
+- Severity: High
+- Status: 已完成
+- Files:
+  - `convex/imports.ts`
+  - `convex/repositories.ts`
+  - `convex/chat.ts`
+  - `convex/schema.ts`
+- Evidence:
+  - `persistImportResults()` 每次 sync/import 都只新增 `repoFiles`、`repoChunks`、import artifacts，沒有清理舊 snapshot
+  - `getReplyContext()` / `getRepositoryForProcessing()` 原本用 `repositoryId` 直接查 chunks/artifacts，沒有鎖到 `latestImportId`
+  - `getRepositoryDetail()` / jobs panel 原本先 `.take()` 再排序，資料量成長後會開始顯示舊 jobs / 舊 artifacts
+- Why it matters:
+  - chat / analysis context 可能混到過期程式碼與舊 manifest，回答會逐漸失真
+  - repoFiles / repoChunks / import artifacts 會跟著每次 sync 無上限膨脹
+  - jobs / artifacts tab 在長期使用後會越來越偏離最新狀態
+- Fix direction:
+  - 將 import snapshot 視為「最新成功版本」而不是單純 append-only log
+  - runtime query 一律鎖定 `latestImportId` / `latestImportJobId`
+  - 成功完成新 import 後，批次清理上一版的重型 snapshot 資料
+- Revalidation:
+  - 重新檢查後確認 `persistImportResults()` 只 insert 不 prune，而 `chat.ts` / `repositories.ts` 的相關 query 也沒有鎖到最新 import，風險真實存在。
+- Resolved:
+  - 新增 `repoChunks` 的 `by_importId_and_path_and_chunkIndex` index，讓 runtime 可以只讀最新 snapshot。
+  - `getReplyContext()`、`getRepositoryForProcessing()`、repository detail 現在只會讀最新 import snapshot；jobs / deep-analysis artifacts 也改成優先顯示最新資料。
+  - import 完成後會排程清理上一版的 `repoFiles`、`repoChunks`、import-generated artifacts，避免重型資料無限累積。
+  - 已新增自動化測試覆蓋 latest snapshot context 與 cleanup 行為。
+
+### 11. Import / sync 在完成前就覆寫最後成功狀態，且重複 import guard 不完整（已完成）
+- Severity: Medium
+- Status: 已完成
+- Files:
+  - `convex/repositories.ts`
+  - `convex/imports.ts`
+  - `src/components/import-repo-dialog.tsx`
+  - `src/components/top-bar.tsx`
+- Evidence:
+  - `createRepositoryImport()` / `syncRepository()` 原本在工作真正完成前就先覆寫 `latestImportId`、`latestImportJobId`、`lastImportedAt`
+  - `createRepositoryImport()` 對既有 repo 沒有像 `syncRepository()` 一樣擋住 `queued` / `running`
+  - import dialog 原本只要有 summary 就顯示成 Imported，無法區分「正在 import / sync」與「真的已完成」
+- Why it matters:
+  - sync 中途會暫時丟掉最後一份成功 snapshot 的指標，讓 UI metadata 和 runtime state 變得不穩定
+  - `lastImportedAt` 會在工作尚未完成前就更新，造成「Synced just now」之類的誤導顯示
+  - 同一 repo 仍可能被重複排入 import，浪費 sandbox / indexing 資源
+- Fix direction:
+  - 把 `latestImportId` / `latestImportJobId` / `lastImportedAt` 定義為「最後一次成功 import」而不是「最新一次嘗試」
+  - `createRepositoryImport()` 與 `syncRepository()` 用一致的 in-progress guard
+  - 前端依 `importStatus` 呈現 importing / syncing / retry 狀態
+- Revalidation:
+  - 重新檢查後確認這些欄位原本在 queue 當下就被覆寫，而 `createRepositoryImport()` 也確實缺少既有 repo 的重複排程保護，風險真實存在。
+- Resolved:
+  - repository 只會在 import 成功完成後才更新 latest snapshot 指標與 `lastImportedAt`。
+  - `createRepositoryImport()` 現在會拒絕已在 `queued` / `running` 的同 repo import。
+  - failed import 會把 sandbox 標成 `failed`，避免 UI 長期停在 `provisioning` 的假狀態。
+  - import dialog 與 top bar sync button 現在會根據真實 `importStatus` 顯示 importing / syncing / retry 狀態。
+  - 已新增自動化測試覆蓋 duplicate import guard 與 latest snapshot pointer 行為。
 
 ## Open Questions
 - `githubInstallations` 是否有意保留多筆歷史紀錄？如果有，active row 是否應保證唯一？

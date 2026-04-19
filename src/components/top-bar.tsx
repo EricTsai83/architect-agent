@@ -130,11 +130,15 @@ function SyncButton({
   onSync: () => void;
 }) {
   const syncedLabel = useRelativeTime(repoDetail?.repository.lastImportedAt);
-  const hasUpdates = repoDetail?.hasRemoteUpdates && !isSyncing;
+  const repositoryImportStatus = repoDetail?.repository.importStatus;
+  const isRepositorySyncing =
+    repositoryImportStatus === 'queued' || repositoryImportStatus === 'running';
+  const isBusy = isSyncing || isRepositorySyncing;
+  const hasUpdates = repoDetail?.hasRemoteUpdates && !isBusy;
 
   // Derive the text shown inside the button
   let label: string;
-  if (isSyncing) {
+  if (isBusy) {
     label = 'Syncing…';
   } else if (hasUpdates) {
     label = 'Update available';
@@ -148,7 +152,7 @@ function SyncButton({
     <Button
       variant="ghost"
       size="sm"
-      disabled={!repoDetail || isSyncing}
+      disabled={!repoDetail || isBusy}
       onClick={onSync}
       className={
         hasUpdates
@@ -169,7 +173,7 @@ function SyncButton({
           <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
         </span>
       )}
-      <ArrowsClockwiseIcon weight="bold" className={isSyncing ? 'animate-spin' : ''} />
+      <ArrowsClockwiseIcon weight="bold" className={isBusy ? 'animate-spin' : ''} />
       {label}
     </Button>
   );

@@ -220,6 +220,7 @@ export default defineSchema({
   })
     .index('by_repositoryId_and_path', ['repositoryId', 'path'])
     .index('by_fileId_and_chunkIndex', ['fileId', 'chunkIndex'])
+    .index('by_importId_and_path_and_chunkIndex', ['importId', 'path', 'chunkIndex'])
     .index('by_repositoryId_and_symbolName', ['repositoryId', 'symbolName']),
 
   threads: defineTable({

@@ -236,14 +236,28 @@ export const getReplyContext = internalQuery({
       throw new Error('Repository not found.');
     }
 
-    const artifacts = await ctx.db
+    const importArtifacts = repository.latestImportJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .take(10)
+      : [];
+    const deepAnalysisArtifacts = await ctx.db
       .query('analysisArtifacts')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', thread.repositoryId))
-      .take(20);
-    const chunks = await ctx.db
-      .query('repoChunks')
-      .withIndex('by_repositoryId_and_path', (q) => q.eq('repositoryId', thread.repositoryId))
-      .take(80);
+      .withIndex('by_repositoryId_and_kind', (q) =>
+        q.eq('repositoryId', thread.repositoryId).eq('kind', 'deep_analysis'),
+      )
+      .order('desc')
+      .take(10);
+    const artifacts = [...importArtifacts, ...deepAnalysisArtifacts];
+    const chunks = repository.latestImportId
+      ? await ctx.db
+          .query('repoChunks')
+          .withIndex('by_importId_and_path_and_chunkIndex', (q) =>
+            q.eq('importId', repository.latestImportId!),
+          )
+          .take(80)
+      : [];
     const messages = await ctx.db
       .query('messages')
       .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))

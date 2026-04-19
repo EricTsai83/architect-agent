@@ -74,13 +74,24 @@ export const getRepositoryDetail = query({
       throw new Error('Repository not found.');
     }
 
-    const artifacts = await ctx.db
+    const currentImportArtifacts = repository.latestImportJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .take(10)
+      : [];
+    const recentDeepAnalysisArtifacts = await ctx.db
       .query('analysisArtifacts')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(20);
+      .withIndex('by_repositoryId_and_kind', (q) =>
+        q.eq('repositoryId', args.repositoryId).eq('kind', 'deep_analysis'),
+      )
+      .order('desc')
+      .take(Math.max(0, 20 - currentImportArtifacts.length));
+    const artifacts = [...currentImportArtifacts, ...recentDeepAnalysisArtifacts];
     const jobs = await ctx.db
       .query('jobs')
       .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
       .take(30);
     const threads = await ctx.db
       .query('threads')
@@ -113,7 +124,7 @@ export const getRepositoryDetail = query({
     return {
       repository,
       artifacts,
-      jobs: jobs.sort((left, right) => (right._creationTime ?? 0) - (left._creationTime ?? 0)),
+      jobs,
       threads,
       fileCount,
       fileCountLabel,
@@ -165,6 +176,10 @@ export const createRepositoryImport = mutation({
     let repositoryId = repository?._id;
     let defaultThreadId = repository?.defaultThreadId;
 
+    if (repository && (repository.importStatus === 'queued' || repository.importStatus === 'running')) {
+      throw new Error('An import is already in progress for this repository.');
+    }
+
     if (!repository) {
       // Visibility will be updated after the import pipeline checks GitHub API.
       // Default to 'unknown' until the actual check completes.
@@ -203,7 +218,6 @@ export const createRepositoryImport = mutation({
       throw new Error('Failed to create repository.');
     }
 
-    const now = Date.now();
     const jobId = await ctx.db.insert('jobs', {
       repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
@@ -227,9 +241,6 @@ export const createRepositoryImport = mutation({
 
     await ctx.db.patch(repositoryId, {
       importStatus: 'queued',
-      latestImportId: importId,
-      latestImportJobId: jobId,
-      lastImportedAt: now,
       accessMode,
     });
 
@@ -274,7 +285,6 @@ export const syncRepository = mutation({
       throw new Error('A sync is already in progress for this repository.');
     }
 
-    const now = Date.now();
     const jobId = await ctx.db.insert('jobs', {
       repositoryId: args.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
@@ -298,9 +308,6 @@ export const syncRepository = mutation({
 
     await ctx.db.patch(args.repositoryId, {
       importStatus: 'queued',
-      latestImportId: importId,
-      latestImportJobId: jobId,
-      lastImportedAt: now,
       // Clear remote SHA so the "updates available" indicator disappears
       // immediately when the user triggers a sync.
       latestRemoteSha: undefined,
@@ -422,14 +429,20 @@ export const getRepositoryForProcessing = internalQuery({
       throw new Error('Repository not found.');
     }
 
-    const artifacts = await ctx.db
-      .query('analysisArtifacts')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(20);
-    const chunks = await ctx.db
-      .query('repoChunks')
-      .withIndex('by_repositoryId_and_path', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(60);
+    const artifacts = repository.latestImportJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .take(20)
+      : [];
+    const chunks = repository.latestImportId
+      ? await ctx.db
+          .query('repoChunks')
+          .withIndex('by_importId_and_path_and_chunkIndex', (q) =>
+            q.eq('importId', repository.latestImportId!),
+          )
+          .take(60)
+      : [];
 
     return {
       repository,
