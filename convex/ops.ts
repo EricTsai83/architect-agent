@@ -117,14 +117,25 @@ export const getExpiredSandboxes = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    // Query sandboxes that are still 'ready' but past their TTL.
-    // The index `by_status_and_ttlExpiresAt` lets us efficiently scan.
-    const candidates = await ctx.db
+    // Sweep both expired ready sandboxes and expired stopped sandboxes.
+    // A started sandbox may be transitioned to `stopped` first, then deleted
+    // on a later sweep once Daytona confirms it is no longer running.
+    const readyCandidates = await ctx.db
       .query('sandboxes')
       .withIndex('by_status_and_ttlExpiresAt', (q) =>
         q.eq('status', 'ready').lt('ttlExpiresAt', now),
       )
       .take(20);
+    const stoppedCandidates =
+      readyCandidates.length < 20
+        ? await ctx.db
+            .query('sandboxes')
+            .withIndex('by_status_and_ttlExpiresAt', (q) =>
+              q.eq('status', 'stopped').lt('ttlExpiresAt', now),
+            )
+            .take(20 - readyCandidates.length)
+        : [];
+    const candidates = [...readyCandidates, ...stoppedCandidates];
 
     return candidates.map((s) => ({
       sandboxId: s._id,

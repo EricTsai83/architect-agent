@@ -165,13 +165,21 @@ function ThreadsSection({
   );
 
   useEffect(() => {
-    if (!threads?.length) {
-      onSelectThread(null);
+    if (threads === undefined) {
       return;
     }
-    const preferred = defaultThreadId ?? threads[0]?._id;
+    if (threads.length === 0) {
+      if (selectedThreadId !== null) {
+        onSelectThread(null);
+      }
+      return;
+    }
+    const preferred =
+      defaultThreadId && threads.some((thread) => thread._id === defaultThreadId)
+        ? defaultThreadId
+        : threads[0]._id;
     if (!selectedThreadId || !threads.some((t) => t._id === selectedThreadId)) {
-      onSelectThread(preferred ?? null);
+      onSelectThread(preferred);
     }
   }, [threads, defaultThreadId, selectedThreadId, onSelectThread]);
 
@@ -179,7 +187,7 @@ function ThreadsSection({
     <>
       <div className="border-t border-border" />
       <div className="flex flex-col gap-1 p-3">
-        <ThreadsHeader isCreatingThread={isCreatingThread} onCreateThread={handleCreateThread} />
+        <ThreadsHeader isCreatingThread={isCreatingThread} onCreateThread={() => void handleCreateThread()} />
         {threads === undefined ? (
           <p className="px-1 text-xs text-muted-foreground">Loading…</p>
         ) : (

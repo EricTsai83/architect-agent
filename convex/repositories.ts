@@ -142,12 +142,12 @@ export const createRepositoryImport = mutation({
     // Check if user has GitHub connected via GitHub App installation
     const installation = await ctx.db
       .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
+      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
+        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
       )
       .first();
 
-    if (!installation || installation.status !== 'active') {
+    if (!installation) {
       throw new Error('Please connect your GitHub account first to import repositories.');
     }
 
@@ -259,12 +259,12 @@ export const syncRepository = mutation({
     // Check if user has an active GitHub installation
     const installation = await ctx.db
       .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
+      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
+        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
       )
       .first();
 
-    if (!installation || installation.status !== 'active') {
+    if (!installation) {
       throw new Error('Please connect your GitHub account first to sync repositories.');
     }
 
