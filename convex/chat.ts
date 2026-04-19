@@ -1,12 +1,15 @@
 import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { v } from 'convex/values';
+import type { Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
+import type { QueryCtx } from './_generated/server';
 import { mutation, query, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
 import {
   MAX_CONTEXT_ARTIFACTS,
   MAX_CONTEXT_MESSAGES,
+  MAX_VISIBLE_MESSAGES,
   MAX_RELEVANT_CHUNKS,
   STREAM_FLUSH_THRESHOLD,
 } from './lib/constants';
@@ -57,10 +60,7 @@ export const listMessages = query({
       throw new Error('Thread not found.');
     }
 
-    return await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
-      .take(100);
+    return await loadRecentMessages(ctx, args.threadId, MAX_VISIBLE_MESSAGES);
   },
 });
 
@@ -258,10 +258,7 @@ export const getReplyContext = internalQuery({
           )
           .take(80)
       : [];
-    const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
-      .take(MAX_CONTEXT_MESSAGES);
+    const messages = await loadRecentMessages(ctx, args.threadId, MAX_CONTEXT_MESSAGES);
 
     return {
       ownerTokenIdentifier: repository.ownerTokenIdentifier,
@@ -455,6 +452,20 @@ function buildSystemPrompt() {
     'Answer questions about the imported repository using the provided artifacts and code excerpts.',
     'Be concrete, mention likely boundaries, and state uncertainty when evidence is weak.',
   ].join(' ');
+}
+
+async function loadRecentMessages(
+  ctx: Pick<QueryCtx, 'db'>,
+  threadId: Id<'threads'>,
+  limit: number,
+) {
+  const recentMessages = await ctx.db
+    .query('messages')
+    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+    .order('desc')
+    .take(limit);
+
+  return recentMessages.reverse();
 }
 
 function buildUserPrompt(

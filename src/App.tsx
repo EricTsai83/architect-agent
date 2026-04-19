@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useConvexAuth } from 'convex/react';
 import { HomePage } from '@/pages/home';
 import { ChatPage } from '@/pages/chat';
-import { AUTH_TOKEN_ERROR_EVENT } from '@/lib/auth-events';
+import { Button } from '@/components/ui/button';
+import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -21,26 +21,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  useEffect(() => {
-    function handleAuthError(event: Event) {
-      setAuthError((event as CustomEvent<string>).detail);
-    }
-
-    window.addEventListener(AUTH_TOKEN_ERROR_EVENT, handleAuthError);
-    return () => {
-      window.removeEventListener(AUTH_TOKEN_ERROR_EVENT, handleAuthError);
-    };
-  }, []);
-
-  const visibleAuthError = isAuthenticated ? null : authError;
+  const { authError } = useConvexAuthStatus();
 
   return (
     <div className="relative flex h-dvh overflow-hidden bg-background">
-      {visibleAuthError ? (
+      {authError ? (
         <div className="absolute inset-x-0 top-0 z-10 border-b border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {visibleAuthError}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p>{authError}</p>
+            <Button variant="outline" size="sm" className="w-fit" onClick={() => window.location.reload()}>
+              Refresh
+            </Button>
+          </div>
         </div>
       ) : null}
       <Routes>

@@ -84,7 +84,7 @@ Missing tests:
 
 ## Priority 1
 
-### 4. Chat history queries return the oldest messages instead of the most recent ones
+### 4. [已完成] Chat history queries return the oldest messages instead of the most recent ones
 
 Why this matters:
 - `listMessages` uses `.withIndex('by_threadId').take(100)` with no descending order.
@@ -104,7 +104,7 @@ Missing tests:
 - A query test proving `listMessages` returns the most recent N messages.
 - A reply-context test proving old messages are trimmed and the latest ones are preserved.
 
-### 5. Auth token failures are hidden from signed-in users
+### 5. [已完成] Auth token failures are hidden from signed-in users
 
 Why this matters:
 - The WorkOS/Convex auth wrapper dispatches `AUTH_TOKEN_ERROR_EVENT` when `getAccessToken()` fails.
