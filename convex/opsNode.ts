@@ -3,7 +3,7 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { internalAction } from './_generated/server';
-import { deleteSandbox, getSandboxState } from './daytona';
+import { deleteSandbox, getSandboxState, stopSandbox } from './daytona';
 
 export const runSandboxCleanup = internalAction({
   args: {
@@ -80,15 +80,16 @@ export const sweepExpiredSandboxes = internalAction({
           try {
             await deleteSandbox(entry.remoteId);
             console.log(`[sweep] Deleted stopped sandbox ${entry.remoteId} (past TTL).`);
+            await ctx.runMutation(internal.ops.markSandboxSwept, {
+              sandboxId: entry.sandboxId as never,
+              newStatus: 'archived',
+            });
           } catch {
             // Deletion failed, will retry on next sweep
           }
-          await ctx.runMutation(internal.ops.markSandboxSwept, {
-            sandboxId: entry.sandboxId as never,
-            newStatus: 'archived',
-          });
         } else if (daytonaState === 'started') {
           // Sandbox is somehow still running past TTL — stop it first, delete next sweep
+          await stopSandbox(entry.remoteId);
           await ctx.runMutation(internal.ops.markSandboxSwept, {
             sandboxId: entry.sandboxId as never,
             newStatus: 'stopped',

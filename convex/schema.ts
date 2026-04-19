@@ -13,6 +13,7 @@ const importStatus = v.union(
   v.literal('queued'),
   v.literal('running'),
   v.literal('completed'),
+  v.literal('cancelled'),
   v.literal('failed'),
 );
 
@@ -94,6 +95,7 @@ export default defineSchema({
     lastSyncedCommitSha: v.optional(v.string()),
     latestRemoteSha: v.optional(v.string()),
     lastCheckedForUpdatesAt: v.optional(v.number()),
+    deletionRequestedAt: v.optional(v.number()),
   })
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier'])
     .index('by_ownerTokenIdentifier_and_sourceUrl', ['ownerTokenIdentifier', 'sourceUrl'])
@@ -220,6 +222,7 @@ export default defineSchema({
   })
     .index('by_repositoryId_and_path', ['repositoryId', 'path'])
     .index('by_fileId_and_chunkIndex', ['fileId', 'chunkIndex'])
+    .index('by_importId_and_path_and_chunkIndex', ['importId', 'path', 'chunkIndex'])
     .index('by_repositoryId_and_symbolName', ['repositoryId', 'symbolName']),
 
   threads: defineTable({

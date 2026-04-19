@@ -1,5 +1,43 @@
 import { v } from 'convex/values';
-import { internalMutation, internalQuery } from './_generated/server';
+import { internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
+import { internalMutation, internalQuery, type MutationCtx } from './_generated/server';
+import { CASCADE_BATCH_SIZE } from './lib/constants';
+
+const REPOSITORY_DELETION_CANCEL_REASON =
+  'Repository deletion is in progress. The import was cancelled before it could finish.';
+
+async function finalizeImportCancellation(
+  ctx: MutationCtx,
+  args: {
+    importId: Id<'imports'>;
+    jobId: Id<'jobs'>;
+    reason: string;
+  },
+) {
+  const now = Date.now();
+  const importRecord = await ctx.db.get(args.importId);
+  const job = await ctx.db.get(args.jobId);
+
+  if (importRecord) {
+    await ctx.db.patch(args.importId, {
+      status: 'cancelled',
+      completedAt: now,
+      errorMessage: args.reason,
+    });
+  }
+
+  if (job) {
+    await ctx.db.patch(args.jobId, {
+      status: 'cancelled',
+      stage: 'cancelled',
+      progress: 1,
+      completedAt: now,
+      outputSummary: args.reason,
+      errorMessage: args.reason,
+    });
+  }
+}
 
 export const getImportContext = internalQuery({
   args: {
@@ -8,15 +46,20 @@ export const getImportContext = internalQuery({
   handler: async (ctx, args) => {
     const importRecord = await ctx.db.get(args.importId);
     if (!importRecord) {
-      throw new Error('Import record not found.');
+      return null;
     }
 
     const repository = await ctx.db.get(importRecord.repositoryId);
-    if (!repository) {
-      throw new Error('Repository not found.');
+    if (!repository || repository.deletionRequestedAt) {
+      return {
+        kind: 'cancelled' as const,
+        jobId: importRecord.jobId,
+        reason: REPOSITORY_DELETION_CANCEL_REASON,
+      };
     }
 
     return {
+      kind: 'ready' as const,
       repositoryId: repository._id,
       jobId: importRecord.jobId,
       branch: importRecord.branch,
@@ -62,6 +105,17 @@ export const markImportRunning = internalMutation({
     jobId: v.id('jobs'),
   },
   handler: async (ctx, args) => {
+    const importRecord = await ctx.db.get(args.importId);
+    const job = await ctx.db.get(args.jobId);
+    const repository = importRecord ? await ctx.db.get(importRecord.repositoryId) : null;
+
+    if (!importRecord || !job || !repository || repository.deletionRequestedAt) {
+      return {
+        kind: 'cancelled' as const,
+        reason: REPOSITORY_DELETION_CANCEL_REASON,
+      };
+    }
+
     const now = Date.now();
     await ctx.db.patch(args.importId, {
       status: 'running',
@@ -73,6 +127,10 @@ export const markImportRunning = internalMutation({
       progress: 0.1,
       startedAt: now,
     });
+
+    return {
+      kind: 'running' as const,
+    };
   },
 });
 
@@ -187,11 +245,21 @@ export const persistImportResults = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
+    const importRecord = await ctx.db.get(args.importId);
     const repository = await ctx.db.get(args.repositoryId);
     const sandbox = await ctx.db.get(args.sandboxId);
-    if (!repository || !sandbox) {
-      throw new Error('Repository or sandbox not found while persisting import results.');
+    if (!importRecord || !repository || repository.deletionRequestedAt || !sandbox) {
+      await finalizeImportCancellation(ctx, {
+        importId: args.importId,
+        jobId: args.jobId,
+        reason: REPOSITORY_DELETION_CANCEL_REASON,
+      });
+      return {
+        kind: 'cancelled' as const,
+      };
     }
+    const previousCompletedImportId = repository.latestImportId;
+    const previousCompletedImportJobId = repository.latestImportJobId;
 
     const fileIdsByPath = new Map<string, string>();
     for (const file of args.repoFiles) {
@@ -263,6 +331,62 @@ export const persistImportResults = internalMutation({
       lastHeartbeatAt: Date.now(),
       lastUsedAt: Date.now(),
     });
+
+    if (
+      previousCompletedImportId &&
+      (previousCompletedImportId !== args.importId || previousCompletedImportJobId !== args.jobId)
+    ) {
+      await ctx.scheduler.runAfter(0, internal.imports.cleanupSupersededImportSnapshot, {
+        importId: previousCompletedImportId,
+        importJobId: previousCompletedImportJobId,
+      });
+    }
+
+    return {
+      kind: 'completed' as const,
+    };
+  },
+});
+
+export const cleanupSupersededImportSnapshot = internalMutation({
+  args: {
+    importId: v.id('imports'),
+    importJobId: v.optional(v.id('jobs')),
+  },
+  handler: async (ctx, args) => {
+    const repoFiles = await ctx.db
+      .query('repoFiles')
+      .withIndex('by_importId', (q) => q.eq('importId', args.importId))
+      .take(CASCADE_BATCH_SIZE);
+    const repoChunks = await ctx.db
+      .query('repoChunks')
+      .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', args.importId))
+      .take(CASCADE_BATCH_SIZE);
+    const importArtifacts = args.importJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', args.importJobId))
+          .take(CASCADE_BATCH_SIZE)
+      : [];
+
+    for (const doc of repoChunks) {
+      await ctx.db.delete(doc._id);
+    }
+    for (const doc of repoFiles) {
+      await ctx.db.delete(doc._id);
+    }
+    for (const doc of importArtifacts) {
+      await ctx.db.delete(doc._id);
+    }
+
+    const hasMore =
+      repoFiles.length === CASCADE_BATCH_SIZE ||
+      repoChunks.length === CASCADE_BATCH_SIZE ||
+      importArtifacts.length === CASCADE_BATCH_SIZE;
+
+    if (hasMore) {
+      await ctx.scheduler.runAfter(0, internal.imports.cleanupSupersededImportSnapshot, args);
+    }
   },
 });
 
@@ -278,20 +402,55 @@ export const markImportFailed = internalMutation({
       return;
     }
 
+    const repository = await ctx.db.get(importRecord.repositoryId);
+    if (!repository || repository.deletionRequestedAt) {
+      await finalizeImportCancellation(ctx, {
+        importId: args.importId,
+        jobId: args.jobId,
+        reason: REPOSITORY_DELETION_CANCEL_REASON,
+      });
+      return;
+    }
+
+    const job = await ctx.db.get(args.jobId);
+    const now = Date.now();
+
     await ctx.db.patch(args.importId, {
       status: 'failed',
-      completedAt: Date.now(),
+      completedAt: now,
       errorMessage: args.errorMessage,
     });
-    await ctx.db.patch(args.jobId, {
-      status: 'failed',
-      stage: 'failed',
-      progress: 1,
-      completedAt: Date.now(),
-      errorMessage: args.errorMessage,
-    });
+    if (job) {
+      await ctx.db.patch(args.jobId, {
+        status: 'failed',
+        stage: 'failed',
+        progress: 1,
+        completedAt: now,
+        errorMessage: args.errorMessage,
+      });
+    }
+    if (importRecord.sandboxId) {
+      const sandbox = await ctx.db.get(importRecord.sandboxId);
+      if (sandbox) {
+        await ctx.db.patch(importRecord.sandboxId, {
+          status: 'failed',
+          lastErrorMessage: args.errorMessage,
+        });
+      }
+    }
     await ctx.db.patch(importRecord.repositoryId, {
       importStatus: 'failed',
     });
+  },
+});
+
+export const cancelImport = internalMutation({
+  args: {
+    importId: v.id('imports'),
+    jobId: v.id('jobs'),
+    reason: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await finalizeImportCancellation(ctx, args);
   },
 });

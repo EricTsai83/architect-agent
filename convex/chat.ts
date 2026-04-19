@@ -1,12 +1,15 @@
 import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { v } from 'convex/values';
+import type { Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
+import type { QueryCtx } from './_generated/server';
 import { mutation, query, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
 import {
   MAX_CONTEXT_ARTIFACTS,
   MAX_CONTEXT_MESSAGES,
+  MAX_VISIBLE_MESSAGES,
   MAX_RELEVANT_CHUNKS,
   STREAM_FLUSH_THRESHOLD,
 } from './lib/constants';
@@ -57,10 +60,7 @@ export const listMessages = query({
       throw new Error('Thread not found.');
     }
 
-    return await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
-      .take(100);
+    return await loadRecentMessages(ctx, args.threadId, MAX_VISIBLE_MESSAGES);
   },
 });
 
@@ -236,18 +236,29 @@ export const getReplyContext = internalQuery({
       throw new Error('Repository not found.');
     }
 
-    const artifacts = await ctx.db
+    const importArtifacts = repository.latestImportJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .take(10)
+      : [];
+    const deepAnalysisArtifacts = await ctx.db
       .query('analysisArtifacts')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', thread.repositoryId))
-      .take(20);
-    const chunks = await ctx.db
-      .query('repoChunks')
-      .withIndex('by_repositoryId_and_path', (q) => q.eq('repositoryId', thread.repositoryId))
-      .take(80);
-    const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
-      .take(MAX_CONTEXT_MESSAGES);
+      .withIndex('by_repositoryId_and_kind', (q) =>
+        q.eq('repositoryId', thread.repositoryId).eq('kind', 'deep_analysis'),
+      )
+      .order('desc')
+      .take(10);
+    const artifacts = [...importArtifacts, ...deepAnalysisArtifacts];
+    const chunks = repository.latestImportId
+      ? await ctx.db
+          .query('repoChunks')
+          .withIndex('by_importId_and_path_and_chunkIndex', (q) =>
+            q.eq('importId', repository.latestImportId!),
+          )
+          .take(80)
+      : [];
+    const messages = await loadRecentMessages(ctx, args.threadId, MAX_CONTEXT_MESSAGES);
 
     return {
       ownerTokenIdentifier: repository.ownerTokenIdentifier,
@@ -441,6 +452,20 @@ function buildSystemPrompt() {
     'Answer questions about the imported repository using the provided artifacts and code excerpts.',
     'Be concrete, mention likely boundaries, and state uncertainty when evidence is weak.',
   ].join(' ');
+}
+
+async function loadRecentMessages(
+  ctx: Pick<QueryCtx, 'db'>,
+  threadId: Id<'threads'>,
+  limit: number,
+) {
+  const recentMessages = await ctx.db
+    .query('messages')
+    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+    .order('desc')
+    .take(limit);
+
+  return recentMessages.reverse();
 }
 
 function buildUserPrompt(

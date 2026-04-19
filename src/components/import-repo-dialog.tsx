@@ -85,13 +85,18 @@ function RepoRow({
   importSummary?: ImportSummary;
 }) {
   const ownerInitial = (repo.fullName.split('/')[0] ?? '?')[0].toUpperCase();
-  const isImported = !!importSummary;
+  const hasCompletedImport =
+    importSummary?.importStatus === 'completed' || importSummary?.lastImportedAt !== undefined;
   const isRunning =
-    isImported && (importSummary.importStatus === 'queued' || importSummary.importStatus === 'running');
-  const hasUpdates = isImported && importSummary.hasRemoteUpdates;
+    importSummary?.importStatus === 'queued' || importSummary?.importStatus === 'running';
+  const hasUpdates = hasCompletedImport && !!importSummary?.hasRemoteUpdates;
+  const canRetryFailedSync = hasCompletedImport && importSummary?.importStatus === 'failed';
+  const runningLabel = hasCompletedImport ? 'Syncing...' : 'Importing...';
 
   return (
-    <div className={`flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${isImported ? 'opacity-60' : ''}`}>
+    <div
+      className={`flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning ? 'opacity-60' : ''}`}
+    >
       {/* Avatar */}
       {repo.ownerAvatarUrl ? (
         <img
@@ -117,17 +122,33 @@ function RepoRow({
       </div>
 
       {/* Action area: status badge or import/sync button */}
-      {isImported ? (
+      {isRunning ? (
+        <Badge variant="muted" className="shrink-0 gap-1">
+          <CircleNotchIcon size={12} className="animate-spin" />
+          {runningLabel}
+        </Badge>
+      ) : hasCompletedImport ? (
         hasUpdates ? (
           <Button
             variant="outline"
             size="sm"
             className="shrink-0 gap-1 text-xs"
-            disabled={isImporting || isRunning}
+            disabled={isImporting}
             onClick={onImport}
           >
             <ArrowsClockwiseIcon size={12} weight="bold" />
-            {isImporting || isRunning ? 'Syncing...' : 'Sync'}
+            {isImporting ? 'Syncing...' : 'Sync'}
+          </Button>
+        ) : canRetryFailedSync ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1 text-xs"
+            disabled={isImporting}
+            onClick={onImport}
+          >
+            <ArrowsClockwiseIcon size={12} weight="bold" />
+            {isImporting ? 'Syncing...' : 'Retry sync'}
           </Button>
         ) : (
           <Badge variant="muted" className="shrink-0 gap-1">

@@ -21,12 +21,12 @@ export const getGitHubConnectionStatus = query({
 
     const installation = await ctx.db
       .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
+      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
+        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
       )
       .first();
 
-    if (!installation || installation.status !== 'active') {
+    if (!installation) {
       return {
         isConnected: false as const,
         installationId: null,
@@ -210,12 +210,12 @@ export const getInstallationIdForOwner = internalQuery({
   handler: async (ctx, args) => {
     const installation = await ctx.db
       .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', args.ownerTokenIdentifier),
+      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
+        q.eq('ownerTokenIdentifier', args.ownerTokenIdentifier).eq('status', 'active'),
       )
       .first();
 
-    if (!installation || installation.status !== 'active') {
+    if (!installation) {
       return null;
     }
 

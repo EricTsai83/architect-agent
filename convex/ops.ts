@@ -1,7 +1,75 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
-import { internalMutation, internalQuery, mutation } from './_generated/server';
+import type { Doc, Id } from './_generated/dataModel';
+import { internalMutation, internalQuery, mutation, type MutationCtx } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
+import { CASCADE_BATCH_SIZE } from './lib/constants';
+
+async function listActiveCleanupJobs(
+  ctx: MutationCtx,
+  repositoryId: Id<'repositories'>,
+): Promise<Map<Id<'sandboxes'>, Id<'jobs'>>> {
+  const queuedJobs = await ctx.db
+    .query('jobs')
+    .withIndex('by_repositoryId_and_status', (q) =>
+      q.eq('repositoryId', repositoryId).eq('status', 'queued'),
+    )
+    .take(CASCADE_BATCH_SIZE);
+  const runningJobs = await ctx.db
+    .query('jobs')
+    .withIndex('by_repositoryId_and_status', (q) =>
+      q.eq('repositoryId', repositoryId).eq('status', 'running'),
+    )
+    .take(CASCADE_BATCH_SIZE);
+
+  const activeCleanupJobs = new Map<Id<'sandboxes'>, Id<'jobs'>>();
+  for (const job of [...queuedJobs, ...runningJobs]) {
+    if (job.kind !== 'cleanup' || !job.sandboxId) {
+      continue;
+    }
+    activeCleanupJobs.set(job.sandboxId, job._id);
+  }
+
+  return activeCleanupJobs;
+}
+
+async function queueSandboxCleanupJob(
+  ctx: MutationCtx,
+  sandbox: Doc<'sandboxes'>,
+  triggerSource: 'user' | 'system',
+  activeCleanupJobs?: Map<Id<'sandboxes'>, Id<'jobs'>>,
+): Promise<Id<'jobs'> | null> {
+  if (sandbox.status === 'archived') {
+    return null;
+  }
+
+  const jobsBySandbox =
+    activeCleanupJobs ?? (await listActiveCleanupJobs(ctx, sandbox.repositoryId));
+  const existingJobId = jobsBySandbox.get(sandbox._id);
+  if (existingJobId) {
+    return existingJobId;
+  }
+
+  const jobId = await ctx.db.insert('jobs', {
+    repositoryId: sandbox.repositoryId,
+    ownerTokenIdentifier: sandbox.ownerTokenIdentifier,
+    sandboxId: sandbox._id,
+    kind: 'cleanup',
+    status: 'queued',
+    stage: 'queued',
+    progress: 0,
+    costCategory: 'ops',
+    triggerSource,
+  });
+
+  await ctx.scheduler.runAfter(0, internal.opsNode.runSandboxCleanup, {
+    sandboxId: sandbox._id,
+    jobId,
+  });
+  jobsBySandbox.set(sandbox._id, jobId);
+
+  return jobId;
+}
 
 export const requestSandboxCleanup = mutation({
   args: {
@@ -23,24 +91,38 @@ export const requestSandboxCleanup = mutation({
       throw new Error('Sandbox not found.');
     }
 
-    const jobId = await ctx.db.insert('jobs', {
-      repositoryId: args.repositoryId,
-      ownerTokenIdentifier: identity.tokenIdentifier,
-      sandboxId: sandbox._id,
-      kind: 'cleanup',
-      status: 'queued',
-      stage: 'queued',
-      progress: 0,
-      costCategory: 'ops',
-      triggerSource: 'user',
-    });
-
-    await ctx.scheduler.runAfter(0, internal.opsNode.runSandboxCleanup, {
-      sandboxId: sandbox._id,
-      jobId,
-    });
+    const activeCleanupJobs = await listActiveCleanupJobs(ctx, args.repositoryId);
+    const jobId = await queueSandboxCleanupJob(ctx, sandbox, 'user', activeCleanupJobs);
+    if (!jobId) {
+      throw new Error('Sandbox is already archived.');
+    }
 
     return { jobId };
+  },
+});
+
+export const scheduleRepositorySandboxCleanup = internalMutation({
+  args: {
+    repositoryId: v.id('repositories'),
+  },
+  handler: async (ctx, args) => {
+    const sandboxes = await ctx.db
+      .query('sandboxes')
+      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
+      .take(CASCADE_BATCH_SIZE);
+    const activeCleanupJobs = await listActiveCleanupJobs(ctx, args.repositoryId);
+
+    let pendingCleanupCount = 0;
+    for (const sandbox of sandboxes) {
+      if (sandbox.status === 'archived') {
+        continue;
+      }
+      pendingCleanupCount += 1;
+      await queueSandboxCleanupJob(ctx, sandbox, 'system', activeCleanupJobs);
+    }
+
+    return { pendingCleanupCount };
   },
 });
 
@@ -117,14 +199,25 @@ export const getExpiredSandboxes = internalQuery({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    // Query sandboxes that are still 'ready' but past their TTL.
-    // The index `by_status_and_ttlExpiresAt` lets us efficiently scan.
-    const candidates = await ctx.db
+    // Sweep both expired ready sandboxes and expired stopped sandboxes.
+    // A started sandbox may be transitioned to `stopped` first, then deleted
+    // on a later sweep once Daytona confirms it is no longer running.
+    const readyCandidates = await ctx.db
       .query('sandboxes')
       .withIndex('by_status_and_ttlExpiresAt', (q) =>
         q.eq('status', 'ready').lt('ttlExpiresAt', now),
       )
       .take(20);
+    const stoppedCandidates =
+      readyCandidates.length < 20
+        ? await ctx.db
+            .query('sandboxes')
+            .withIndex('by_status_and_ttlExpiresAt', (q) =>
+              q.eq('status', 'stopped').lt('ttlExpiresAt', now),
+            )
+            .take(20 - readyCandidates.length)
+        : [];
+    const candidates = [...readyCandidates, ...stoppedCandidates];
 
     return candidates.map((s) => ({
       sandboxId: s._id,

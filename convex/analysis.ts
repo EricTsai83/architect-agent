@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { mutation, query, internalMutation, internalQuery } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
+import { getDeepModeUnavailableReason } from './lib/sandboxAvailability';
 
 export const listArtifacts = query({
   args: {
@@ -17,6 +18,7 @@ export const listArtifacts = query({
     return await ctx.db
       .query('analysisArtifacts')
       .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
       .take(40);
   },
 });
@@ -33,10 +35,16 @@ export const requestDeepAnalysis = mutation({
       throw new Error('Repository not found.');
     }
 
+    const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
+    const unavailableReason = getDeepModeUnavailableReason(sandbox);
+    if (!sandbox || unavailableReason) {
+      throw new Error(unavailableReason ?? 'Deep analysis is unavailable.');
+    }
+
     const jobId = await ctx.db.insert('jobs', {
       repositoryId: args.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
-      sandboxId: repository.latestSandboxId,
+      sandboxId: sandbox._id,
       kind: 'deep_analysis',
       status: 'queued',
       stage: 'queued',
@@ -75,6 +83,8 @@ export const getDeepAnalysisContext = internalQuery({
       repositoryId: repository._id,
       ownerTokenIdentifier: repository.ownerTokenIdentifier,
       latestSandboxId: sandbox?._id,
+      sandboxStatus: sandbox?.status,
+      ttlExpiresAt: sandbox?.ttlExpiresAt,
       remoteSandboxId: sandbox?.remoteId,
       repoPath: sandbox?.repoPath,
       sourceRepoFullName: repository.sourceRepoFullName,

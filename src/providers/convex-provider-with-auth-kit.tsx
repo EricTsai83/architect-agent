@@ -1,4 +1,5 @@
-import { ReactNode, useCallback, useMemo } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 import { ConvexProviderWithAuth, ConvexReactClient } from 'convex/react';
 
 // Modified to match WorkOS's auth hook structure
@@ -7,6 +8,22 @@ type UseAuth = () => {
   user: unknown;
   getAccessToken: () => Promise<string | null>;
 };
+
+type ConvexAuthStatus = {
+  authError: string | null;
+};
+
+const AUTH_TOKEN_ERROR_MESSAGE = 'Authentication failed. Please refresh the page and sign in again.';
+
+const ConvexAuthStatusContext = createContext<ConvexAuthStatus | null>(null);
+
+export function useConvexAuthStatus() {
+  const value = useContext(ConvexAuthStatusContext);
+  if (value === null) {
+    throw new Error('useConvexAuthStatus must be used within ConvexProviderWithAuthKit.');
+  }
+  return value;
+}
 
 /**
  * A wrapper React component which provides a {@link ConvexReactClient}
@@ -26,15 +43,23 @@ export function ConvexProviderWithAuthKit({
   client: ConvexReactClient;
   useAuth: UseAuth;
 }) {
-  const useAuthFromWorkOS = useUseAuthFromAuthKit(useAuth);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const useAuthFromWorkOS = useUseAuthFromAuthKit(useAuth, setAuthError);
+  const authStatus = useMemo(() => ({ authError }), [authError]);
+
   return (
-    <ConvexProviderWithAuth client={client} useAuth={useAuthFromWorkOS}>
-      {children}
-    </ConvexProviderWithAuth>
+    <ConvexAuthStatusContext.Provider value={authStatus}>
+      <ConvexProviderWithAuth client={client} useAuth={useAuthFromWorkOS}>
+        {children}
+      </ConvexProviderWithAuth>
+    </ConvexAuthStatusContext.Provider>
   );
 }
 
-function useUseAuthFromAuthKit(useAuth: UseAuth) {
+function useUseAuthFromAuthKit(
+  useAuth: UseAuth,
+  setAuthError: (nextError: string | null) => void,
+) {
   return useMemo(
     () =>
       function useAuthFromWorkOS() {
@@ -43,9 +68,11 @@ function useUseAuthFromAuthKit(useAuth: UseAuth) {
         const fetchAccessToken = useCallback(async () => {
           try {
             const token = await getAccessToken();
+            setAuthError(null);
             return token;
           } catch (error) {
             console.error('Error fetching WorkOS access token:', error);
+            setAuthError(AUTH_TOKEN_ERROR_MESSAGE);
             return null;
           }
         }, [getAccessToken]);
@@ -59,6 +86,6 @@ function useUseAuthFromAuthKit(useAuth: UseAuth) {
           [isLoading, user, fetchAccessToken],
         );
       },
-    [useAuth],
+    [setAuthError, useAuth],
   );
 }

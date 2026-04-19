@@ -4,8 +4,16 @@ import type { DataModel, TableNames } from './_generated/dataModel';
 import { internal } from './_generated/api';
 import { mutation, query, internalQuery, internalMutation } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
+import { isDeepModeAvailable } from './lib/sandboxAvailability';
 import { makeRepositoryTitle, parseGitHubUrl } from './lib/github';
 import { CASCADE_BATCH_SIZE } from './lib/constants';
+
+const FILE_COUNT_DISPLAY_LIMIT = 400;
+const REPOSITORY_DELETE_RETRY_MS = 5_000;
+
+function isRepositoryDeleting(repository: { deletionRequestedAt?: number } | null | undefined) {
+  return typeof repository?.deletionRequestedAt === 'number';
+}
 
 export const listRepositories = query({
   args: {},
@@ -16,7 +24,9 @@ export const listRepositories = query({
       .withIndex('by_ownerTokenIdentifier', (q) => q.eq('ownerTokenIdentifier', identity.tokenIdentifier))
       .take(100);
 
-    return repositories.sort((left, right) => (right.lastImportedAt ?? 0) - (left.lastImportedAt ?? 0));
+    return repositories
+      .filter((repository) => !isRepositoryDeleting(repository))
+      .sort((left, right) => (right.lastImportedAt ?? 0) - (left.lastImportedAt ?? 0));
   },
 });
 
@@ -46,6 +56,10 @@ export const getImportedRepoSummaries = query({
     > = {};
 
     for (const repo of repos) {
+      if (isRepositoryDeleting(repo)) {
+        continue;
+      }
+
       summaries[repo.sourceRepoFullName] = {
         importStatus: repo.importStatus,
         lastImportedAt: repo.lastImportedAt,
@@ -67,17 +81,32 @@ export const getRepositoryDetail = query({
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const repository = await ctx.db.get(args.repositoryId);
-    if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
+    if (
+      !repository ||
+      isRepositoryDeleting(repository) ||
+      repository.ownerTokenIdentifier !== identity.tokenIdentifier
+    ) {
       throw new Error('Repository not found.');
     }
 
-    const artifacts = await ctx.db
+    const currentImportArtifacts = repository.latestImportJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .take(10)
+      : [];
+    const recentDeepAnalysisArtifacts = await ctx.db
       .query('analysisArtifacts')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(20);
+      .withIndex('by_repositoryId_and_kind', (q) =>
+        q.eq('repositoryId', args.repositoryId).eq('kind', 'deep_analysis'),
+      )
+      .order('desc')
+      .take(Math.max(0, 20 - currentImportArtifacts.length));
+    const artifacts = [...currentImportArtifacts, ...recentDeepAnalysisArtifacts];
     const jobs = await ctx.db
       .query('jobs')
       .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
       .take(30);
     const threads = await ctx.db
       .query('threads')
@@ -86,23 +115,20 @@ export const getRepositoryDetail = query({
       .take(10);
 
     const latestImportId = repository.latestImportId;
-    const fileCount = latestImportId
-      ? (
-          await ctx.db
-            .query('repoFiles')
-            .withIndex('by_importId', (q) => q.eq('importId', latestImportId))
-            .take(400)
-        ).length
-      : 0;
+    const sampledFiles = latestImportId
+      ? await ctx.db
+          .query('repoFiles')
+          .withIndex('by_importId', (q) => q.eq('importId', latestImportId))
+          .take(FILE_COUNT_DISPLAY_LIMIT + 1)
+      : [];
+    const fileCount = Math.min(sampledFiles.length, FILE_COUNT_DISPLAY_LIMIT);
+    const fileCountLabel =
+      sampledFiles.length > FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(fileCount);
 
     const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
 
     // Determine whether Deep mode is available right now
-    const deepModeAvailable =
-      sandbox !== null &&
-      sandbox.status !== 'archived' &&
-      sandbox.status !== 'failed' &&
-      Date.now() <= sandbox.ttlExpiresAt;
+    const deepModeAvailable = isDeepModeAvailable(sandbox);
 
     // Determine whether the remote has commits we haven't synced yet
     const hasRemoteUpdates =
@@ -113,9 +139,10 @@ export const getRepositoryDetail = query({
     return {
       repository,
       artifacts,
-      jobs: jobs.sort((left, right) => (right._creationTime ?? 0) - (left._creationTime ?? 0)),
+      jobs,
       threads,
       fileCount,
+      fileCountLabel,
       deepModeAvailable,
       hasRemoteUpdates,
       sandbox: sandbox
@@ -142,12 +169,12 @@ export const createRepositoryImport = mutation({
     // Check if user has GitHub connected via GitHub App installation
     const installation = await ctx.db
       .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
+      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
+        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
       )
       .first();
 
-    if (!installation || installation.status !== 'active') {
+    if (!installation) {
       throw new Error('Please connect your GitHub account first to import repositories.');
     }
 
@@ -163,6 +190,14 @@ export const createRepositoryImport = mutation({
 
     let repositoryId = repository?._id;
     let defaultThreadId = repository?.defaultThreadId;
+
+    if (repository && isRepositoryDeleting(repository)) {
+      throw new Error('Repository deletion is already in progress.');
+    }
+
+    if (repository && (repository.importStatus === 'queued' || repository.importStatus === 'running')) {
+      throw new Error('An import is already in progress for this repository.');
+    }
 
     if (!repository) {
       // Visibility will be updated after the import pipeline checks GitHub API.
@@ -202,7 +237,6 @@ export const createRepositoryImport = mutation({
       throw new Error('Failed to create repository.');
     }
 
-    const now = Date.now();
     const jobId = await ctx.db.insert('jobs', {
       repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
@@ -226,9 +260,6 @@ export const createRepositoryImport = mutation({
 
     await ctx.db.patch(repositoryId, {
       importStatus: 'queued',
-      latestImportId: importId,
-      latestImportJobId: jobId,
-      lastImportedAt: now,
       accessMode,
     });
 
@@ -252,19 +283,23 @@ export const syncRepository = mutation({
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const repository = await ctx.db.get(args.repositoryId);
-    if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
+    if (
+      !repository ||
+      isRepositoryDeleting(repository) ||
+      repository.ownerTokenIdentifier !== identity.tokenIdentifier
+    ) {
       throw new Error('Repository not found.');
     }
 
     // Check if user has an active GitHub installation
     const installation = await ctx.db
       .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
+      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
+        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
       )
       .first();
 
-    if (!installation || installation.status !== 'active') {
+    if (!installation) {
       throw new Error('Please connect your GitHub account first to sync repositories.');
     }
 
@@ -273,7 +308,6 @@ export const syncRepository = mutation({
       throw new Error('A sync is already in progress for this repository.');
     }
 
-    const now = Date.now();
     const jobId = await ctx.db.insert('jobs', {
       repositoryId: args.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
@@ -297,9 +331,6 @@ export const syncRepository = mutation({
 
     await ctx.db.patch(args.repositoryId, {
       importStatus: 'queued',
-      latestImportId: importId,
-      latestImportJobId: jobId,
-      lastImportedAt: now,
       // Clear remote SHA so the "updates available" indicator disappears
       // immediately when the user triggers a sync.
       latestRemoteSha: undefined,
@@ -324,10 +355,20 @@ export const deleteRepository = mutation({
       throw new Error('Repository not found.');
     }
 
-    // Delete the repository immediately so it disappears from the UI
-    await ctx.db.delete(args.repositoryId);
+    if (isRepositoryDeleting(repository)) {
+      return;
+    }
 
-    // Schedule cascading deletion of all related data
+    await ctx.db.patch(args.repositoryId, {
+      deletionRequestedAt: Date.now(),
+    });
+
+    await ctx.runMutation(internal.ops.scheduleRepositorySandboxCleanup, {
+      repositoryId: args.repositoryId,
+    });
+
+    // Schedule cascading deletion of all related data once background jobs have
+    // had a chance to observe the tombstone and stop cleanly.
     await ctx.scheduler.runAfter(0, internal.repositories.cascadeDeleteRepository, {
       repositoryId: args.repositoryId,
     });
@@ -361,7 +402,14 @@ export const cascadeDeleteRepository = internalMutation({
     repositoryId: v.id('repositories'),
   },
   handler: async (ctx, args) => {
+    const cleanupState: { pendingCleanupCount: number } = await ctx.runMutation(
+      internal.ops.scheduleRepositorySandboxCleanup,
+      {
+        repositoryId: args.repositoryId,
+      },
+    );
     let more = false;
+    let waitingOnSandboxCleanup = cleanupState.pendingCleanupCount > 0;
 
     // Delete threads and their messages (threads need special handling)
     const threads = await ctx.db
@@ -382,19 +430,43 @@ export const cascadeDeleteRepository = internalMutation({
     }
     if (threads.length === 50) more = true;
 
-    // Drain remaining tables
-    more = await drainTable(ctx.db, 'jobs', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+    // Drain remaining tables, but keep cleanup jobs until sandbox deletion has finished.
     more = await drainTable(ctx.db, 'analysisArtifacts', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
     more = await drainTable(ctx.db, 'repoChunks', 'by_repositoryId_and_path', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
     more = await drainTable(ctx.db, 'repoFiles', 'by_repositoryId_and_path', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
     more = await drainTable(ctx.db, 'imports', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
-    more = await drainTable(ctx.db, 'sandboxes', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+
+    const sandboxes = await ctx.db
+      .query('sandboxes')
+      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
+      .take(CASCADE_BATCH_SIZE);
+    for (const sandbox of sandboxes) {
+      if (sandbox.status === 'archived') {
+        await ctx.db.delete(sandbox._id);
+      } else {
+        waitingOnSandboxCleanup = true;
+      }
+    }
+    if (sandboxes.length === CASCADE_BATCH_SIZE) {
+      more = true;
+    }
+
+    if (!waitingOnSandboxCleanup) {
+      more = await drainTable(ctx.db, 'jobs', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+    }
 
     // Self-schedule if any table still has remaining records
-    if (more) {
-      await ctx.scheduler.runAfter(0, internal.repositories.cascadeDeleteRepository, {
+    if (more || waitingOnSandboxCleanup) {
+      await ctx.scheduler.runAfter(waitingOnSandboxCleanup ? REPOSITORY_DELETE_RETRY_MS : 0, internal.repositories.cascadeDeleteRepository, {
         repositoryId: args.repositoryId,
       });
+      return;
+    }
+
+    const repository = await ctx.db.get(args.repositoryId);
+    if (repository) {
+      await ctx.db.delete(args.repositoryId);
     }
   },
 });
@@ -421,14 +493,20 @@ export const getRepositoryForProcessing = internalQuery({
       throw new Error('Repository not found.');
     }
 
-    const artifacts = await ctx.db
-      .query('analysisArtifacts')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(20);
-    const chunks = await ctx.db
-      .query('repoChunks')
-      .withIndex('by_repositoryId_and_path', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(60);
+    const artifacts = repository.latestImportJobId
+      ? await ctx.db
+          .query('analysisArtifacts')
+          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .take(20)
+      : [];
+    const chunks = repository.latestImportId
+      ? await ctx.db
+          .query('repoChunks')
+          .withIndex('by_importId_and_path_and_chunkIndex', (q) =>
+            q.eq('importId', repository.latestImportId!),
+          )
+          .take(60)
+      : [];
 
     return {
       repository,
