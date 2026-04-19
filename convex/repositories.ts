@@ -9,6 +9,7 @@ import { makeRepositoryTitle, parseGitHubUrl } from './lib/github';
 import { CASCADE_BATCH_SIZE } from './lib/constants';
 
 const FILE_COUNT_DISPLAY_LIMIT = 400;
+const REPOSITORY_DELETE_RETRY_MS = 5_000;
 
 export const listRepositories = query({
   args: {},
@@ -332,6 +333,10 @@ export const deleteRepository = mutation({
       throw new Error('Repository not found.');
     }
 
+    await ctx.runMutation(internal.ops.scheduleRepositorySandboxCleanup, {
+      repositoryId: args.repositoryId,
+    });
+
     // Delete the repository immediately so it disappears from the UI
     await ctx.db.delete(args.repositoryId);
 
@@ -369,7 +374,14 @@ export const cascadeDeleteRepository = internalMutation({
     repositoryId: v.id('repositories'),
   },
   handler: async (ctx, args) => {
+    const cleanupState: { pendingCleanupCount: number } = await ctx.runMutation(
+      internal.ops.scheduleRepositorySandboxCleanup,
+      {
+        repositoryId: args.repositoryId,
+      },
+    );
     let more = false;
+    let waitingOnSandboxCleanup = cleanupState.pendingCleanupCount > 0;
 
     // Delete threads and their messages (threads need special handling)
     const threads = await ctx.db
@@ -390,17 +402,35 @@ export const cascadeDeleteRepository = internalMutation({
     }
     if (threads.length === 50) more = true;
 
-    // Drain remaining tables
-    more = await drainTable(ctx.db, 'jobs', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+    // Drain remaining tables, but keep cleanup jobs until sandbox deletion has finished.
     more = await drainTable(ctx.db, 'analysisArtifacts', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
     more = await drainTable(ctx.db, 'repoChunks', 'by_repositoryId_and_path', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
     more = await drainTable(ctx.db, 'repoFiles', 'by_repositoryId_and_path', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
     more = await drainTable(ctx.db, 'imports', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
-    more = await drainTable(ctx.db, 'sandboxes', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+
+    const sandboxes = await ctx.db
+      .query('sandboxes')
+      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
+      .order('desc')
+      .take(CASCADE_BATCH_SIZE);
+    for (const sandbox of sandboxes) {
+      if (sandbox.status === 'archived') {
+        await ctx.db.delete(sandbox._id);
+      } else {
+        waitingOnSandboxCleanup = true;
+      }
+    }
+    if (sandboxes.length === CASCADE_BATCH_SIZE) {
+      more = true;
+    }
+
+    if (!waitingOnSandboxCleanup) {
+      more = await drainTable(ctx.db, 'jobs', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+    }
 
     // Self-schedule if any table still has remaining records
-    if (more) {
-      await ctx.scheduler.runAfter(0, internal.repositories.cascadeDeleteRepository, {
+    if (more || waitingOnSandboxCleanup) {
+      await ctx.scheduler.runAfter(waitingOnSandboxCleanup ? REPOSITORY_DELETE_RETRY_MS : 0, internal.repositories.cascadeDeleteRepository, {
         repositoryId: args.repositoryId,
       });
     }
