@@ -364,8 +364,8 @@ export function ImportRepoDialog({
           <PlusIcon weight="bold" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent className="flex h-[560px] flex-col overflow-y-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle>Add a repository</DialogTitle>
           <DialogDescription>
             {!isConnected
@@ -375,14 +375,14 @@ export function ImportRepoDialog({
         </DialogHeader>
 
         {!isConnected ? (
-          <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
             <p className="text-sm text-muted-foreground">
               Connect your GitHub account first to import repositories.
             </p>
           </div>
         ) : (
           <Tabs defaultValue="public" className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <TabsList className="w-full border-b border-border px-0">
+            <TabsList className="w-full shrink-0 border-b border-border px-0">
               <TabsTrigger value="public" className="gap-1.5">
                 <GlobeIcon size={14} weight="bold" />
                 Public Repo
@@ -396,7 +396,7 @@ export function ImportRepoDialog({
             {/* ---- Tab 1: Public Repo (URL + Search) ---- */}
             <TabsContent value="public" className="pt-3">
               {/* Smart input */}
-              <div className="relative">
+              <div className="relative shrink-0">
                 <MagnifyingGlassIcon
                   size={14}
                   weight="bold"
@@ -417,7 +417,7 @@ export function ImportRepoDialog({
               {/* URL import mode */}
               {isUrlMode ? (
                 <form
-                  className="mt-3 flex flex-col gap-3"
+                  className="mt-3 flex min-h-0 flex-1 flex-col gap-3"
                   onSubmit={(e) => {
                     void handleImportByUrl(e);
                   }}
@@ -457,18 +457,18 @@ export function ImportRepoDialog({
                 </form>
               ) : publicInput.trim().length >= 2 ? (
                 /* Search results */
-                <div className="mt-3">
+                <div className="mt-3 flex min-h-0 flex-1 flex-col">
                   {isSearching && !searchResults ? (
-                    <div className="flex h-[200px] items-center justify-center gap-2">
+                    <div className="flex flex-1 items-center justify-center gap-2">
                       <CircleNotchIcon size={16} className="animate-spin text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Searching...</p>
                     </div>
                   ) : searchError ? (
-                    <div className="flex h-[200px] flex-col items-center justify-center gap-2">
+                    <div className="flex flex-1 flex-col items-center justify-center gap-2">
                       <p className="text-sm text-destructive">{searchError}</p>
                     </div>
                   ) : searchResults && searchResults.length === 0 ? (
-                    <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
+                    <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                       <p className="text-sm text-muted-foreground">
                         No repositories found for &ldquo;{publicInput.trim()}&rdquo;
                       </p>
@@ -477,7 +477,7 @@ export function ImportRepoDialog({
                       </p>
                     </div>
                   ) : searchResults ? (
-                    <ScrollArea className="h-[280px]">
+                    <ScrollArea className="min-h-0 flex-1">
                       <div className="flex flex-col pr-3">
                         {isSearching && (
                           <div className="flex items-center justify-center gap-1.5 border-b border-border/50 py-2.5">
@@ -500,12 +500,12 @@ export function ImportRepoDialog({
                   ) : null}
 
                   {importError && (
-                    <p className="mt-2 text-xs text-destructive">{importError}</p>
+                    <p className="mt-2 shrink-0 text-xs text-destructive">{importError}</p>
                   )}
                 </div>
               ) : (
                 /* Empty state / hint */
-                <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                   <p className="text-sm text-muted-foreground">
                     Search any public repository on GitHub, or paste a URL to import directly.
                   </p>
@@ -523,7 +523,7 @@ export function ImportRepoDialog({
                   href={`https://github.com/settings/installations/${installationId}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mb-3 flex items-center gap-3 border-l-2 border-l-primary bg-muted px-3 py-2.5 transition-colors hover:bg-muted/80"
+                  className="mb-3 flex shrink-0 items-center gap-3 border-l-2 border-l-primary bg-muted px-3 py-2.5 transition-colors hover:bg-muted/80"
                 >
                   <GithubLogoIcon size={20} weight="fill" className="shrink-0 text-foreground" />
                   <div className="min-w-0 flex-1">
@@ -536,23 +536,23 @@ export function ImportRepoDialog({
                 </a>
               )}
 
-              <p className="mb-2 text-[11px] text-muted-foreground">
+              <p className="mb-2 shrink-0 text-[11px] text-muted-foreground">
                 Your authorized private repositories
               </p>
 
               {isLoadingAuthorized && !authorizedRepos ? (
-                <div className="flex h-[200px] items-center justify-center">
+                <div className="flex flex-1 items-center justify-center">
                   <p className="text-sm text-muted-foreground">Loading repositories...</p>
                 </div>
               ) : authorizedError ? (
-                <div className="flex h-[200px] flex-col items-center justify-center gap-2">
+                <div className="flex flex-1 flex-col items-center justify-center gap-2">
                   <p className="text-sm text-destructive">{authorizedError}</p>
                   <Button variant="ghost" size="sm" onClick={() => void fetchAuthorizedRepos()}>
                     Retry
                   </Button>
                 </div>
               ) : authorizedPrivateRepos && authorizedPrivateRepos.length === 0 ? (
-                <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                   <p className="text-sm text-muted-foreground">
                     No private repos authorized yet.
                   </p>
@@ -561,7 +561,7 @@ export function ImportRepoDialog({
                   </p>
                 </div>
               ) : authorizedPrivateRepos ? (
-                <ScrollArea className="h-[280px]">
+                <ScrollArea className="min-h-0 flex-1">
                   <div className="flex flex-col pr-3">
                     {authorizedPrivateRepos.map((repo) => (
                       <RepoRow
@@ -578,7 +578,7 @@ export function ImportRepoDialog({
               ) : null}
 
               {importError && (
-                <p className="mt-2 text-xs text-destructive">{importError}</p>
+                <p className="mt-2 shrink-0 text-xs text-destructive">{importError}</p>
               )}
             </TabsContent>
           </Tabs>

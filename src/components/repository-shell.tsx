@@ -11,7 +11,6 @@ import { ChatPanel } from '@/components/chat-panel';
 import { JobRow } from '@/components/job-row';
 import { DeepAnalysisDialog } from '@/components/deep-analysis-dialog';
 import { ConfirmDialog } from '@/components/confirm-dialog';
-import { AuthButton } from '@/components/auth-button';
 import { EmptyState } from '@/components/empty-state';
 import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
@@ -124,7 +123,6 @@ export function RepositoryShell() {
           setSelectedRepositoryId(repoId);
           if (threadId) setSelectedThreadId(threadId);
         }}
-        authButton={<AuthButton size="sm" />}
       />
 
       <SidebarInset>

@@ -10,7 +10,7 @@ import {
 } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
-import { ModeToggle } from '@/components/mode-toggle';
+import { ProfileCard } from '@/components/profile-card';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -34,7 +34,6 @@ export function AppSidebar({
   chatMode,
   defaultThreadId,
   onImported,
-  authButton,
 }: {
   repositories: Doc<'repositories'>[] | undefined;
   selectedRepositoryId: RepositoryId | null;
@@ -45,7 +44,6 @@ export function AppSidebar({
   chatMode: ChatMode;
   defaultThreadId?: ThreadId;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
-  authButton: React.ReactNode;
 }) {
   const [repoSearch, setRepoSearch] = useState('');
 
@@ -127,11 +125,8 @@ export function AppSidebar({
         )}
       </SidebarContent>
 
-      <SidebarFooter>
-        <div className="flex items-center justify-between">
-          <ModeToggle />
-          {authButton}
-        </div>
+      <SidebarFooter className="px-3 py-2">
+        <ProfileCard />
       </SidebarFooter>
     </Sidebar>
   );
