@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { TopBar } from '@/components/top-bar';
-import { DeepAnalysisDialog } from '@/components/deep-analysis-dialog';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { AppNotice } from '@/components/app-notice';
@@ -13,6 +12,10 @@ import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 import { useRepositoryActions } from '@/hooks/use-repository-actions';
 import { useRepositorySelection } from '@/hooks/use-repository-selection';
 import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
+
+const DeepAnalysisDialog = lazy(() =>
+  import('@/components/deep-analysis-dialog').then((module) => ({ default: module.DeepAnalysisDialog })),
+);
 
 export function RepositoryShell() {
   const repositories = useQuery(api.repositories.listRepositories);
@@ -169,22 +172,26 @@ export function RepositoryShell() {
         onConfirm={() => void handleDeleteRepo()}
       />
 
-      <DeepAnalysisDialog
-        open={showAnalysisDialog}
-        onOpenChange={(open) => {
-          setShowAnalysisDialog(open);
-          if (!open) {
-            setAnalysisError(null);
-          }
-        }}
-        analysisPrompt={analysisPrompt}
-        onAnalysisPromptChange={setAnalysisPrompt}
-        deepModeAvailable={repoDetail?.deepModeAvailable ?? false}
-        deepModeReason={repoDetail?.deepModeStatus?.message ?? null}
-        errorMessage={analysisError}
-        isRunning={isRunningAnalysis}
-        onRun={handleRunAnalysis}
-      />
+      {showAnalysisDialog ? (
+        <Suspense fallback={null}>
+          <DeepAnalysisDialog
+            open={showAnalysisDialog}
+            onOpenChange={(open) => {
+              setShowAnalysisDialog(open);
+              if (!open) {
+                setAnalysisError(null);
+              }
+            }}
+            analysisPrompt={analysisPrompt}
+            onAnalysisPromptChange={setAnalysisPrompt}
+            deepModeAvailable={repoDetail?.deepModeAvailable ?? false}
+            deepModeReason={repoDetail?.deepModeStatus?.message ?? null}
+            errorMessage={analysisError}
+            isRunning={isRunningAnalysis}
+            onRun={handleRunAnalysis}
+          />
+        </Suspense>
+      ) : null}
     </>
   );
 }
