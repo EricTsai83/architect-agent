@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
@@ -47,6 +47,12 @@ export function RepositoryShell() {
     effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : 'skip',
   );
 
+  const handleSelectThread = useCallback((threadId: ThreadId | null) => {
+    setActionError(null);
+    setAnalysisError(null);
+    setSelectedThreadId(threadId);
+  }, []);
+
   // Check GitHub for new remote commits on tab-focus and repo-switch
   useCheckForUpdates(effectiveSelectedRepositoryId);
 
@@ -58,7 +64,6 @@ export function RepositoryShell() {
     api.chat.listThreads,
     effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : 'skip',
   );
-  const messages = useQuery(api.chat.listMessages, selectedThreadId ? { threadId: selectedThreadId } : 'skip');
   const artifacts = repoDetail?.artifacts;
   const jobs = repoDetail?.jobs;
 
@@ -68,12 +73,36 @@ export function RepositoryShell() {
       ? 'no-repo'
       : 'ready';
 
+  const defaultThreadId = repoDetail?.repository.defaultThreadId;
+  const preferredThreadId =
+    workspaceStatus === 'ready' && threadsForChat && threadsForChat.length > 0
+      ? defaultThreadId && threadsForChat.some((thread) => thread._id === defaultThreadId)
+        ? defaultThreadId
+        : threadsForChat[0]._id
+      : null;
+  const effectiveSelectedThreadId = selectedThreadId ?? preferredThreadId;
+  const messages = useQuery(
+    api.chat.listMessages,
+    effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : 'skip',
+  );
+
+  useEffect(() => {
+    if (
+      workspaceStatus !== 'ready' ||
+      threadsForChat === undefined ||
+      threadsForChat.length === 0 ||
+      selectedThreadId !== null ||
+      preferredThreadId === null
+    ) {
+      return;
+    }
+
+    handleSelectThread(preferredThreadId);
+  }, [workspaceStatus, threadsForChat, selectedThreadId, preferredThreadId, handleSelectThread]);
+
   const isChatLoading =
     workspaceStatus === 'initializing' ||
-    (workspaceStatus === 'ready' &&
-      (threadsForChat === undefined ||
-        (threadsForChat.length > 0 && selectedThreadId === null) ||
-        (selectedThreadId !== null && messages === undefined)));
+    (workspaceStatus === 'ready' && (threadsForChat === undefined || (effectiveSelectedThreadId !== null && messages === undefined)));
 
   const {
     isSending,
@@ -88,7 +117,7 @@ export function RepositoryShell() {
     handleDeleteRepo,
   } = useRepositoryActions({
     selectedRepositoryId: effectiveSelectedRepositoryId,
-    selectedThreadId,
+    selectedThreadId: effectiveSelectedThreadId,
     threadToDelete,
     analysisPrompt,
     chatInput,
@@ -116,14 +145,10 @@ export function RepositoryShell() {
           setThreadToDelete(null);
         }}
         selectedThreadId={selectedThreadId}
-        onSelectThread={(threadId) => {
-          setActionError(null);
-          setAnalysisError(null);
-          setSelectedThreadId(threadId);
-        }}
+        onSelectThread={handleSelectThread}
         onDeleteThread={setThreadToDelete}
         chatMode={chatMode}
-        defaultThreadId={repoDetail?.repository.defaultThreadId}
+        defaultThreadId={defaultThreadId}
         onImported={(repoId, threadId) => {
           setActionError(null);
           setAnalysisError(null);
@@ -159,7 +184,7 @@ export function RepositoryShell() {
             onActiveTabChange={setActiveTab}
             jobs={jobs}
             artifacts={artifacts}
-            selectedThreadId={selectedThreadId}
+            selectedThreadId={effectiveSelectedThreadId}
             messages={messages}
             isChatLoading={isChatLoading}
             chatInput={chatInput}

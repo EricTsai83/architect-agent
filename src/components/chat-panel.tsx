@@ -52,7 +52,7 @@ export function ChatPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-6">
+        <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-3 px-6 py-6">
           {!isChatLoading && chatMode === 'deep' && !deepModeAvailable ? (
             <AppNotice
               title={getDeepModeTitle(deepModeStatus?.reasonCode)}
@@ -142,19 +142,12 @@ export function ChatPanel({
 }
 
 function EmptyChatHint() {
-  const hints = [
-    'How is the codebase layered, and where do requests flow?',
-    'What are the main modules and how do they depend on each other?',
-    'Where are the risky areas or likely hotspots?',
-  ];
   return (
-    <div className="flex min-h-[14rem] flex-col items-center justify-center gap-3 py-16 text-center">
-      <p className="text-sm font-medium text-foreground">Ask anything about this repo</p>
-      <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-        {hints.map((hint) => (
-          <li key={hint}>"{hint}"</li>
-        ))}
-      </ul>
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+      <p className="text-base font-medium text-foreground">Ask anything about this repo</p>
+      <p className="text-xs text-muted-foreground">
+        Architecture · Module dependencies · Risk hotspots
+      </p>
     </div>
   );
 }

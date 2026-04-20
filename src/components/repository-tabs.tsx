@@ -154,8 +154,11 @@ function ListPanel({
   isEmpty: boolean;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto" aria-busy={isLoading}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-6">
+        <span className="sr-only" role="status" aria-live="polite">
+          {isLoading ? 'Loading…' : ''}
+        </span>
         {isLoading ? null : isEmpty ? (
           <p className="text-sm text-muted-foreground animate-in fade-in duration-300">{emptyText}</p>
         ) : (

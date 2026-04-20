@@ -3,8 +3,9 @@
 import type React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { AppRouter } from './app-router';
 import { ConvexProviderWithAuthKit } from './providers/convex-provider-with-auth-kit';
-import { AppRouter, createAppMemoryRouter } from './router';
+import { createAppMemoryRouter } from './router';
 
 const getAccessTokenMock = vi.fn<() => Promise<string | null>>();
 

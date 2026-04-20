@@ -73,12 +73,10 @@ export function TopBar({
               </span>
             ) : null}
             {repoDetail ? (
-              <div className="animate-in fade-in duration-300">
-                <RepoStatusIndicator
-                  importStatus={repoDetail.repository.importStatus}
-                  sandbox={repoDetail.sandbox}
-                />
-              </div>
+              <RepoStatusIndicator
+                importStatus={repoDetail.repository.importStatus}
+                sandbox={repoDetail.sandbox}
+              />
             ) : null}
           </div>
         ) : null}
@@ -158,17 +156,26 @@ function SyncButton({
     label = 'Sync';
   }
 
+  const buttonClassName = hasUpdates
+    ? 'relative min-w-[8.75rem] justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
+    : 'min-w-[8.75rem] justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
+
+  if (label === null && !repoDetail && !isBusy) {
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-flex h-8 min-w-[8.75rem] items-center justify-start rounded-md border border-transparent bg-transparent px-3 text-xs text-muted-foreground"
+      />
+    );
+  }
+
   return (
     <Button
       variant="ghost"
       size="sm"
       disabled={!repoDetail || isBusy}
       onClick={onSync}
-      className={
-        hasUpdates
-          ? 'relative min-w-[8.75rem] justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
-          : 'min-w-[8.75rem] justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground'
-      }
+      className={buttonClassName}
       title={
         hasUpdates
           ? 'New commits available on remote — click to sync'
