@@ -20,7 +20,6 @@ export function AppSidebar({
   onSelectThread,
   onDeleteThread,
   chatMode,
-  defaultThreadId,
   onImported,
 }: {
   repositories: Doc<'repositories'>[] | undefined;
@@ -30,7 +29,6 @@ export function AppSidebar({
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
   chatMode: ChatMode;
-  defaultThreadId?: ThreadId;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
   const [repoSearch, setRepoSearch] = useState('');
@@ -71,50 +69,49 @@ export function AppSidebar({
 
       <SidebarContent>
         <div className="flex flex-col gap-1 p-3" aria-live="polite">
-          {repositories === undefined ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">Loading…</p>
-          ) : filteredRepos.length === 0 ? (
-            <div className="px-3 py-6 text-center text-xs">
+          {repositories === undefined ? null : filteredRepos.length === 0 ? (
+            <div className="px-3 py-6 text-center text-xs animate-in fade-in slide-in-from-top-1 duration-300">
               <p className="font-semibold">No repositories</p>
               <p className="mt-1 text-muted-foreground">Import a public GitHub repo to get started.</p>
             </div>
           ) : (
-            filteredRepos.map((repository) => (
-              <SidebarMenuButton
-                key={repository._id}
-                selected={selectedRepositoryId === repository._id}
-                onClick={() => onSelectRepository(repository._id)}
-              >
-                {repository.visibility === 'private' ? (
-                  <LockIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
-                ) : (
-                  <GlobeIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
-                )}
-                <p className="min-w-0 flex-1 truncate text-sm font-medium">{repository.sourceRepoFullName}</p>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {repository.visibility === 'private' ? 'Private' : 'Public'}
-                </span>
-                {/* Orange dot when remote has new commits */}
-                {repository.latestRemoteSha &&
-                  repository.lastSyncedCommitSha &&
-                  repository.latestRemoteSha !== repository.lastSyncedCommitSha && (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="New commits available" />
+            <div className="flex flex-col gap-1 animate-in fade-in slide-in-from-top-1 duration-300">
+              {filteredRepos.map((repository) => (
+                <SidebarMenuButton
+                  key={repository._id}
+                  selected={selectedRepositoryId === repository._id}
+                  onClick={() => onSelectRepository(repository._id)}
+                >
+                  {repository.visibility === 'private' ? (
+                    <LockIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
+                  ) : (
+                    <GlobeIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
                   )}
-              </SidebarMenuButton>
-            ))
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{repository.sourceRepoFullName}</p>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {repository.visibility === 'private' ? 'Private' : 'Public'}
+                  </span>
+                  {/* Orange dot when remote has new commits */}
+                  {repository.latestRemoteSha &&
+                    repository.lastSyncedCommitSha &&
+                    repository.latestRemoteSha !== repository.lastSyncedCommitSha && (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="New commits available" />
+                    )}
+                </SidebarMenuButton>
+              ))}
+            </div>
           )}
         </div>
 
-        {selectedRepositoryId !== null && (
+        {selectedRepositoryId !== null ? (
           <ThreadsSection
             repositoryId={selectedRepositoryId}
             selectedThreadId={selectedThreadId}
             onSelectThread={onSelectThread}
             onDeleteThread={onDeleteThread}
             chatMode={chatMode}
-            defaultThreadId={defaultThreadId}
           />
-        )}
+        ) : null}
       </SidebarContent>
 
       <SidebarFooter className="px-3 py-2">
@@ -136,14 +133,12 @@ function ThreadsSection({
   onSelectThread,
   onDeleteThread,
   chatMode,
-  defaultThreadId,
 }: {
   repositoryId: RepositoryId;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
   chatMode: ChatMode;
-  defaultThreadId?: ThreadId;
 }) {
   const threads = useQuery(api.chat.listThreads, { repositoryId });
   const createThreadMutation = useMutation(api.chat.createThread);
@@ -156,30 +151,17 @@ function ThreadsSection({
   );
 
   useEffect(() => {
-    if (threads === undefined) {
-      return;
+    if (threads?.length === 0 && selectedThreadId !== null) {
+      onSelectThread(null);
     }
-    if (threads.length === 0) {
-      if (selectedThreadId !== null) {
-        onSelectThread(null);
-      }
-      return;
-    }
-    const preferred =
-      defaultThreadId && threads.some((thread) => thread._id === defaultThreadId) ? defaultThreadId : threads[0]._id;
-    if (!selectedThreadId || !threads.some((t) => t._id === selectedThreadId)) {
-      onSelectThread(preferred);
-    }
-  }, [threads, defaultThreadId, selectedThreadId, onSelectThread]);
+  }, [threads, selectedThreadId, onSelectThread]);
 
   return (
     <>
       <div className="border-t border-border" />
       <div className="flex flex-col gap-1 p-3">
         <ThreadsHeader isCreatingThread={isCreatingThread} onCreateThread={() => void handleCreateThread()} />
-        {threads === undefined ? (
-          <p className="px-1 text-xs text-muted-foreground">Loading…</p>
-        ) : (
+        {threads === undefined ? null : (
           <ThreadsList
             threads={threads}
             selectedThreadId={selectedThreadId}
@@ -242,10 +224,14 @@ const ThreadsList = memo(function ThreadsList({
   onDeleteThread: (id: ThreadId) => void;
 }) {
   if (threads.length === 0) {
-    return <p className="px-1 text-xs text-muted-foreground">No threads yet.</p>;
+    return (
+      <p className="px-1 text-xs text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-300">
+        No threads yet.
+      </p>
+    );
   }
   return (
-    <>
+    <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-300">
       {threads.map((thread) => (
         <div key={thread._id} className="group relative">
           <SidebarMenuButton
@@ -272,6 +258,6 @@ const ThreadsList = memo(function ThreadsList({
           </Button>
         </div>
       ))}
-    </>
+    </div>
   );
 });

@@ -16,6 +16,7 @@ import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -91,7 +92,7 @@ function RepoRow({
     importSummary?.importStatus === 'queued' || importSummary?.importStatus === 'running';
   const hasUpdates = hasCompletedImport && !!importSummary?.hasRemoteUpdates;
   const canRetryFailedSync = hasCompletedImport && importSummary?.importStatus === 'failed';
-  const runningLabel = hasCompletedImport ? 'Syncing...' : 'Importing...';
+  const runningLabel = hasCompletedImport ? 'Syncing…' : 'Importing…';
 
   return (
     <div
@@ -132,23 +133,23 @@ function RepoRow({
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0 gap-1 text-xs"
+            className="min-w-[7.5rem] shrink-0 justify-center gap-1 text-xs"
             disabled={isImporting}
             onClick={onImport}
           >
             <ArrowsClockwiseIcon size={12} weight="bold" />
-            {isImporting ? 'Syncing...' : 'Sync'}
+            {isImporting ? 'Syncing…' : 'Sync'}
           </Button>
         ) : canRetryFailedSync ? (
           <Button
             variant="outline"
             size="sm"
-            className="shrink-0 gap-1 text-xs"
+            className="min-w-[7.5rem] shrink-0 justify-center gap-1 text-xs"
             disabled={isImporting}
             onClick={onImport}
           >
             <ArrowsClockwiseIcon size={12} weight="bold" />
-            {isImporting ? 'Syncing...' : 'Retry sync'}
+            {isImporting ? 'Syncing…' : 'Retry sync'}
           </Button>
         ) : (
           <Badge variant="muted" className="shrink-0 gap-1">
@@ -160,11 +161,11 @@ function RepoRow({
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0 text-xs"
+          className="min-w-[7.5rem] shrink-0 justify-center text-xs"
           disabled={isImporting}
           onClick={onImport}
         >
-          {isImporting ? 'Importing...' : 'Import'}
+          {isImporting ? 'Importing…' : 'Import'}
         </Button>
       )}
     </div>
@@ -468,12 +469,13 @@ export function ImportRepoDialog({
                     <Button
                       type="submit"
                       variant="default"
+                      className="min-w-36"
                       disabled={importStage !== 'idle' || !publicInput.trim()}
                     >
                       {importStage === 'verifying'
-                        ? 'Checking access...'
+                        ? 'Checking access…'
                         : importStage === 'importing'
-                          ? 'Queuing import...'
+                          ? 'Queuing import…'
                           : 'Import'}
                     </Button>
                   </DialogFooter>
@@ -484,7 +486,7 @@ export function ImportRepoDialog({
                   {isSearching && !searchResults ? (
                     <div className="flex flex-1 items-center justify-center gap-2">
                       <CircleNotchIcon size={16} className="animate-spin text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Searching...</p>
+                      <p className="text-sm text-muted-foreground">Searching…</p>
                     </div>
                   ) : searchError ? (
                     <div className="flex flex-1 flex-col items-center justify-center gap-2">
@@ -505,7 +507,7 @@ export function ImportRepoDialog({
                         {isSearching && (
                           <div className="flex items-center justify-center gap-1.5 border-b border-border/50 py-2.5">
                             <CircleNotchIcon size={12} className="animate-spin text-muted-foreground" />
-                            <span className="text-[11px] text-muted-foreground">Updating results...</span>
+                            <span className="text-[11px] text-muted-foreground">Updating results…</span>
                           </div>
                         )}
                         {searchResults.map((repo) => (
@@ -564,8 +566,17 @@ export function ImportRepoDialog({
               </p>
 
               {isLoadingAuthorized && !authorizedRepos ? (
-                <div className="flex flex-1 items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Loading repositories...</p>
+                <div className="space-y-3">
+                  {Array.from({ length: 4 }, (_, index) => (
+                    <div key={index} className="flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="h-8 w-28" />
+                    </div>
+                  ))}
                 </div>
               ) : authorizedError ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2">

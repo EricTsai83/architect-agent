@@ -14,6 +14,7 @@ export function RepositoryTabs({
   artifacts,
   selectedThreadId,
   messages,
+  isChatLoading,
   chatInput,
   setChatInput,
   chatMode,
@@ -27,10 +28,11 @@ export function RepositoryTabs({
 }: {
   activeTab: 'chat' | 'jobs' | 'artifacts';
   onActiveTabChange: (value: 'chat' | 'jobs' | 'artifacts') => void;
-  jobs: Doc<'jobs'>[];
-  artifacts: Doc<'analysisArtifacts'>[];
+  jobs: Doc<'jobs'>[] | undefined;
+  artifacts: Doc<'analysisArtifacts'>[] | undefined;
   selectedThreadId: ThreadId | null;
   messages: Doc<'messages'>[] | undefined;
+  isChatLoading: boolean;
   chatInput: string;
   setChatInput: (value: string) => void;
   chatMode: ChatMode;
@@ -48,12 +50,13 @@ export function RepositoryTabs({
       onValueChange={(value) => onActiveTabChange(value as typeof activeTab)}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <MainTabsList jobCount={jobs.length} artifactCount={artifacts.length} />
+      <MainTabsList jobCount={jobs?.length} artifactCount={artifacts?.length} />
 
       <TabsContent value="chat">
         <ChatPanel
           selectedThreadId={selectedThreadId}
           messages={messages}
+          isChatLoading={isChatLoading}
           chatInput={chatInput}
           setChatInput={setChatInput}
           chatMode={chatMode}
@@ -68,8 +71,8 @@ export function RepositoryTabs({
       </TabsContent>
 
       <TabsContent value="jobs">
-        <ListPanel emptyText="No jobs yet." isEmpty={jobs.length === 0}>
-          {jobs.map((job) => (
+        <ListPanel emptyText="No jobs yet." isLoading={jobs === undefined} isEmpty={jobs !== undefined && jobs.length === 0}>
+          {jobs?.map((job) => (
             <JobRow key={job._id} job={job} />
           ))}
         </ListPanel>
@@ -78,9 +81,10 @@ export function RepositoryTabs({
       <TabsContent value="artifacts">
         <ListPanel
           emptyText="Once the import finishes, manifests, READMEs, and architecture summaries appear here."
-          isEmpty={artifacts.length === 0}
+          isLoading={artifacts === undefined}
+          isEmpty={artifacts !== undefined && artifacts.length === 0}
         >
-          {artifacts.map((artifact) => (
+          {artifacts?.map((artifact) => (
             <Card key={artifact._id}>
               <CardHeader className="flex-row items-start justify-between gap-3 p-4 pb-2">
                 <div className="min-w-0">
@@ -104,10 +108,14 @@ export function RepositoryTabs({
   );
 }
 
-function CountBadge({ count }: { count: number }) {
+function CountBadge({ count }: { count?: number }) {
   return (
-    <span className="ml-1.5 inline-flex min-w-5 items-center justify-center bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
-      {count}
+    <span className="ml-1.5 inline-flex min-w-7 items-center justify-center bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
+      {count === undefined ? (
+        <span className="invisible">0</span>
+      ) : (
+        <span className="animate-in fade-in duration-300">{count}</span>
+      )}
     </span>
   );
 }
@@ -116,8 +124,8 @@ const MainTabsList = memo(function MainTabsList({
   jobCount,
   artifactCount,
 }: {
-  jobCount: number;
-  artifactCount: number;
+  jobCount?: number;
+  artifactCount?: number;
 }) {
   return (
     <TabsList className="border-b border-border px-4">
@@ -137,16 +145,27 @@ const MainTabsList = memo(function MainTabsList({
 function ListPanel({
   emptyText,
   children,
+  isLoading,
   isEmpty,
 }: {
   emptyText: string;
   children: ReactNode;
+  isLoading: boolean;
   isEmpty: boolean;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto" aria-busy={isLoading}>
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-6">
-        {isEmpty ? <p className="text-sm text-muted-foreground">{emptyText}</p> : children}
+        <span className="sr-only" role="status" aria-live="polite">
+          {isLoading ? 'Loading…' : ''}
+        </span>
+        {isLoading ? null : isEmpty ? (
+          <p className="text-sm text-muted-foreground animate-in fade-in duration-300">{emptyText}</p>
+        ) : (
+          <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-1 duration-300">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   );

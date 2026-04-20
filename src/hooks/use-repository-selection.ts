@@ -6,8 +6,10 @@ export function useRepositorySelection(
   repositories: Doc<'repositories'>[] | undefined,
   selectedRepositoryId: RepositoryId | null,
 ) {
+  const isRepositoriesLoading = repositories === undefined;
+
   const effectiveSelectedRepositoryId = useMemo(() => {
-    if (!repositories || repositories.length === 0) {
+    if (repositories === undefined || repositories.length === 0) {
       return null;
     }
     if (selectedRepositoryId && repositories.some((repository) => repository._id === selectedRepositoryId)) {
@@ -23,6 +25,7 @@ export function useRepositorySelection(
 
   return {
     effectiveSelectedRepositoryId,
+    isRepositoriesLoading,
     selectedRepoName,
   };
 }

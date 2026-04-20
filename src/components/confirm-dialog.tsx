@@ -38,11 +38,17 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="secondary" disabled={isPending}>
+            <Button type="button" variant="secondary" className="min-w-24" disabled={isPending}>
               Cancel
             </Button>
           </DialogClose>
-          <Button type="button" variant="destructive" disabled={isPending} onClick={onConfirm}>
+          <Button
+            type="button"
+            variant="destructive"
+            className="min-w-36"
+            disabled={isPending}
+            onClick={onConfirm}
+          >
             <TrashIcon weight="bold" />
             {isPending ? loadingLabel : actionLabel}
           </Button>

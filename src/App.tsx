@@ -1,4 +1,5 @@
-import { AppRouter, createAppRouter } from '@/router';
+import { AppRouter } from '@/app-router';
+import { createAppRouter } from '@/router';
 
 const router = createAppRouter();
 

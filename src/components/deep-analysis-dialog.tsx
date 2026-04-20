@@ -65,6 +65,7 @@ export function DeepAnalysisDialog({
           <Button
             type="button"
             variant="default"
+            className="min-w-40"
             disabled={isRunning || !analysisPrompt.trim() || !deepModeAvailable}
             onClick={() => {
               void onRun();

@@ -51,28 +51,36 @@ export function TopBar({
   onDeleteRepo: () => void;
   onRunAnalysis: () => void;
 }) {
-  const title = repoDetail?.repository.sourceRepoFullName ?? repoName ?? 'Repository';
+  const title = repoDetail?.repository.sourceRepoFullName ?? repoName;
 
   return (
     <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
       <SidebarTrigger />
-      {repoDetail ? (
-        <>
-          <RepoInfoPopover repoDetail={repoDetail} title={title} />
-          {repoDetail.repository.defaultBranch && (
-            <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
-              <GitBranchIcon size={13} weight="bold" className="shrink-0" />
-              <span className="max-w-[120px] truncate">{repoDetail.repository.defaultBranch}</span>
-            </span>
-          )}
-          <RepoStatusIndicator
-            importStatus={repoDetail.repository.importStatus}
-            sandbox={repoDetail.sandbox}
-          />
-        </>
-      ) : (
-        <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight md:text-base">{title}</h1>
-      )}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {title ? (
+          <div className="flex min-w-0 flex-1 items-center gap-2 animate-in fade-in duration-300">
+            {repoDetail ? (
+              <RepoInfoPopover repoDetail={repoDetail} title={title} />
+            ) : (
+              <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight md:text-base">
+                {title}
+              </h1>
+            )}
+            {repoDetail?.repository.defaultBranch ? (
+              <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex animate-in fade-in duration-300">
+                <GitBranchIcon size={13} weight="bold" className="shrink-0" />
+                <span className="max-w-[120px] truncate">{repoDetail.repository.defaultBranch}</span>
+              </span>
+            ) : null}
+            {repoDetail ? (
+              <RepoStatusIndicator
+                importStatus={repoDetail.repository.importStatus}
+                sandbox={repoDetail.sandbox}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
         <SyncButton
@@ -137,15 +145,28 @@ function SyncButton({
   const hasUpdates = repoDetail?.hasRemoteUpdates && !isBusy;
 
   // Derive the text shown inside the button
-  let label: string;
+  let label: string | null = null;
   if (isBusy) {
     label = 'Syncing…';
   } else if (hasUpdates) {
     label = 'Update available';
   } else if (syncedLabel) {
     label = `Synced ${syncedLabel}`;
-  } else {
+  } else if (repoDetail) {
     label = 'Sync';
+  }
+
+  const buttonClassName = hasUpdates
+    ? 'relative min-w-[8.75rem] justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
+    : 'min-w-[8.75rem] justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
+
+  if (label === null && !repoDetail && !isBusy) {
+    return (
+      <span
+        aria-hidden="true"
+        className="inline-flex h-8 min-w-[8.75rem] items-center justify-start rounded-md border border-transparent bg-transparent px-3 text-xs text-muted-foreground"
+      />
+    );
   }
 
   return (
@@ -154,11 +175,7 @@ function SyncButton({
       size="sm"
       disabled={!repoDetail || isBusy}
       onClick={onSync}
-      className={
-        hasUpdates
-          ? 'relative gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
-          : 'gap-1.5 text-xs text-muted-foreground hover:text-foreground'
-      }
+      className={buttonClassName}
       title={
         hasUpdates
           ? 'New commits available on remote — click to sync'
@@ -173,8 +190,12 @@ function SyncButton({
           <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
         </span>
       )}
-      <ArrowsClockwiseIcon weight="bold" className={isBusy ? 'animate-spin' : ''} />
-      {label}
+      {label ? (
+        <span className="inline-flex items-center gap-1.5 animate-in fade-in duration-300">
+          <ArrowsClockwiseIcon weight="bold" className={isBusy ? 'animate-spin' : ''} />
+          {label}
+        </span>
+      ) : null}
     </Button>
   );
 }

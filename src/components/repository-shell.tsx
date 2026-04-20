@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
@@ -8,10 +8,14 @@ import { ConfirmDialog } from '@/components/confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { AppNotice } from '@/components/app-notice';
 import { RepositoryTabs } from '@/components/repository-tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 import { useRepositoryActions } from '@/hooks/use-repository-actions';
 import { useRepositorySelection } from '@/hooks/use-repository-selection';
 import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
+
+type RepositoryWorkspaceStatus = 'initializing' | 'no-repo' | 'ready';
 
 const DeepAnalysisDialog = lazy(() =>
   import('@/components/deep-analysis-dialog').then((module) => ({ default: module.DeepAnalysisDialog })),
@@ -33,7 +37,7 @@ export function RepositoryShell() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  const { effectiveSelectedRepositoryId, selectedRepoName } = useRepositorySelection(
+  const { effectiveSelectedRepositoryId, isRepositoriesLoading, selectedRepoName } = useRepositorySelection(
     repositories,
     selectedRepositoryId,
   );
@@ -43,12 +47,51 @@ export function RepositoryShell() {
     effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : 'skip',
   );
 
+  const handleSelectThread = useCallback((threadId: ThreadId | null) => {
+    setActionError(null);
+    setAnalysisError(null);
+    setSelectedThreadId(threadId);
+  }, []);
+
   // Check GitHub for new remote commits on tab-focus and repo-switch
   useCheckForUpdates(effectiveSelectedRepositoryId);
 
-  const messages = useQuery(api.chat.listMessages, selectedThreadId ? { threadId: selectedThreadId } : 'skip');
-  const artifacts = repoDetail?.artifacts ?? [];
-  const jobs = repoDetail?.jobs ?? [];
+  // Threads are also subscribed inside the sidebar's ThreadsSection; Convex
+  // dedupes identical subscriptions, so this extra useQuery is free and lets
+  // the main panel compute a single unified "chat is still resolving" flag
+  // instead of flashing between skeletons and empty states.
+  const threadsForChat = useQuery(
+    api.chat.listThreads,
+    effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : 'skip',
+  );
+  const artifacts = repoDetail?.artifacts;
+  const jobs = repoDetail?.jobs;
+
+  const workspaceStatus: RepositoryWorkspaceStatus = isRepositoriesLoading
+    ? 'initializing'
+    : effectiveSelectedRepositoryId === null
+      ? 'no-repo'
+      : 'ready';
+
+  const defaultThreadId = repoDetail?.repository.defaultThreadId;
+  const preferredThreadId =
+    workspaceStatus === 'ready' && threadsForChat && threadsForChat.length > 0
+      ? defaultThreadId && threadsForChat.some((thread) => thread._id === defaultThreadId)
+        ? defaultThreadId
+        : threadsForChat[0]._id
+      : null;
+  const effectiveSelectedThreadId =
+    selectedThreadId && threadsForChat?.some((thread) => thread._id === selectedThreadId)
+      ? selectedThreadId
+      : preferredThreadId;
+  const messages = useQuery(
+    api.chat.listMessages,
+    effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : 'skip',
+  );
+
+  const isChatLoading =
+    workspaceStatus === 'initializing' ||
+    (workspaceStatus === 'ready' && (threadsForChat === undefined || (effectiveSelectedThreadId !== null && messages === undefined)));
 
   const {
     isSending,
@@ -63,7 +106,7 @@ export function RepositoryShell() {
     handleDeleteRepo,
   } = useRepositoryActions({
     selectedRepositoryId: effectiveSelectedRepositoryId,
-    selectedThreadId,
+    selectedThreadId: effectiveSelectedThreadId,
     threadToDelete,
     analysisPrompt,
     chatInput,
@@ -90,15 +133,10 @@ export function RepositoryShell() {
           setSelectedThreadId(null);
           setThreadToDelete(null);
         }}
-        selectedThreadId={selectedThreadId}
-        onSelectThread={(threadId) => {
-          setActionError(null);
-          setAnalysisError(null);
-          setSelectedThreadId(threadId);
-        }}
+          selectedThreadId={effectiveSelectedThreadId}
+        onSelectThread={handleSelectThread}
         onDeleteThread={setThreadToDelete}
         chatMode={chatMode}
-        defaultThreadId={repoDetail?.repository.defaultThreadId}
         onImported={(repoId, threadId) => {
           setActionError(null);
           setAnalysisError(null);
@@ -126,7 +164,7 @@ export function RepositoryShell() {
           </div>
         ) : null}
 
-        {!effectiveSelectedRepositoryId ? (
+        {workspaceStatus === 'no-repo' ? (
           <EmptyState />
         ) : (
           <RepositoryTabs
@@ -134,15 +172,16 @@ export function RepositoryShell() {
             onActiveTabChange={setActiveTab}
             jobs={jobs}
             artifacts={artifacts}
-            selectedThreadId={selectedThreadId}
+            selectedThreadId={effectiveSelectedThreadId}
             messages={messages}
+            isChatLoading={isChatLoading}
             chatInput={chatInput}
             setChatInput={setChatInput}
             chatMode={chatMode}
             setChatMode={setChatMode}
             isSending={isSending}
             onSendMessage={handleSendMessage}
-            deepModeAvailable={repoDetail?.deepModeAvailable ?? false}
+            deepModeAvailable={repoDetail?.deepModeAvailable ?? true}
             deepModeStatus={repoDetail?.deepModeStatus ?? null}
             isSyncing={isSyncing}
             onSync={() => void handleSync()}
@@ -173,7 +212,7 @@ export function RepositoryShell() {
       />
 
       {showAnalysisDialog ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<DeepAnalysisDialogSkeleton />}>
           <DeepAnalysisDialog
             open={showAnalysisDialog}
             onOpenChange={(open) => {
@@ -184,7 +223,7 @@ export function RepositoryShell() {
             }}
             analysisPrompt={analysisPrompt}
             onAnalysisPromptChange={setAnalysisPrompt}
-            deepModeAvailable={repoDetail?.deepModeAvailable ?? false}
+            deepModeAvailable={repoDetail !== undefined && repoDetail.deepModeAvailable}
             deepModeReason={repoDetail?.deepModeStatus?.message ?? null}
             errorMessage={analysisError}
             isRunning={isRunningAnalysis}
@@ -193,5 +232,22 @@ export function RepositoryShell() {
         </Suspense>
       ) : null}
     </>
+  );
+}
+
+function DeepAnalysisDialogSkeleton() {
+  return (
+    <Dialog open>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Deep analysis</DialogTitle>
+          <DialogDescription>Loading the analysis workspace…</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
