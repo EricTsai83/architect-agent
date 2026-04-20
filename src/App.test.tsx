@@ -3,9 +3,8 @@
 import type React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
-import App from './App';
 import { ConvexProviderWithAuthKit } from './providers/convex-provider-with-auth-kit';
+import { AppRouter, createAppMemoryRouter } from './router';
 
 const getAccessTokenMock = vi.fn<() => Promise<string | null>>();
 
@@ -75,17 +74,56 @@ describe('App auth token failures', () => {
       };
     }
 
-    render(
-      <MemoryRouter initialEntries={['/chat']}>
-        <ConvexProviderWithAuthKit client={{} as never} useAuth={useAuth}>
-          <App />
-        </ConvexProviderWithAuthKit>
-      </MemoryRouter>,
-    );
+    renderWithAuth(useAuth, ['/chat']);
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
     expect(
       await screen.findByText('Authentication failed. Please refresh the page and sign in again.'),
     ).toBeInTheDocument();
   });
+
+  test('loads the home route for signed-out users on /', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    renderWithAuth(useAuth, ['/']);
+
+    expect(await screen.findByText('home page')).toBeInTheDocument();
+  });
+
+  test('redirects signed-in users from / to /chat', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    renderWithAuth(useAuth, ['/']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+  });
 });
+
+function renderWithAuth(
+  useAuth: () => {
+    isLoading: boolean;
+    user: { id: string } | null;
+    getAccessToken: () => Promise<string | null>;
+  },
+  initialEntries: string[],
+) {
+  const router = createAppMemoryRouter(initialEntries);
+
+  render(
+    <ConvexProviderWithAuthKit client={{} as never} useAuth={useAuth}>
+      <AppRouter router={router} />
+    </ConvexProviderWithAuthKit>,
+  );
+}
