@@ -2,6 +2,7 @@ import { memo, type FormEvent, type ReactNode } from 'react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChatPanel } from '@/components/chat-panel';
 import { JobRow } from '@/components/job-row';
@@ -14,6 +15,7 @@ export function RepositoryTabs({
   artifacts,
   selectedThreadId,
   messages,
+  isChatLoading,
   chatInput,
   setChatInput,
   chatMode,
@@ -27,10 +29,11 @@ export function RepositoryTabs({
 }: {
   activeTab: 'chat' | 'jobs' | 'artifacts';
   onActiveTabChange: (value: 'chat' | 'jobs' | 'artifacts') => void;
-  jobs: Doc<'jobs'>[];
-  artifacts: Doc<'analysisArtifacts'>[];
+  jobs: Doc<'jobs'>[] | undefined;
+  artifacts: Doc<'analysisArtifacts'>[] | undefined;
   selectedThreadId: ThreadId | null;
   messages: Doc<'messages'>[] | undefined;
+  isChatLoading: boolean;
   chatInput: string;
   setChatInput: (value: string) => void;
   chatMode: ChatMode;
@@ -48,12 +51,13 @@ export function RepositoryTabs({
       onValueChange={(value) => onActiveTabChange(value as typeof activeTab)}
       className="flex min-h-0 flex-1 flex-col"
     >
-      <MainTabsList jobCount={jobs.length} artifactCount={artifacts.length} />
+      <MainTabsList jobCount={jobs?.length} artifactCount={artifacts?.length} />
 
       <TabsContent value="chat">
         <ChatPanel
           selectedThreadId={selectedThreadId}
           messages={messages}
+          isChatLoading={isChatLoading}
           chatInput={chatInput}
           setChatInput={setChatInput}
           chatMode={chatMode}
@@ -68,8 +72,8 @@ export function RepositoryTabs({
       </TabsContent>
 
       <TabsContent value="jobs">
-        <ListPanel emptyText="No jobs yet." isEmpty={jobs.length === 0}>
-          {jobs.map((job) => (
+        <ListPanel emptyText="No jobs yet." isLoading={jobs === undefined} isEmpty={jobs !== undefined && jobs.length === 0}>
+          {jobs?.map((job) => (
             <JobRow key={job._id} job={job} />
           ))}
         </ListPanel>
@@ -78,9 +82,10 @@ export function RepositoryTabs({
       <TabsContent value="artifacts">
         <ListPanel
           emptyText="Once the import finishes, manifests, READMEs, and architecture summaries appear here."
-          isEmpty={artifacts.length === 0}
+          isLoading={artifacts === undefined}
+          isEmpty={artifacts !== undefined && artifacts.length === 0}
         >
-          {artifacts.map((artifact) => (
+          {artifacts?.map((artifact) => (
             <Card key={artifact._id}>
               <CardHeader className="flex-row items-start justify-between gap-3 p-4 pb-2">
                 <div className="min-w-0">
@@ -104,10 +109,10 @@ export function RepositoryTabs({
   );
 }
 
-function CountBadge({ count }: { count: number }) {
+function CountBadge({ count }: { count?: number }) {
   return (
-    <span className="ml-1.5 inline-flex min-w-5 items-center justify-center bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
-      {count}
+    <span className="ml-1.5 inline-flex min-w-7 items-center justify-center bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
+      {count === undefined ? <Skeleton className="h-2 w-3 rounded-sm" /> : count}
     </span>
   );
 }
@@ -116,8 +121,8 @@ const MainTabsList = memo(function MainTabsList({
   jobCount,
   artifactCount,
 }: {
-  jobCount: number;
-  artifactCount: number;
+  jobCount?: number;
+  artifactCount?: number;
 }) {
   return (
     <TabsList className="border-b border-border px-4">
@@ -137,17 +142,39 @@ const MainTabsList = memo(function MainTabsList({
 function ListPanel({
   emptyText,
   children,
+  isLoading,
   isEmpty,
 }: {
   emptyText: string;
   children: ReactNode;
+  isLoading: boolean;
   isEmpty: boolean;
 }) {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 px-6 py-6">
-        {isEmpty ? <p className="text-sm text-muted-foreground">{emptyText}</p> : children}
+        {isLoading ? <ListPanelSkeleton /> : isEmpty ? <p className="text-sm text-muted-foreground">{emptyText}</p> : children}
       </div>
     </div>
+  );
+}
+
+function ListPanelSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 3 }, (_, index) => (
+        <Card key={index} className="p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          <Skeleton className="mt-3 h-3 w-full" />
+          <Skeleton className="mt-2 h-3 w-2/3" />
+        </Card>
+      ))}
+    </>
   );
 }

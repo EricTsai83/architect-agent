@@ -1,16 +1,28 @@
-import { PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { LightningIcon, MagnifyingGlassIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { AppNotice } from '@/components/app-notice';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { ThreadId, ChatMode, DeepModeStatus } from '@/lib/types';
+
+const MODE_OPTIONS: ReadonlyArray<{
+  value: ChatMode;
+  label: string;
+  caption: string;
+  icon: typeof LightningIcon;
+}> = [
+  { value: 'fast', label: 'Fast', caption: 'uses summary', icon: LightningIcon },
+  { value: 'deep', label: 'Thorough', caption: 'reads live code', icon: MagnifyingGlassIcon },
+];
 
 export function ChatPanel({
   selectedThreadId,
   messages,
+  isChatLoading,
   chatInput,
   setChatInput,
   chatMode,
@@ -24,6 +36,7 @@ export function ChatPanel({
 }: {
   selectedThreadId: ThreadId | null;
   messages: Doc<'messages'>[] | undefined;
+  isChatLoading: boolean;
   chatInput: string;
   setChatInput: (v: string) => void;
   chatMode: ChatMode;
@@ -35,16 +48,18 @@ export function ChatPanel({
   isSyncing: boolean;
   onSync: () => void;
 }) {
+  const hasMessages = (messages?.length ?? 0) > 0;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-6">
-          {chatMode === 'deep' && !deepModeAvailable ? (
+          {!isChatLoading && chatMode === 'deep' && !deepModeAvailable ? (
             <AppNotice
               title={getDeepModeTitle(deepModeStatus?.reasonCode)}
               message={
                 deepModeStatus?.message ??
-                'Deep mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to Quick mode.'
+                'Thorough mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to Fast mode.'
               }
               tone="warning"
               actionLabel={isSyncing ? 'Syncing…' : 'Sync now'}
@@ -52,12 +67,12 @@ export function ChatPanel({
               onAction={onSync}
             />
           ) : null}
-          {messages === undefined ? (
-            <p className="text-sm text-muted-foreground">Loading conversation…</p>
-          ) : messages.length === 0 ? (
+          {isChatLoading ? (
+            <ConversationSkeleton />
+          ) : !hasMessages ? (
             <EmptyChatHint />
           ) : (
-            messages.map((message) => <MessageBubble key={message._id} message={message} />)
+            messages!.map((message) => <MessageBubble key={message._id} message={message} />)
           )}
         </div>
       </div>
@@ -77,24 +92,42 @@ export function ChatPanel({
           />
           <div className="flex items-center justify-between gap-3">
             <Select value={chatMode} onValueChange={(v) => setChatMode(v as ChatMode)}>
-              <SelectTrigger className="h-8 w-[160px] text-xs">
-                <SelectValue />
+              <SelectTrigger
+                aria-label="Answer mode"
+                className="h-8 w-auto gap-1.5 border-transparent bg-transparent px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                {(() => {
+                  const current = MODE_OPTIONS.find((o) => o.value === chatMode) ?? MODE_OPTIONS[0];
+                  const Icon = current.icon;
+                  return (
+                    <>
+                      <Icon size={12} weight="bold" />
+                      <span className="font-medium text-foreground">{current.label}</span>
+                      <span>answer</span>
+                    </>
+                  );
+                })()}
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fast">
-                  <span className="font-medium">Quick</span>
-                  <span className="ml-1.5 text-muted-foreground">indexed data</span>
-                </SelectItem>
-                <SelectItem value="deep">
-                  <span className="font-medium">Deep</span>
-                  <span className="ml-1.5 text-muted-foreground">live sandbox</span>
-                </SelectItem>
+              <SelectContent align="start">
+                {MODE_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <SelectItem key={option.value} value={option.value}>
+                      <span className="flex items-center gap-1.5">
+                        <Icon size={12} weight="bold" />
+                        <span className="font-medium">{option.label}</span>
+                        <span className="ml-1 text-muted-foreground">{option.caption}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <Button
               type="submit"
               variant="default"
               size="sm"
+              className="min-w-24"
               disabled={isSending || !selectedThreadId || !chatInput.trim()}
             >
               <PaperPlaneTiltIcon weight="bold" />
@@ -114,7 +147,7 @@ function EmptyChatHint() {
     'Where are the risky areas or likely hotspots?',
   ];
   return (
-    <div className="flex flex-col items-center gap-3 py-16 text-center">
+    <div className="flex min-h-[14rem] flex-col items-center justify-center gap-3 py-16 text-center">
       <p className="text-sm font-medium text-foreground">Ask anything about this repo</p>
       <ul className="flex flex-col gap-1.5 text-sm text-muted-foreground">
         {hints.map((hint) => (
@@ -122,6 +155,39 @@ function EmptyChatHint() {
         ))}
       </ul>
     </div>
+  );
+}
+
+function ConversationSkeleton() {
+  const bubbles = [
+    { isUser: true, widths: ['w-[86%]', 'w-[64%]'] as const },
+    { isUser: false, widths: ['w-full', 'w-[92%]', 'w-[70%]'] as const },
+    { isUser: true, widths: ['w-[78%]'] as const },
+  ];
+  return (
+    <>
+      {bubbles.map((bubble, index) => (
+        <Card
+          key={index}
+          className={cn(
+            'p-4',
+            bubble.isUser
+              ? 'bg-muted border-transparent'
+              : 'border-transparent bg-transparent px-0',
+          )}
+        >
+          <div className="mb-1 flex items-center justify-between gap-3">
+            <Skeleton className="h-[10px] w-10 rounded-sm" />
+            <Skeleton className="h-[10px] w-12 rounded-sm" />
+          </div>
+          <div className="space-y-1.5 py-0.5">
+            {bubble.widths.map((width, lineIndex) => (
+              <Skeleton key={lineIndex} className={cn('h-4 rounded-sm', width)} />
+            ))}
+          </div>
+        </Card>
+      ))}
+    </>
   );
 }
 
