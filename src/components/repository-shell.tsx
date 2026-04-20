@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
@@ -80,25 +80,14 @@ export function RepositoryShell() {
         ? defaultThreadId
         : threadsForChat[0]._id
       : null;
-  const effectiveSelectedThreadId = selectedThreadId ?? preferredThreadId;
+  const effectiveSelectedThreadId =
+    selectedThreadId && threadsForChat?.some((thread) => thread._id === selectedThreadId)
+      ? selectedThreadId
+      : preferredThreadId;
   const messages = useQuery(
     api.chat.listMessages,
     effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : 'skip',
   );
-
-  useEffect(() => {
-    if (
-      workspaceStatus !== 'ready' ||
-      threadsForChat === undefined ||
-      threadsForChat.length === 0 ||
-      selectedThreadId !== null ||
-      preferredThreadId === null
-    ) {
-      return;
-    }
-
-    handleSelectThread(preferredThreadId);
-  }, [workspaceStatus, threadsForChat, selectedThreadId, preferredThreadId, handleSelectThread]);
 
   const isChatLoading =
     workspaceStatus === 'initializing' ||
@@ -144,11 +133,10 @@ export function RepositoryShell() {
           setSelectedThreadId(null);
           setThreadToDelete(null);
         }}
-        selectedThreadId={selectedThreadId}
+          selectedThreadId={effectiveSelectedThreadId}
         onSelectThread={handleSelectThread}
         onDeleteThread={setThreadToDelete}
         chatMode={chatMode}
-        defaultThreadId={defaultThreadId}
         onImported={(repoId, threadId) => {
           setActionError(null);
           setAnalysisError(null);

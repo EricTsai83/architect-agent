@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { PlusIcon, MagnifyingGlassIcon, ChatCircleIcon, TrashIcon, GlobeIcon, LockIcon } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
@@ -20,7 +20,6 @@ export function AppSidebar({
   onSelectThread,
   onDeleteThread,
   chatMode,
-  defaultThreadId,
   onImported,
 }: {
   repositories: Doc<'repositories'>[] | undefined;
@@ -30,7 +29,6 @@ export function AppSidebar({
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
   chatMode: ChatMode;
-  defaultThreadId?: ThreadId;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
   const [repoSearch, setRepoSearch] = useState('');
@@ -112,7 +110,6 @@ export function AppSidebar({
             onSelectThread={onSelectThread}
             onDeleteThread={onDeleteThread}
             chatMode={chatMode}
-            defaultThreadId={defaultThreadId}
           />
         ) : null}
       </SidebarContent>
@@ -136,14 +133,12 @@ function ThreadsSection({
   onSelectThread,
   onDeleteThread,
   chatMode,
-  defaultThreadId,
 }: {
   repositoryId: RepositoryId;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
   chatMode: ChatMode;
-  defaultThreadId?: ThreadId;
 }) {
   const threads = useQuery(api.chat.listThreads, { repositoryId });
   const createThreadMutation = useMutation(api.chat.createThread);
@@ -154,23 +149,6 @@ function ThreadsSection({
       onSelectThread(threadId);
     }, [repositoryId, chatMode, createThreadMutation, onSelectThread]),
   );
-
-  useEffect(() => {
-    if (threads === undefined) {
-      return;
-    }
-    if (threads.length === 0) {
-      if (selectedThreadId !== null) {
-        onSelectThread(null);
-      }
-      return;
-    }
-    const preferred =
-      defaultThreadId && threads.some((thread) => thread._id === defaultThreadId) ? defaultThreadId : threads[0]._id;
-    if (!selectedThreadId || !threads.some((t) => t._id === selectedThreadId)) {
-      onSelectThread(preferred);
-    }
-  }, [threads, defaultThreadId, selectedThreadId, onSelectThread]);
 
   return (
     <>
