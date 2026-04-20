@@ -40,10 +40,10 @@ export function ChatPanel({
             <div className="flex items-start gap-3 border border-border bg-muted/50 px-4 py-3">
               <WarningCircleIcon size={18} weight="fill" className="mt-0.5 shrink-0 text-muted-foreground" />
               <div className="min-w-0">
-                <p className="text-sm font-medium">Sandbox expired</p>
+                <p className="text-sm font-medium">Sandbox unavailable</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Deep mode is unavailable because the sandbox has been reclaimed.
-                  Sync the repository to provision a fresh sandbox, or switch to Quick mode.
+                  Deep mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to
+                  Quick mode.
                 </p>
                 <Button
                   variant="outline"

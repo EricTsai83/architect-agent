@@ -167,10 +167,10 @@ export const runImportPipeline = internalAction({
         try {
           githubToken = await getInstallationAccessToken(installationId);
         } catch (error) {
-          console.warn(
-            '[import] GitHub token unavailable, falling back to unauthenticated:',
-            error instanceof Error ? error.message : error,
-          );
+          console.warn('[import] github_token_unavailable', {
+            installationId,
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       }
 

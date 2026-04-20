@@ -84,8 +84,15 @@ export const sweepExpiredSandboxes = internalAction({
               sandboxId: entry.sandboxId as never,
               newStatus: 'archived',
             });
-          } catch {
-            // Deletion failed, will retry on next sweep
+          } catch (error) {
+            console.warn('[sweep] Failed to delete stopped sandbox; will retry on next sweep.', {
+              sandboxId: entry.sandboxId,
+              remoteId: entry.remoteId,
+              error:
+                error instanceof Error
+                  ? { name: error.name, message: error.message, stack: error.stack }
+                  : String(error),
+            });
           }
         } else if (daytonaState === 'started') {
           // Sandbox is somehow still running past TTL — stop it first, delete next sweep

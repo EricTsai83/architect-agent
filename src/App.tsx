@@ -1,9 +1,18 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useConvexAuth } from 'convex/react';
-import { HomePage } from '@/pages/home';
-import { ChatPage } from '@/pages/chat';
 import { Button } from '@/components/ui/button';
 import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
+
+const HomePage = lazy(async () => {
+  const module = await import('@/pages/home');
+  return { default: module.HomePage };
+});
+
+const ChatPage = lazy(async () => {
+  const module = await import('@/pages/chat');
+  return { default: module.ChatPage };
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -39,14 +48,24 @@ export default function App() {
         <Route
           path="/"
           element={
-            isLoading ? <AuthLoadingScreen /> : isAuthenticated ? <Navigate to="/chat" replace /> : <HomePage />
+            isLoading ? (
+              <AuthLoadingScreen />
+            ) : isAuthenticated ? (
+              <Navigate to="/chat" replace />
+            ) : (
+              <Suspense fallback={<AuthLoadingScreen />}>
+                <HomePage />
+              </Suspense>
+            )
           }
         />
         <Route
           path="/chat"
           element={
             <ProtectedRoute>
-              <ChatPage />
+              <Suspense fallback={<AuthLoadingScreen />}>
+                <ChatPage />
+              </Suspense>
             </ProtectedRoute>
           }
         />

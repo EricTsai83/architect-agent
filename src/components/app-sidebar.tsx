@@ -258,7 +258,7 @@ const ThreadsList = memo(function ThreadsList({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-1.5 top-1/2 hidden h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-destructive group-hover:flex"
+            className="absolute right-1.5 top-1/2 h-6 w-6 -translate-y-1/2 opacity-0 text-muted-foreground transition-opacity pointer-events-none hover:text-destructive group-hover:opacity-100 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto"
             onClick={() => onDeleteThread(thread._id)}
             aria-label="Delete thread"
             title="Delete thread"
