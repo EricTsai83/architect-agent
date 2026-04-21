@@ -142,3 +142,37 @@
     min-height: 100vh;
   }
 }
+
+@keyframes terminal-owl-double-blink {
+  0% {
+    opacity: 0;
+  }
+  80% {
+    opacity: 1;
+  }
+  84% {
+    opacity: 0;
+  }
+  86% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  .animate-terminal-owl-double-blink {
+    animation: terminal-owl-double-blink 7s steps(1, end) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-terminal-owl-double-blink {
+      animation: none;
+    }
+  }
+}
+

@@ -18,6 +18,10 @@ const MODE_OPTIONS: ReadonlyArray<{
   { value: 'deep', label: 'Thorough', caption: 'reads live code', icon: MagnifyingGlassIcon },
 ];
 
+const EMPTY_CHAT_OWL = ['   ^...^   ', '  / o,o \\  ', '  |):::(|  ', '====w=w===='].join('\n');
+
+const EMPTY_CHAT_OWL_BLINK = ['   ^...^   ', '  / -,- \\  ', '  |):::(|  ', '====w=w===='].join('\n');
+
 export function ChatPanel({
   selectedThreadId,
   messages,
@@ -143,11 +147,27 @@ export function ChatPanel({
 
 function EmptyChatHint() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-      <p className="text-base font-medium text-foreground">Ask anything about this repo</p>
-      <p className="text-xs text-muted-foreground">
-        Architecture · Module dependencies · Risk hotspots
-      </p>
+    <div className="flex flex-1 items-center justify-center">
+      <div className="flex flex-col items-center text-center">
+        <div className="relative mb-1 inline-grid place-items-center">
+          <pre
+            aria-hidden="true"
+            className="pointer-events-none col-start-1 row-start-1 select-none font-mono text-[12px] leading-4 tracking-tight text-muted-foreground"
+          >
+            {EMPTY_CHAT_OWL}
+          </pre>
+          <pre
+            aria-hidden="true"
+            className="animate-terminal-owl-double-blink pointer-events-none col-start-1 row-start-1 select-none bg-background font-mono text-[12px] leading-4 tracking-tight text-muted-foreground"
+          >
+            {EMPTY_CHAT_OWL_BLINK}
+          </pre>
+        </div>
+        <p className="mt-5 text-base font-medium text-foreground">Ask anything about this repo</p>
+        <p className="mt-2 max-w-sm text-xs text-muted-foreground">
+          Architecture · Module dependencies · Risk hotspots
+        </p>
+      </div>
     </div>
   );
 }
