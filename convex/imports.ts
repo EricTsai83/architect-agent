@@ -2,10 +2,16 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalMutation, internalQuery, type MutationCtx } from './_generated/server';
-import { CASCADE_BATCH_SIZE } from './lib/constants';
+import {
+  CASCADE_BATCH_SIZE,
+  DEFAULT_AUTO_ARCHIVE_MINUTES,
+  DEFAULT_AUTO_DELETE_MINUTES,
+  DEFAULT_AUTO_STOP_MINUTES,
+} from './lib/constants';
 
 const REPOSITORY_DELETION_CANCEL_REASON =
   'Repository deletion is in progress. The import was cancelled before it could finish.';
+const PROVISIONING_SANDBOX_TTL_MS = 30 * 60_000;
 
 async function finalizeImportCancellation(
   ctx: MutationCtx,
@@ -200,12 +206,48 @@ export const markImportRunning = internalMutation({
   },
 });
 
-export const registerSandbox = internalMutation({
+export const reserveSandboxRow = internalMutation({
   args: {
     importId: v.id('imports'),
     repositoryId: v.id('repositories'),
     ownerTokenIdentifier: v.string(),
     sourceAdapter: v.union(v.literal('git_clone'), v.literal('source_service')),
+  },
+  handler: async (ctx, args) => {
+    const sandboxId = await ctx.db.insert('sandboxes', {
+      repositoryId: args.repositoryId,
+      ownerTokenIdentifier: args.ownerTokenIdentifier,
+      provider: 'daytona',
+      sourceAdapter: args.sourceAdapter,
+      remoteId: '',
+      status: 'provisioning',
+      workDir: '',
+      repoPath: '',
+      cpuLimit: 0,
+      memoryLimitGiB: 0,
+      diskLimitGiB: 0,
+      ttlExpiresAt: Date.now() + PROVISIONING_SANDBOX_TTL_MS,
+      autoStopIntervalMinutes: DEFAULT_AUTO_STOP_MINUTES,
+      autoArchiveIntervalMinutes: DEFAULT_AUTO_ARCHIVE_MINUTES,
+      autoDeleteIntervalMinutes: DEFAULT_AUTO_DELETE_MINUTES,
+      networkBlockAll: false,
+    });
+
+    await ctx.db.patch(args.importId, {
+      sandboxId,
+    });
+    await ctx.db.patch(args.repositoryId, {
+      latestSandboxId: sandboxId,
+    });
+
+    return sandboxId;
+  },
+});
+
+export const attachSandboxRemoteInfo = internalMutation({
+  args: {
+    importId: v.id('imports'),
+    sandboxId: v.id('sandboxes'),
     remoteId: v.string(),
     workDir: v.string(),
     repoPath: v.string(),
@@ -219,13 +261,8 @@ export const registerSandbox = internalMutation({
     networkAllowList: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const sandboxId = await ctx.db.insert('sandboxes', {
-      repositoryId: args.repositoryId,
-      ownerTokenIdentifier: args.ownerTokenIdentifier,
-      provider: 'daytona',
-      sourceAdapter: args.sourceAdapter,
+    await ctx.db.patch(args.sandboxId, {
       remoteId: args.remoteId,
-      status: 'provisioning',
       workDir: args.workDir,
       repoPath: args.repoPath,
       cpuLimit: args.cpuLimit,
@@ -240,14 +277,8 @@ export const registerSandbox = internalMutation({
     });
 
     await ctx.db.patch(args.importId, {
-      sandboxId,
       remoteSandboxId: args.remoteId,
     });
-    await ctx.db.patch(args.repositoryId, {
-      latestSandboxId: sandboxId,
-    });
-
-    return sandboxId;
   },
 });
 

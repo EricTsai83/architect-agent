@@ -36,6 +36,12 @@ export type SandboxProvisionResult = {
   networkAllowList?: string;
 };
 
+export type ListedSandbox = {
+  remoteId: string;
+  labels: Record<string, string>;
+  createdAt?: string;
+};
+
 export async function provisionSandbox(options: CreateSandboxOptions): Promise<SandboxProvisionResult> {
   const daytona = createDaytonaClient();
   const sandboxName = buildSandboxName({
@@ -92,6 +98,28 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
 export async function deleteSandbox(remoteId: string) {
   const sandbox = await getSandbox(remoteId);
   await sandbox.delete();
+}
+
+export async function listSandboxesByLabel(labels: Record<string, string>): Promise<ListedSandbox[]> {
+  const daytona = createDaytonaClient();
+  const sandboxes: ListedSandbox[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const result = await daytona.list(labels, page, 100);
+    sandboxes.push(
+      ...result.items.map((sandbox) => ({
+        remoteId: sandbox.id,
+        labels: sandbox.labels,
+        createdAt: sandbox.createdAt,
+      })),
+    );
+    totalPages = result.totalPages;
+    page += 1;
+  }
+
+  return sandboxes;
 }
 
 /**

@@ -20,4 +20,11 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  'reconcile daytona orphans',
+  { hours: 6 },
+  internal.opsNode.reconcileDaytonaOrphans,
+  {},
+);
+
 export default crons;

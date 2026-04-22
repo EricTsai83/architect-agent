@@ -31,6 +31,8 @@ flowchart TD
   Convex --> OpenAI
 ```
 
+
+
 ### Frontend
 
 The frontend is a single-page React application built with Vite, routed with the React Router data router, and styled with Tailwind plus shadcn UI components. The entry point is `src/main.tsx`, where the main providers are layered in this order:
@@ -113,9 +115,10 @@ That means Convex simultaneously serves as the application database, application
 ### 5. Sandbox lifecycle
 
 - A repository import provisions a Daytona sandbox.
+- The system reserves the Convex sandbox row before calling Daytona so cleanup can still find the resource if provisioning fails mid-flight.
 - After import completes, the system proactively stops the sandbox to save resources.
 - The sandbox can still be reawakened later for deep analysis.
-- A cron job sweeps expired sandboxes hourly and, when needed, stops or deletes them while reconciling database state.
+- Cron-based reconciliation handles both expired sandboxes and Daytona-side orphan resources, making sandbox cleanup a core reliability concern rather than a best-effort background task.
 
 ## Main User Flows
 
@@ -136,6 +139,8 @@ flowchart TD
   IndexRepo --> DeepAnalysis
   IndexRepo --> SyncRepo
 ```
+
+
 
 ## Data And Control Flow Summary
 
@@ -166,3 +171,5 @@ flowchart TD
 - `repository-lifecycle.md`
 - `chat-and-analysis-pipeline.md`
 - `integrations-and-operations.md`
+- `orphan-resource-handling.md`
+

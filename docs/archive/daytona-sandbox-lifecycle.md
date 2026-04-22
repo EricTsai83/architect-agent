@@ -147,13 +147,14 @@ const DEFAULT_DISK_GIB = 10;    // env: DAYTONA_DISK_GIB
 When a user imports a repository, the following happens in sequence:
 
 1. **`repositories.ts`** - Creates the repository record and import job
-2. **`importsNode.ts`** - Orchestrates the import
+2. **`importsNode.ts`** - Orchestrates the import and reserves the Convex sandbox row first
 3. **`daytona.ts:provisionSandbox()`** - Creates the sandbox on Daytona Cloud
    - Deletes any pre-existing sandbox with the same name (conflict avoidance)
    - Configures resource limits and lifecycle timers
-4. **`daytona.ts:cloneRepositoryInSandbox()`** - Git clones the repo into the sandbox
-5. **`daytona.ts:collectRepositorySnapshot()`** - Walks the file tree, reads important files
-6. **`imports.ts:persistImportResults()`** - Saves everything to Convex DB, sets sandbox status to `ready`
+4. **`imports.ts:attachSandboxRemoteInfo()`** - Attaches Daytona `remoteId`, paths, and limits back onto the reserved Convex row
+5. **`daytona.ts:cloneRepositoryInSandbox()`** - Git clones the repo into the sandbox
+6. **`daytona.ts:collectRepositorySnapshot()`** - Walks the file tree, reads important files
+7. **`imports.ts:persistImportResults()`** - Saves everything to Convex DB, sets sandbox status to `ready`
 
 ---
 
@@ -235,6 +236,11 @@ is actively using the sandbox.
 This ensures the Convex DB stays in sync with Daytona and prevents paying for
 orphaned sandboxes.
 
+The current system also runs a separate reconciliation job that periodically lists
+Daytona sandboxes by label (`app = architect-agent`) and deletes old remote
+sandboxes that do not have a matching Convex `sandboxes` row. This is the
+backstop for failures between Daytona create and Convex metadata attachment.
+
 ---
 
 ## Key Source Files
@@ -243,7 +249,7 @@ orphaned sandboxes.
 |---|---|
 | `convex/daytona.ts` | Daytona SDK wrapper - provision, clone, inspect, stop, delete, state check |
 | `convex/importsNode.ts` | Import orchestrator - provisions sandbox, indexes repo, eagerly stops sandbox |
-| `convex/imports.ts` | Import mutations - registers sandbox in DB, persists results |
+| `convex/imports.ts` | Import mutations - reserves sandbox rows, attaches remote metadata, persists results |
 | `convex/analysisNode.ts` | Deep analysis action - calls `runFocusedInspection()` |
 | `convex/chat.ts` | Chat handler - Fast Path uses indexed data, Deep Path uses sandbox |
 | `convex/ops.ts` | Operations - sandbox cleanup, sweep queries/mutations |

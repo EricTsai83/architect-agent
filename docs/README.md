@@ -10,6 +10,7 @@ This folder contains the system design documentation for the current Repospark c
 4. `repository-lifecycle.md`
 5. `chat-and-analysis-pipeline.md`
 6. `integrations-and-operations.md`
+7. `orphan-resource-handling.md`
 
 ## What Each Document Answers
 
@@ -48,6 +49,12 @@ This folder contains the system design documentation for the current Repospark c
 - What roles do GitHub, Daytona, and OpenAI each play?
 - How do the HTTP callback/webhook, cron, and cleanup flows work?
 - How are frontend `.env` variables and Convex runtime environment variables separated?
+
+### `orphan-resource-handling.md`
+
+- Why are orphan Daytona resources a system-design concern rather than a simple cleanup bug?
+- Which failure modes create orphan external resources?
+- How do DB-first provisioning, cleanup jobs, and reconciliation layers fit together?
 
 ## Writing Principles
 
