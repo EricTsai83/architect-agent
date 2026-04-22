@@ -268,6 +268,28 @@ export default defineSchema({
     .index('by_threadId_and_status', ['threadId', 'status'])
     .index('by_jobId', ['jobId']),
 
+  messageStreams: defineTable({
+    repositoryId: v.id('repositories'),
+    threadId: v.id('threads'),
+    jobId: v.id('jobs'),
+    assistantMessageId: v.id('messages'),
+    ownerTokenIdentifier: v.string(),
+    compactedContent: v.string(),
+    compactedThroughSequence: v.number(),
+    nextSequence: v.number(),
+    startedAt: v.number(),
+    lastAppendedAt: v.number(),
+  })
+    .index('by_threadId', ['threadId'])
+    .index('by_assistantMessageId', ['assistantMessageId'])
+    .index('by_jobId', ['jobId']),
+
+  messageStreamChunks: defineTable({
+    streamId: v.id('messageStreams'),
+    sequence: v.number(),
+    text: v.string(),
+  }).index('by_streamId_and_sequence', ['streamId', 'sequence']),
+
   githubInstallations: defineTable({
     ownerTokenIdentifier: v.string(),
     installationId: v.number(),

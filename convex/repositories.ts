@@ -434,7 +434,33 @@ export const cascadeDeleteRepository = internalMutation({
         .withIndex('by_threadId', (q) => q.eq('threadId', thread._id))
         .take(CASCADE_BATCH_SIZE);
       for (const msg of msgs) await ctx.db.delete(msg._id);
-      if (msgs.length < CASCADE_BATCH_SIZE) {
+
+      const streams = await ctx.db
+        .query('messageStreams')
+        .withIndex('by_threadId', (q) => q.eq('threadId', thread._id))
+        .take(CASCADE_BATCH_SIZE);
+      let streamChunksDrained = true;
+      for (const stream of streams) {
+        const streamChunks = await ctx.db
+          .query('messageStreamChunks')
+          .withIndex('by_streamId_and_sequence', (q) => q.eq('streamId', stream._id))
+          .take(CASCADE_BATCH_SIZE);
+        for (const chunk of streamChunks) {
+          await ctx.db.delete(chunk._id);
+        }
+        if (streamChunks.length < CASCADE_BATCH_SIZE) {
+          await ctx.db.delete(stream._id);
+        } else {
+          streamChunksDrained = false;
+          more = true;
+        }
+      }
+
+      if (streams.length === CASCADE_BATCH_SIZE) {
+        more = true;
+      }
+
+      if (msgs.length < CASCADE_BATCH_SIZE && streams.length < CASCADE_BATCH_SIZE && streamChunksDrained) {
         await ctx.db.delete(thread._id);
       } else {
         more = true;
