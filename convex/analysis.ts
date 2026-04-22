@@ -1,8 +1,40 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
-import { mutation, query, internalMutation, internalQuery } from './_generated/server';
+import type { Id } from './_generated/dataModel';
+import { mutation, query, internalMutation, internalQuery, type MutationCtx } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
+import {
+  consumeDaytonaGlobalRateLimit,
+  consumeDeepAnalysisRateLimit,
+  DEEP_ANALYSIS_JOB_LEASE_MS,
+  getLeaseRetryAfterMs,
+  isLeaseActive,
+  throwOperationAlreadyInProgress,
+} from './lib/rateLimit';
 import { getDeepModeAvailability } from './lib/sandboxAvailability';
+
+async function getActiveDeepAnalysisJob(
+  ctx: MutationCtx,
+  repositoryId: Id<'repositories'>,
+  now: number,
+) {
+  const queuedJobs = await ctx.db
+    .query('jobs')
+    .withIndex('by_repositoryId_and_status', (q) =>
+      q.eq('repositoryId', repositoryId).eq('status', 'queued'),
+    )
+    .take(20);
+  const runningJobs = await ctx.db
+    .query('jobs')
+    .withIndex('by_repositoryId_and_status', (q) =>
+      q.eq('repositoryId', repositoryId).eq('status', 'running'),
+    )
+    .take(20);
+
+  return [...queuedJobs, ...runningJobs].find(
+    (job) => job.kind === 'deep_analysis' && isLeaseActive(job.leaseExpiresAt, now),
+  );
+}
 
 export const listArtifacts = query({
   args: {
@@ -41,6 +73,19 @@ export const requestDeepAnalysis = mutation({
       throw new Error(deepModeStatus.message ?? 'Deep analysis is unavailable.');
     }
 
+    const now = Date.now();
+    const activeJob = await getActiveDeepAnalysisJob(ctx, args.repositoryId, now);
+    if (activeJob) {
+      throwOperationAlreadyInProgress(
+        'repositoryDeepAnalysisInFlight',
+        'A deep analysis is already in progress for this repository.',
+        getLeaseRetryAfterMs(activeJob.leaseExpiresAt, now),
+      );
+    }
+
+    await consumeDeepAnalysisRateLimit(ctx, identity.tokenIdentifier);
+    await consumeDaytonaGlobalRateLimit(ctx);
+
     const jobId = await ctx.db.insert('jobs', {
       repositoryId: args.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
@@ -51,6 +96,7 @@ export const requestDeepAnalysis = mutation({
       progress: 0,
       costCategory: 'deep_analysis',
       triggerSource: 'user',
+      leaseExpiresAt: now + DEEP_ANALYSIS_JOB_LEASE_MS,
     });
 
     await ctx.db.patch(args.repositoryId, {
@@ -102,6 +148,7 @@ export const markDeepAnalysisRunning = internalMutation({
       stage: 'focused_inspection',
       progress: 0.2,
       startedAt: Date.now(),
+      leaseExpiresAt: Date.now() + DEEP_ANALYSIS_JOB_LEASE_MS,
     });
   },
 });
@@ -133,6 +180,7 @@ export const completeDeepAnalysis = internalMutation({
       progress: 1,
       completedAt: Date.now(),
       outputSummary: args.summary,
+      leaseExpiresAt: undefined,
     });
   },
 });
@@ -141,14 +189,33 @@ export const failDeepAnalysis = internalMutation({
   args: {
     jobId: v.id('jobs'),
     errorMessage: v.string(),
+    onlyIfStale: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    if (!job) {
+      return;
+    }
+
+    if (args.onlyIfStale) {
+      const now = Date.now();
+      if (
+        job.kind !== 'deep_analysis' ||
+        (job.status !== 'queued' && job.status !== 'running') ||
+        typeof job.leaseExpiresAt !== 'number' ||
+        job.leaseExpiresAt > now
+      ) {
+        return;
+      }
+    }
+
     await ctx.db.patch(args.jobId, {
       status: 'failed',
       stage: 'failed',
       progress: 1,
       completedAt: Date.now(),
       errorMessage: args.errorMessage,
+      leaseExpiresAt: undefined,
     });
   },
 });

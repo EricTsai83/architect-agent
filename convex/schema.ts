@@ -165,10 +165,12 @@ export default defineSchema({
     estimatedCostUsd: v.optional(v.number()),
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
+    leaseExpiresAt: v.optional(v.number()),
   })
     .index('by_repositoryId', ['repositoryId'])
     .index('by_repositoryId_and_status', ['repositoryId', 'status'])
     .index('by_threadId', ['threadId'])
+    .index('by_status_and_leaseExpiresAt', ['status', 'leaseExpiresAt'])
     .index('by_ownerTokenIdentifier', ['ownerTokenIdentifier']),
 
   analysisArtifacts: defineTable({

@@ -1,16 +1,23 @@
 /// <reference types="vite/client" />
 
 import { describe, expect, test } from 'vitest';
+import { register as registerRateLimiter } from '@convex-dev/rate-limiter/test';
 import { convexTest } from 'convex-test';
 import { api } from './_generated/api';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
 
+function createTestConvex() {
+  const t = convexTest(schema, modules);
+  registerRateLimiter(t);
+  return t;
+}
+
 describe('deep analysis guards', () => {
   test('requestDeepAnalysis rejects expired sandboxes before queuing work', async () => {
     const ownerTokenIdentifier = 'user|deep-analysis-expired';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
     const now = Date.now();
 
     const repositoryId = await t.run(async (ctx) => {

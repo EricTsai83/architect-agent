@@ -167,6 +167,82 @@ OpenAI is currently used mainly for Quick chat response generation. If `OPENAI_A
 - the real repository knowledge source still lives in Convex artifacts and chunks
 - this fallback design preserves baseline usability even when the external model is unavailable
 
+## Rate Limiting And Lease Recovery
+
+Repospark uses the official `@convex-dev/rate-limiter` Convex component for request-level protection, plus lease-based in-flight guards for long-running interactive jobs.
+
+### Request flow
+
+```mermaid
+flowchart TD
+  A[Incoming mutation] --> B[Auth and ownership checks]
+  B --> C[In-flight guard]
+  C -->|blocked| X[OPERATION_ALREADY_IN_PROGRESS]
+  C --> D[Per-owner rate limit]
+  D -->|blocked| Y[RATE_LIMIT_EXCEEDED]
+  D --> E[Global rate limit]
+  E -->|blocked| Z[RATE_LIMIT_EXCEEDED without side effects]
+  E --> F[Create jobs or messages]
+  F --> G[Schedule background work]
+```
+
+This sequence is intentional: the system rejects the cheapest failure paths first, protects shared provider capacity second, and only creates database side effects after both checks have passed.
+
+### Request buckets
+
+- `importRequests`
+  - default: `5 / hour`
+  - mutations: `createRepositoryImport`, `syncRepository`
+  - override: `RATE_LIMIT_IMPORT_PER_HOUR`
+  - error: `RATE_LIMIT_EXCEEDED`
+
+- `deepAnalysisRequests`
+  - default: `10 / hour`
+  - mutations: `requestDeepAnalysis`
+  - override: `RATE_LIMIT_DEEP_ANALYSIS_PER_HOUR`
+  - error: `RATE_LIMIT_EXCEEDED`
+
+- `chatRequestsPerOwner`
+  - default: `30 / minute`, burst capacity `6`
+  - mutations: `sendMessage`
+  - overrides: `RATE_LIMIT_CHAT_PER_MINUTE`, `RATE_LIMIT_CHAT_BURST_CAPACITY`
+  - error: `RATE_LIMIT_EXCEEDED`
+
+- `chatRequestsGlobal`
+  - default: `300 / minute`, burst capacity `60`, sharded
+  - mutations: `sendMessage`
+  - overrides: `RATE_LIMIT_GLOBAL_CHAT_PER_MINUTE`, `RATE_LIMIT_GLOBAL_CHAT_BURST_CAPACITY`
+  - error: `RATE_LIMIT_EXCEEDED`
+
+- `daytonaRequestsGlobal`
+  - default: `30 / hour`, sharded
+  - mutations: `createRepositoryImport`, `syncRepository`, `requestDeepAnalysis`
+  - override: `RATE_LIMIT_DAYTONA_GLOBAL_PER_HOUR`
+  - error: `RATE_LIMIT_EXCEEDED`
+
+### In-flight guards
+
+- repository import / sync
+  - guard source: `repositories.importStatus`
+  - error: `OPERATION_ALREADY_IN_PROGRESS`
+
+- deep analysis
+  - guard source: active `jobs` rows where `kind === 'deep_analysis'`, `status in ('queued', 'running')`, and `leaseExpiresAt > now`
+  - lease override: `DEEP_ANALYSIS_JOB_LEASE_MS`
+  - error: `OPERATION_ALREADY_IN_PROGRESS`
+
+- chat replies
+  - guard source: active `jobs` rows where `kind === 'chat'`, `status in ('queued', 'running')`, and `leaseExpiresAt > now`
+  - lease override: `CHAT_JOB_LEASE_MS`
+  - error: `OPERATION_ALREADY_IN_PROGRESS`
+
+### Recovery behavior
+
+- `crons.ts` runs `reconcileStaleInteractiveJobs` every 5 minutes
+- expired chat leases mark both the `jobs` row and assistant `messages` row as `failed`
+- expired deep-analysis leases mark the `jobs` row as `failed`
+- structured Convex errors include `code`, `bucket`, `retryAfterMs`, and `message` so the frontend can show stable user-facing text
+
 ## Environment Variable Layers
 
 ### Frontend `.env`
@@ -192,6 +268,15 @@ These values must exist in the Convex environment, not frontend `.env.local`:
 - `DAYTONA_API_KEY`
 - `DAYTONA_API_URL`
 - `DAYTONA_TARGET`
+- `RATE_LIMIT_IMPORT_PER_HOUR`
+- `RATE_LIMIT_DEEP_ANALYSIS_PER_HOUR`
+- `RATE_LIMIT_CHAT_PER_MINUTE`
+- `RATE_LIMIT_CHAT_BURST_CAPACITY`
+- `RATE_LIMIT_GLOBAL_CHAT_PER_MINUTE`
+- `RATE_LIMIT_GLOBAL_CHAT_BURST_CAPACITY`
+- `RATE_LIMIT_DAYTONA_GLOBAL_PER_HOUR`
+- `CHAT_JOB_LEASE_MS`
+- `DEEP_ANALYSIS_JOB_LEASE_MS`
 - `DAYTONA_AUTO_STOP_MINUTES`
 - `DAYTONA_AUTO_ARCHIVE_MINUTES`
 - `DAYTONA_AUTO_DELETE_MINUTES`

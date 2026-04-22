@@ -1,16 +1,23 @@
 /// <reference types="vite/client" />
 
 import { describe, expect, test } from 'vitest';
+import { register as registerRateLimiter } from '@convex-dev/rate-limiter/test';
 import { convexTest } from 'convex-test';
 import { api } from './_generated/api';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
 
+function createTestConvex() {
+  const t = convexTest(schema, modules);
+  registerRateLimiter(t);
+  return t;
+}
+
 describe('repository detail metadata', () => {
   test('getRepositoryDetail caps oversized file counts as 400+', async () => {
     const ownerTokenIdentifier = 'user|repo-detail';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
 
     const repositoryId = await t.run(async (ctx) => {
       const repositoryId = await ctx.db.insert('repositories', {
@@ -81,7 +88,7 @@ describe('repository detail metadata', () => {
 
   test('syncRepository keeps the last completed snapshot until the new sync finishes', async () => {
     const ownerTokenIdentifier = 'user|sync-pointer';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
     const lastImportedAt = Date.now() - 60_000;
 
     const repositoryId = await t.run(async (ctx) => {
@@ -158,7 +165,7 @@ describe('repository detail metadata', () => {
 describe('repository import guards', () => {
   test('createRepositoryImport rejects duplicate imports while one is already running', async () => {
     const ownerTokenIdentifier = 'user|duplicate-import';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
 
     await t.run(async (ctx) => {
       await ctx.db.insert('githubInstallations', {

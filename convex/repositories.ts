@@ -7,6 +7,11 @@ import { requireViewerIdentity } from './lib/auth';
 import { getDeepModeAvailability } from './lib/sandboxAvailability';
 import { makeRepositoryTitle, parseGitHubUrl } from './lib/github';
 import { CASCADE_BATCH_SIZE } from './lib/constants';
+import {
+  consumeDaytonaGlobalRateLimit,
+  consumeImportRateLimit,
+  throwOperationAlreadyInProgress,
+} from './lib/rateLimit';
 
 const FILE_COUNT_DISPLAY_LIMIT = 400;
 const REPOSITORY_DELETE_RETRY_MS = 5_000;
@@ -242,8 +247,14 @@ export const createRepositoryImport = mutation({
     }
 
     if (repository && (repository.importStatus === 'queued' || repository.importStatus === 'running')) {
-      throw new Error('An import is already in progress for this repository.');
+      throwOperationAlreadyInProgress(
+        'repositoryImportInFlight',
+        'An import is already in progress for this repository.',
+      );
     }
+
+    await consumeImportRateLimit(ctx, identity.tokenIdentifier);
+    await consumeDaytonaGlobalRateLimit(ctx);
 
     if (!repository) {
       // Visibility will be updated after the import pipeline checks GitHub API.
@@ -330,8 +341,14 @@ export const syncRepository = mutation({
 
     // Prevent duplicate syncs while one is already running
     if (repository.importStatus === 'queued' || repository.importStatus === 'running') {
-      throw new Error('A sync is already in progress for this repository.');
+      throwOperationAlreadyInProgress(
+        'repositoryImportInFlight',
+        'A sync is already in progress for this repository.',
+      );
     }
+
+    await consumeImportRateLimit(ctx, identity.tokenIdentifier);
+    await consumeDaytonaGlobalRateLimit(ctx);
 
     const { jobId, importId } = await queueImportWorkflow(ctx, {
       repositoryId: args.repositoryId,

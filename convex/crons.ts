@@ -13,4 +13,11 @@ crons.interval(
   {},
 );
 
+crons.interval(
+  'reconcile stale interactive jobs',
+  { minutes: 5 },
+  internal.opsNode.reconcileStaleInteractiveJobs,
+  {},
+);
+
 export default crons;

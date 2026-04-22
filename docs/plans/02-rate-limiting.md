@@ -89,6 +89,49 @@
 - 不會因為 stale `queued/running` 狀態而永久卡死 thread / repository
 - 昂貴資源永遠在最晚的時候才被觸發
 
+#### 流程圖：為什麼需要 global limit
+
+```mermaid
+flowchart TD
+  O1[Owner A request] --> P1[per-owner limit]
+  O2[Owner B request] --> P2[per-owner limit]
+  O3[Owner C request] --> P3[per-owner limit]
+
+  P1 -->|within owner quota| G[global limit]
+  P2 -->|within owner quota| G
+  P3 -->|within owner quota| G
+
+  G -->|allow| R[shared resources]
+  R --> D1[OpenAI / chat job queue]
+  R --> D2[Daytona]
+
+  G -->|reject| X[Return RATE_LIMIT_EXCEEDED]
+```
+
+
+
+這張圖要表達的重點是：**per-owner limit 只能保護單一 owner，不足以保護共享資源**。當多個 owner 都在各自 quota 內同時送請求時，真正有風險的是匯聚後的 OpenAI、背景 job queue 與 Daytona 容量，所以還需要 global backstop。
+
+#### 流程圖：fail-cheap request path
+
+```mermaid
+flowchart TD
+  A[request arrives] --> B[requireViewerIdentity]
+  B --> C[ownership and state validation]
+  C --> D[in-flight guard]
+  D -->|blocked| X[Return OPERATION_ALREADY_IN_PROGRESS]
+  D --> E[per-owner limiter]
+  E -->|blocked| Y[Return RATE_LIMIT_EXCEEDED]
+  E --> F[global limiter]
+  F -->|blocked| Z[Return RATE_LIMIT_EXCEEDED without side effects]
+  F --> G[create jobs or messages]
+  G --> H[schedule background action]
+```
+
+
+
+這個順序是刻意的 trade-off：先擋掉最便宜的失敗路徑，再消耗 quota，最後才建立 DB side effects。這樣做雖然多了一層 limiter consume 與 guard 判斷，但能換到更好的 robustness，避免被拒絕時還留下半成品資料。
+
 ### 為什麼不用自刻 `rateLimits` table
 
 不採用原本的 `in-DB counter` 方案，原因如下：

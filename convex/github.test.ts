@@ -1,11 +1,18 @@
 /// <reference types="vite/client" />
 
 import { describe, expect, test } from 'vitest';
+import { register as registerRateLimiter } from '@convex-dev/rate-limiter/test';
 import { convexTest } from 'convex-test';
 import { api, internal } from './_generated/api';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
+
+function createTestConvex() {
+  const t = convexTest(schema, modules);
+  registerRateLimiter(t);
+  return t;
+}
 
 function activeInstallation(ownerTokenIdentifier: string, installationId: number) {
   return {
@@ -35,7 +42,7 @@ function deletedInstallation(ownerTokenIdentifier: string, installationId: numbe
 describe('GitHub installation selection', () => {
   test('connection status ignores deleted installations that were created first', async () => {
     const ownerTokenIdentifier = 'user|github-status';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
 
     await t.run(async (ctx) => {
       await ctx.db.insert('githubInstallations', deletedInstallation(ownerTokenIdentifier, 101));
@@ -55,7 +62,7 @@ describe('GitHub installation selection', () => {
 
   test('syncRepository uses the active installation when history rows exist', async () => {
     const ownerTokenIdentifier = 'user|sync';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
 
     const repositoryId = await t.run(async (ctx) => {
       await ctx.db.insert('githubInstallations', deletedInstallation(ownerTokenIdentifier, 301));
@@ -90,7 +97,7 @@ describe('GitHub installation selection', () => {
 
   test('getInstallationIdForOwner returns the active installation id', async () => {
     const ownerTokenIdentifier = 'user|installation-query';
-    const t = convexTest(schema, modules);
+    const t = createTestConvex();
 
     await t.run(async (ctx) => {
       await ctx.db.insert('githubInstallations', deletedInstallation(ownerTokenIdentifier, 401));

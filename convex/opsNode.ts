@@ -2,6 +2,7 @@
 
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
+import type { Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
 import { deleteSandbox, getSandboxState, stopSandbox } from './daytona';
 import { logErrorWithId, logInfo } from './lib/observability';
@@ -53,6 +54,16 @@ type ExpiredSandbox = {
   repositoryId: string;
   ttlExpiresAt: number;
 };
+
+type StaleInteractiveJob = {
+  jobId: Id<'jobs'>;
+  kind: 'chat' | 'deep_analysis';
+};
+
+const STALE_CHAT_JOB_ERROR_MESSAGE =
+  'The assistant reply stalled and was automatically marked as failed.';
+const STALE_DEEP_ANALYSIS_ERROR_MESSAGE =
+  'The deep analysis job stalled and was automatically marked as failed.';
 
 export const sweepExpiredSandboxes = internalAction({
   args: {},
@@ -120,6 +131,37 @@ export const sweepExpiredSandboxes = internalAction({
           remoteId: entry.remoteId,
         });
       }
+    }
+  },
+});
+
+export const reconcileStaleInteractiveJobs = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const staleJobs = (await ctx.runQuery(internal.ops.listStaleInteractiveJobs, {})) as StaleInteractiveJob[];
+
+    if (staleJobs.length === 0) {
+      return;
+    }
+
+    logInfo('ops', 'stale_interactive_jobs_found', {
+      count: staleJobs.length,
+    });
+
+    for (const job of staleJobs) {
+      if (job.kind === 'chat') {
+        await ctx.runMutation(internal.chat.recoverStaleChatJob, {
+          jobId: job.jobId,
+          errorMessage: STALE_CHAT_JOB_ERROR_MESSAGE,
+        });
+        continue;
+      }
+
+      await ctx.runMutation(internal.analysis.failDeepAnalysis, {
+        jobId: job.jobId,
+        errorMessage: STALE_DEEP_ANALYSIS_ERROR_MESSAGE,
+        onlyIfStale: true,
+      });
     }
   },
 });

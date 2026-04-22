@@ -228,6 +228,32 @@ export const getExpiredSandboxes = internalQuery({
   },
 });
 
+export const listStaleInteractiveJobs = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const queuedJobs = await ctx.db
+      .query('jobs')
+      .withIndex('by_status_and_leaseExpiresAt', (q) =>
+        q.eq('status', 'queued').lt('leaseExpiresAt', now),
+      )
+      .take(25);
+    const runningJobs = await ctx.db
+      .query('jobs')
+      .withIndex('by_status_and_leaseExpiresAt', (q) =>
+        q.eq('status', 'running').lt('leaseExpiresAt', now),
+      )
+      .take(25);
+
+    return [...queuedJobs, ...runningJobs]
+      .filter((job) => job.kind === 'chat' || job.kind === 'deep_analysis')
+      .map((job) => ({
+        jobId: job._id,
+        kind: job.kind,
+      }));
+  },
+});
+
 export const markSandboxSwept = internalMutation({
   args: {
     sandboxId: v.id('sandboxes'),

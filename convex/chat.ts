@@ -3,7 +3,7 @@ import { streamText } from 'ai';
 import { v } from 'convex/values';
 import type { Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
-import type { QueryCtx } from './_generated/server';
+import type { MutationCtx, QueryCtx } from './_generated/server';
 import { mutation, query, internalAction, internalMutation, internalQuery } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
 import {
@@ -13,6 +13,14 @@ import {
   MAX_RELEVANT_CHUNKS,
   STREAM_FLUSH_THRESHOLD,
 } from './lib/constants';
+import {
+  CHAT_JOB_LEASE_MS,
+  consumeChatGlobalRateLimit,
+  consumeChatRateLimit,
+  getLeaseRetryAfterMs,
+  isLeaseActive,
+  throwOperationAlreadyInProgress,
+} from './lib/rateLimit';
 
 type ReplyContext = {
   ownerTokenIdentifier: string;
@@ -24,6 +32,28 @@ type ReplyContext = {
   chunks: Array<{ path: string; summary: string; content: string }>;
   messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
 };
+
+const STALE_CHAT_JOB_ERROR_MESSAGE =
+  'The assistant reply stalled and was automatically marked as failed.';
+
+async function getActiveChatJobForThread(
+  ctx: MutationCtx,
+  threadId: Id<'threads'>,
+  now: number,
+) {
+  const jobs = await ctx.db
+    .query('jobs')
+    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+    .order('desc')
+    .take(25);
+
+  return jobs.find(
+    (job) =>
+      job.kind === 'chat' &&
+      (job.status === 'queued' || job.status === 'running') &&
+      isLeaseActive(job.leaseExpiresAt, now),
+  );
+}
 
 export const listThreads = query({
   args: {
@@ -165,6 +195,19 @@ export const sendMessage = mutation({
 
     const mode = args.mode ?? thread.mode;
     const now = Date.now();
+    const trimmedContent = args.content.trim();
+    const activeJob = await getActiveChatJobForThread(ctx, args.threadId, now);
+
+    if (activeJob) {
+      throwOperationAlreadyInProgress(
+        'threadChatInFlight',
+        'An assistant reply is already in progress for this thread.',
+        getLeaseRetryAfterMs(activeJob.leaseExpiresAt, now),
+      );
+    }
+
+    await consumeChatRateLimit(ctx, identity.tokenIdentifier);
+    await consumeChatGlobalRateLimit(ctx);
 
     const jobId = await ctx.db.insert('jobs', {
       repositoryId: thread.repositoryId,
@@ -177,6 +220,7 @@ export const sendMessage = mutation({
       progress: 0,
       costCategory: mode === 'deep' ? 'deep_analysis' : 'chat',
       triggerSource: 'user',
+      leaseExpiresAt: now + CHAT_JOB_LEASE_MS,
     });
 
     const userMessageId = await ctx.db.insert('messages', {
@@ -187,7 +231,7 @@ export const sendMessage = mutation({
       role: 'user',
       status: 'completed',
       mode,
-      content: args.content.trim(),
+      content: trimmedContent,
     });
 
     const assistantMessageId = await ctx.db.insert('messages', {
@@ -362,6 +406,7 @@ export const markAssistantReplyRunning = internalMutation({
     jobId: v.id('jobs'),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
     await ctx.db.patch(args.assistantMessageId, {
       status: 'streaming',
     });
@@ -369,7 +414,8 @@ export const markAssistantReplyRunning = internalMutation({
       status: 'running',
       stage: 'generating_reply',
       progress: 0.15,
-      startedAt: Date.now(),
+      startedAt: now,
+      leaseExpiresAt: now + CHAT_JOB_LEASE_MS,
     });
   },
 });
@@ -420,6 +466,7 @@ export const completeAssistantReply = internalMutation({
       progress: 1,
       completedAt: now,
       outputSummary: 'Assistant reply generated.',
+      leaseExpiresAt: undefined,
     });
   },
 });
@@ -431,6 +478,7 @@ export const failAssistantReply = internalMutation({
     errorMessage: v.string(),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
     await ctx.db.patch(args.assistantMessageId, {
       status: 'failed',
       errorMessage: args.errorMessage,
@@ -440,8 +488,53 @@ export const failAssistantReply = internalMutation({
       status: 'failed',
       stage: 'failed',
       progress: 1,
-      completedAt: Date.now(),
+      completedAt: now,
       errorMessage: args.errorMessage,
+      leaseExpiresAt: undefined,
+    });
+  },
+});
+
+export const recoverStaleChatJob = internalMutation({
+  args: {
+    jobId: v.id('jobs'),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    const now = Date.now();
+    if (
+      !job ||
+      job.kind !== 'chat' ||
+      (job.status !== 'queued' && job.status !== 'running') ||
+      typeof job.leaseExpiresAt !== 'number' ||
+      job.leaseExpiresAt > now
+    ) {
+      return;
+    }
+
+    const message = args.errorMessage ?? STALE_CHAT_JOB_ERROR_MESSAGE;
+    const jobMessages = await ctx.db
+      .query('messages')
+      .withIndex('by_jobId', (q) => q.eq('jobId', args.jobId))
+      .take(10);
+    const assistantMessage = jobMessages.find((entry) => entry.role === 'assistant');
+
+    if (assistantMessage) {
+      await ctx.db.patch(assistantMessage._id, {
+        status: 'failed',
+        errorMessage: message,
+        content: message,
+      });
+    }
+
+    await ctx.db.patch(args.jobId, {
+      status: 'failed',
+      stage: 'failed',
+      progress: 1,
+      completedAt: now,
+      errorMessage: message,
+      leaseExpiresAt: undefined,
     });
   },
 });
