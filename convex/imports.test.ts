@@ -408,3 +408,163 @@ describe('repository deletion during import', () => {
     expect(state.job?.status).toBe('cancelled');
   });
 });
+
+describe('sandbox reservation during import', () => {
+  test('reserveSandboxRow creates a placeholder row and attachSandboxRemoteInfo updates it in place', async () => {
+    const ownerTokenIdentifier = 'user|reserve-sandbox';
+    const t = convexTest(schema, modules);
+
+    const ids = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert('repositories', {
+        ownerTokenIdentifier,
+        sourceHost: 'github',
+        sourceUrl: 'https://github.com/acme/reserve-sandbox',
+        sourceRepoFullName: 'acme/reserve-sandbox',
+        sourceRepoOwner: 'acme',
+        sourceRepoName: 'reserve-sandbox',
+        defaultBranch: 'main',
+        visibility: 'private',
+        accessMode: 'private',
+        importStatus: 'running',
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+      });
+
+      const jobId = await ctx.db.insert('jobs', {
+        repositoryId,
+        ownerTokenIdentifier,
+        kind: 'import',
+        status: 'running',
+        stage: 'provisioning_sandbox',
+        progress: 0.1,
+        costCategory: 'indexing',
+        triggerSource: 'user',
+      });
+
+      const importId = await ctx.db.insert('imports', {
+        repositoryId,
+        ownerTokenIdentifier,
+        sourceUrl: 'https://github.com/acme/reserve-sandbox',
+        branch: 'main',
+        adapterKind: 'git_clone',
+        status: 'running',
+        jobId,
+      });
+
+      return { repositoryId, importId };
+    });
+
+    const sandboxId = await t.mutation(internal.imports.reserveSandboxRow, {
+      importId: ids.importId,
+      repositoryId: ids.repositoryId,
+      ownerTokenIdentifier,
+      sourceAdapter: 'git_clone',
+    });
+
+    await t.mutation(internal.imports.attachSandboxRemoteInfo, {
+      importId: ids.importId,
+      sandboxId,
+      remoteId: 'remote-reserved',
+      workDir: '/workspace',
+      repoPath: '/workspace/repo',
+      cpuLimit: 2,
+      memoryLimitGiB: 4,
+      diskLimitGiB: 10,
+      autoStopIntervalMinutes: 10,
+      autoArchiveIntervalMinutes: 60,
+      autoDeleteIntervalMinutes: 120,
+      networkBlockAll: false,
+    });
+
+    const state = await t.run(async (ctx) => ({
+      importRecord: await ctx.db.get(ids.importId),
+      repository: await ctx.db.get(ids.repositoryId),
+      sandboxes: await ctx.db
+        .query('sandboxes')
+        .withIndex('by_repositoryId', (q) => q.eq('repositoryId', ids.repositoryId))
+        .take(10),
+    }));
+
+    expect(state.importRecord?.sandboxId).toBe(sandboxId);
+    expect(state.importRecord?.remoteSandboxId).toBe('remote-reserved');
+    expect(state.repository?.latestSandboxId).toBe(sandboxId);
+    expect(state.sandboxes).toHaveLength(1);
+    expect(state.sandboxes[0]?.remoteId).toBe('remote-reserved');
+    expect(state.sandboxes[0]?.workDir).toBe('/workspace');
+  });
+
+  test('scheduleRepositorySandboxCleanup picks up a failed placeholder sandbox', async () => {
+    const ownerTokenIdentifier = 'user|failed-placeholder';
+    const t = convexTest(schema, modules);
+
+    const ids = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert('repositories', {
+        ownerTokenIdentifier,
+        sourceHost: 'github',
+        sourceUrl: 'https://github.com/acme/failed-placeholder',
+        sourceRepoFullName: 'acme/failed-placeholder',
+        sourceRepoOwner: 'acme',
+        sourceRepoName: 'failed-placeholder',
+        defaultBranch: 'main',
+        visibility: 'private',
+        accessMode: 'private',
+        importStatus: 'running',
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+      });
+
+      const jobId = await ctx.db.insert('jobs', {
+        repositoryId,
+        ownerTokenIdentifier,
+        kind: 'import',
+        status: 'running',
+        stage: 'provisioning_sandbox',
+        progress: 0.1,
+        costCategory: 'indexing',
+        triggerSource: 'user',
+      });
+
+      const importId = await ctx.db.insert('imports', {
+        repositoryId,
+        ownerTokenIdentifier,
+        sourceUrl: 'https://github.com/acme/failed-placeholder',
+        branch: 'main',
+        adapterKind: 'git_clone',
+        status: 'running',
+        jobId,
+      });
+
+      return { repositoryId, jobId, importId };
+    });
+
+    const sandboxId = await t.mutation(internal.imports.reserveSandboxRow, {
+      importId: ids.importId,
+      repositoryId: ids.repositoryId,
+      ownerTokenIdentifier,
+      sourceAdapter: 'git_clone',
+    });
+
+    await t.mutation(internal.imports.markImportFailed, {
+      importId: ids.importId,
+      jobId: ids.jobId,
+      errorMessage: 'Provisioning failed',
+    });
+
+    const cleanupState = await t.mutation(internal.ops.scheduleRepositorySandboxCleanup, {
+      repositoryId: ids.repositoryId,
+    });
+
+    const jobs = await t.run(async (ctx) =>
+      ctx.db
+        .query('jobs')
+        .withIndex('by_repositoryId', (q) => q.eq('repositoryId', ids.repositoryId))
+        .order('desc')
+        .take(10),
+    );
+
+    expect(cleanupState).toEqual({ pendingCleanupCount: 1 });
+    expect(jobs.some((job) => job.kind === 'cleanup' && job.sandboxId === sandboxId)).toBe(true);
+  });
+});

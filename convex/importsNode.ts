@@ -40,6 +40,7 @@ export const runImportPipeline = internalAction({
   },
   handler: async (ctx, args) => {
     let importContext: ImportContext | null = null;
+    let sandboxId: Id<'sandboxes'> | null = null;
 
     try {
       importContext = (await ctx.runQuery(internal.imports.getImportContext, {
@@ -135,6 +136,13 @@ export const runImportPipeline = internalAction({
         });
       }
 
+      sandboxId = await ctx.runMutation(internal.imports.reserveSandboxRow, {
+        importId: args.importId,
+        repositoryId: importContext.repositoryId,
+        ownerTokenIdentifier: importContext.ownerTokenIdentifier,
+        sourceAdapter: 'git_clone',
+      });
+
       const sandbox = await provisionSandbox({
         repositoryKey: importContext.sourceRepoFullName,
         repositoryId: importContext.repositoryId,
@@ -142,11 +150,9 @@ export const runImportPipeline = internalAction({
         sourceAdapter: 'git_clone',
       });
 
-      const sandboxId = await ctx.runMutation(internal.imports.registerSandbox, {
+      await ctx.runMutation(internal.imports.attachSandboxRemoteInfo, {
         importId: args.importId,
-        repositoryId: importContext.repositoryId,
-        ownerTokenIdentifier: importContext.ownerTokenIdentifier,
-        sourceAdapter: 'git_clone',
+        sandboxId,
         remoteId: sandbox.remoteId,
         workDir: sandbox.workDir,
         repoPath: sandbox.repoPath,
@@ -303,6 +309,12 @@ export const runImportPipeline = internalAction({
         jobId: importContext.jobId,
         errorMessage: `${errorMessage}\n\nReference: ${errorId}`,
       });
+
+      if (sandboxId) {
+        await ctx.runMutation(internal.ops.scheduleRepositorySandboxCleanup, {
+          repositoryId: importContext.repositoryId,
+        });
+      }
     }
   },
 });

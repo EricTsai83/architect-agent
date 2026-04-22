@@ -228,6 +228,27 @@ export const getExpiredSandboxes = internalQuery({
   },
 });
 
+export const getSandboxByRemoteId = internalQuery({
+  args: {
+    remoteId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const sandbox = await ctx.db
+      .query('sandboxes')
+      .withIndex('by_remoteId', (q) => q.eq('remoteId', args.remoteId))
+      .unique();
+
+    if (!sandbox) {
+      return null;
+    }
+
+    return {
+      sandboxId: sandbox._id,
+      status: sandbox.status,
+    };
+  },
+});
+
 export const listStaleInteractiveJobs = internalQuery({
   args: {},
   handler: async (ctx) => {

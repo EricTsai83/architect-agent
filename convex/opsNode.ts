@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
-import { deleteSandbox, getSandboxState, stopSandbox } from './daytona';
+import { deleteSandbox, getSandboxState, listSandboxesByLabel, stopSandbox } from './daytona';
 import { logErrorWithId, logInfo } from './lib/observability';
 
 export const runSandboxCleanup = internalAction({
@@ -60,10 +60,16 @@ type StaleInteractiveJob = {
   kind: 'chat' | 'deep_analysis';
 };
 
+type SandboxLookupResult = {
+  sandboxId: Id<'sandboxes'>;
+  status: 'provisioning' | 'ready' | 'stopped' | 'archived' | 'failed';
+} | null;
+
 const STALE_CHAT_JOB_ERROR_MESSAGE =
   'The assistant reply stalled and was automatically marked as failed.';
 const STALE_DEEP_ANALYSIS_ERROR_MESSAGE =
   'The deep analysis job stalled and was automatically marked as failed.';
+const DAYTONA_ORPHAN_RECONCILIATION_MIN_AGE_MS = 10 * 60_000;
 
 export const sweepExpiredSandboxes = internalAction({
   args: {},
@@ -162,6 +168,46 @@ export const reconcileStaleInteractiveJobs = internalAction({
         errorMessage: STALE_DEEP_ANALYSIS_ERROR_MESSAGE,
         onlyIfStale: true,
       });
+    }
+  },
+});
+
+export const reconcileDaytonaOrphans = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const sandboxes = await listSandboxesByLabel({ app: 'architect-agent' });
+
+    if (sandboxes.length === 0) {
+      return;
+    }
+
+    const now = Date.now();
+
+    for (const sandbox of sandboxes) {
+      const createdAtMs = sandbox.createdAt ? Date.parse(sandbox.createdAt) : Number.NaN;
+      if (!Number.isFinite(createdAtMs) || now - createdAtMs < DAYTONA_ORPHAN_RECONCILIATION_MIN_AGE_MS) {
+        continue;
+      }
+
+      const matchedSandbox = (await ctx.runQuery(internal.ops.getSandboxByRemoteId, {
+        remoteId: sandbox.remoteId,
+      })) as SandboxLookupResult;
+      if (matchedSandbox) {
+        continue;
+      }
+
+      try {
+        await deleteSandbox(sandbox.remoteId);
+        logInfo('reconcile', 'orphan_deleted', {
+          remoteId: sandbox.remoteId,
+          createdAt: sandbox.createdAt,
+        });
+      } catch (error) {
+        logErrorWithId('reconcile', 'orphan_delete_failed', error, {
+          remoteId: sandbox.remoteId,
+          createdAt: sandbox.createdAt,
+        });
+      }
     }
   },
 });

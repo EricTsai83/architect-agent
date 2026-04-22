@@ -22,6 +22,8 @@ flowchart TD
   Convex --> OpenAI
 ```
 
+
+
 ## WorkOS
 
 ### Role
@@ -67,6 +69,8 @@ flowchart TD
   Callback --> State
   Callback --> Installation
 ```
+
+
 
 The actual flow is:
 
@@ -121,6 +125,14 @@ The Convex `sandboxes` table stores the local projection of the Daytona runtime 
 - display sandbox summaries
 - execute later cleanup flows
 
+The import pipeline now writes the Convex-side sandbox row before calling Daytona create:
+
+- a placeholder sandbox row is inserted with `status = provisioning`
+- `imports.sandboxId` and `repositories.latestSandboxId` are pointed at that row immediately
+- Daytona `remoteId`, resource limits, and paths are attached afterward to the same row
+
+This removes the old crash window where Daytona could successfully create a sandbox but Convex had no corresponding record yet.
+
 ### Why import stops instead of immediately deleting the sandbox
 
 After import finishes, the system stops the sandbox instead of deleting it immediately because:
@@ -133,13 +145,30 @@ This is Repospark's trade-off between cost and functionality.
 
 ## Sandbox Cleanup And Cron
 
+### Orphan resource handling strategy
+
+Handling orphan Daytona resources is treated as a first-class reliability and cost-control concern rather than a rare edge case.
+
+The current system uses three layers:
+
+- prevention: reserve the Convex sandbox row before calling Daytona create
+- request-path correction: schedule cleanup jobs when a known sandbox fails or a repository is deleted
+- background reconciliation: periodically compare Convex state and Daytona reality, including remote sandboxes that have no matching DB row
+
+This layered approach exists because sandbox lifecycle crosses two systems. Neither a single request path nor a single cron run can guarantee perfect cleanup on its own.
+
+For a dedicated system-design explanation of this topic, see `orphan-resource-handling.md`.
+
 ### User- and system-triggered cleanup jobs
 
 When a repository is deleted, or when the system proactively needs to clean up a sandbox, it creates a `cleanup` job that is ultimately handled by `opsNode.runSandboxCleanup`:
 
-- first delete the Daytona sandbox
-- then mark the local sandbox record as `archived`
+- if `remoteId` exists, delete the Daytona sandbox first
+- if the sandbox is only a placeholder row with `remoteId = ''`, skip Daytona deletion gracefully
+- in both cases, mark the local sandbox record as `archived`
 - finally complete the cleanup job
+
+This matters because a failed import can now leave behind a Convex-owned placeholder sandbox row even if Daytona provisioning never fully completed.
 
 ### Hourly sweep of expired sandboxes
 
@@ -154,6 +183,19 @@ That means cleanup logic considers:
 - real Daytona state
 - local Convex state
 - TTL and cost control
+
+### Label-based Daytona orphan reconciliation
+
+`crons.ts` also runs `reconcileDaytonaOrphans` every 6 hours. This job handles the opposite direction: Daytona sandboxes that exist remotely but do not have a matching Convex row.
+
+The action:
+
+- lists Daytona sandboxes with the label `app = architect-agent`
+- checks whether each `remoteId` exists in Convex `sandboxes`
+- ignores recently created sandboxes for a short safety window
+- deletes old unmatched sandboxes from Daytona
+
+This is the backstop for failures that happen after Daytona create succeeds but before Convex can attach the remote metadata.
 
 ## OpenAI
 
@@ -186,6 +228,8 @@ flowchart TD
   F --> G[Schedule background work]
 ```
 
+
+
 This sequence is intentional: the system rejects the cheapest failure paths first, protects shared provider capacity second, and only creates database side effects after both checks have passed.
 
 ### Request buckets
@@ -195,25 +239,21 @@ This sequence is intentional: the system rejects the cheapest failure paths firs
   - mutations: `createRepositoryImport`, `syncRepository`
   - override: `RATE_LIMIT_IMPORT_PER_HOUR`
   - error: `RATE_LIMIT_EXCEEDED`
-
 - `deepAnalysisRequests`
   - default: `10 / hour`
   - mutations: `requestDeepAnalysis`
   - override: `RATE_LIMIT_DEEP_ANALYSIS_PER_HOUR`
   - error: `RATE_LIMIT_EXCEEDED`
-
 - `chatRequestsPerOwner`
   - default: `30 / minute`, burst capacity `6`
   - mutations: `sendMessage`
   - overrides: `RATE_LIMIT_CHAT_PER_MINUTE`, `RATE_LIMIT_CHAT_BURST_CAPACITY`
   - error: `RATE_LIMIT_EXCEEDED`
-
 - `chatRequestsGlobal`
   - default: `300 / minute`, burst capacity `60`, sharded
   - mutations: `sendMessage`
   - overrides: `RATE_LIMIT_GLOBAL_CHAT_PER_MINUTE`, `RATE_LIMIT_GLOBAL_CHAT_BURST_CAPACITY`
   - error: `RATE_LIMIT_EXCEEDED`
-
 - `daytonaRequestsGlobal`
   - default: `30 / hour`, sharded
   - mutations: `createRepositoryImport`, `syncRepository`, `requestDeepAnalysis`
@@ -225,12 +265,10 @@ This sequence is intentional: the system rejects the cheapest failure paths firs
 - repository import / sync
   - guard source: `repositories.importStatus`
   - error: `OPERATION_ALREADY_IN_PROGRESS`
-
 - deep analysis
   - guard source: active `jobs` rows where `kind === 'deep_analysis'`, `status in ('queued', 'running')`, and `leaseExpiresAt > now`
   - lease override: `DEEP_ANALYSIS_JOB_LEASE_MS`
   - error: `OPERATION_ALREADY_IN_PROGRESS`
-
 - chat replies
   - guard source: active `jobs` rows where `kind === 'chat'`, `status in ('queued', 'running')`, and `leaseExpiresAt > now`
   - lease override: `CHAT_JOB_LEASE_MS`
@@ -312,5 +350,7 @@ In other words, Repospark does not require another always-on API server. Convex 
 ### Known limitations
 
 - Both webhook and callback handling depend on Convex HTTP routes, so if integrations grow later, the system may need a clearer integration-module split.
-- Daytona cleanup is one of the most important cost-control paths, and failed sweeps can leave resources around temporarily.
+- The current Daytona integration still relies on request-path cleanup plus cron-based reconciliation. Daytona webhook ingestion is not yet part of the runtime, so state convergence is eventual rather than near-real-time.
+- Daytona cleanup is one of the most important cost-control paths, and failed sweeps or failed orphan reconciliation runs can still leave resources around temporarily.
 - OpenAI is currently used mostly for chat, while the analysis pipeline is still centered on sandbox inspection, so the two paths have not yet converged into a single agent framework.
+
