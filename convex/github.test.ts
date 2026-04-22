@@ -82,6 +82,7 @@ describe('GitHub installation selection', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
     });
 

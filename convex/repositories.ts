@@ -162,16 +162,9 @@ export const getRepositoryDetail = query({
       .order('desc')
       .take(10);
 
-    const latestImportId = repository.latestImportId;
-    const sampledFiles = latestImportId
-      ? await ctx.db
-          .query('repoFiles')
-          .withIndex('by_importId', (q) => q.eq('importId', latestImportId))
-          .take(FILE_COUNT_DISPLAY_LIMIT + 1)
-      : [];
-    const fileCount = Math.min(sampledFiles.length, FILE_COUNT_DISPLAY_LIMIT);
+    const fileCount = repository.fileCount;
     const fileCountLabel =
-      sampledFiles.length > FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(fileCount);
+      fileCount >= FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(fileCount);
 
     const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
 
@@ -273,6 +266,7 @@ export const createRepositoryImport = mutation({
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       defaultThreadId = await ctx.db.insert('threads', {

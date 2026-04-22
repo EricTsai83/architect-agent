@@ -35,6 +35,7 @@ describe('deep analysis guards', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const sandboxId = await ctx.db.insert('sandboxes', {

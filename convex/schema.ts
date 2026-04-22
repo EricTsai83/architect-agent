@@ -90,6 +90,7 @@ export default defineSchema({
     detectedLanguages: v.array(v.string()),
     packageManagers: v.array(v.string()),
     entrypoints: v.array(v.string()),
+    fileCount: v.number(),
     lastImportedAt: v.optional(v.number()),
     lastIndexedAt: v.optional(v.number()),
     lastSyncedCommitSha: v.optional(v.string()),
