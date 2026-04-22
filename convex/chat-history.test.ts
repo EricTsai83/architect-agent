@@ -62,6 +62,7 @@ async function seedThreadWithMessages(
       detectedLanguages: [],
       packageManagers: [],
       entrypoints: [],
+      fileCount: 0,
     });
 
     const threadId = await ctx.db.insert('threads', {

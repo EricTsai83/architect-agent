@@ -295,6 +295,7 @@ export const runImportPipeline = internalAction({
         detectedLanguages: manifest.detectedLanguages,
         packageManagers: manifest.packageManagers,
         entrypoints: manifest.entrypoints,
+        fileCount: fileRecords.length,
         summary: manifest.summary,
         readmeSummary: summarizeReadme(snapshot.readmeContent),
         architectureSummary: 'Repository imported and indexed for architecture review.',

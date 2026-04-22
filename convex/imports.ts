@@ -143,6 +143,7 @@ async function applyImportCompletionState(
     detectedLanguages: string[];
     packageManagers: string[];
     entrypoints: string[];
+    fileCount: number;
     summary: string;
     readmeSummary: string;
     architectureSummary: string;
@@ -176,6 +177,7 @@ async function applyImportCompletionState(
     detectedLanguages: args.detectedLanguages,
     packageManagers: args.packageManagers,
     entrypoints: args.entrypoints,
+    fileCount: args.fileCount,
     lastImportedAt: completedAt,
     lastIndexedAt: completedAt,
     lastSyncedCommitSha: args.commitSha,
@@ -603,6 +605,7 @@ export const finalizeImportCompletion = internalMutation({
     detectedLanguages: v.array(v.string()),
     packageManagers: v.array(v.string()),
     entrypoints: v.array(v.string()),
+    fileCount: v.number(),
     summary: v.string(),
     readmeSummary: v.string(),
     architectureSummary: v.string(),
@@ -633,6 +636,7 @@ export const finalizeImportCompletion = internalMutation({
       detectedLanguages: args.detectedLanguages,
       packageManagers: args.packageManagers,
       entrypoints: args.entrypoints,
+      fileCount: args.fileCount,
       summary: args.summary,
       readmeSummary: args.readmeSummary,
       architectureSummary: args.architectureSummary,

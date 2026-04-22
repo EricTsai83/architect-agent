@@ -48,6 +48,7 @@ describe('expired sandbox sweep', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       await ctx.db.insert('sandboxes', {
@@ -135,6 +136,7 @@ describe('expired sandbox sweep', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       return await ctx.db.insert('sandboxes', {
@@ -187,6 +189,7 @@ describe('expired sandbox sweep', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       return await ctx.db.insert('sandboxes', {
@@ -236,6 +239,7 @@ describe('expired sandbox sweep', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const sandboxId = await ctx.db.insert('sandboxes', {
@@ -305,6 +309,7 @@ describe('expired sandbox sweep', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       await ctx.db.insert('sandboxes', {

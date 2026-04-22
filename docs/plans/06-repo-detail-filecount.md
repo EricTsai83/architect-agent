@@ -1,16 +1,39 @@
-# Plan 06 — `getRepositoryDetail` Read Amplification
+# Plan 06 — `getRepositoryDetail` File Count Denormalization
 
 - **Priority**: P2
-- **Scope**: 主畫面 subscription 的 over-fetch 修正。
+- **Scope**: 主畫面 repository detail subscription 的 file count over-fetch 修正。
 - **Conflicts**:
   - `convex/schema.ts`：與 Plans 02 / 04 / 07 / 08 衝突。
   - `convex/imports.ts`：與 Plans 03 / 04 衝突。
+  - `convex/importsNode.ts`：若要從 finalize 傳入 `fileCount`，會與 Plan 04 實作交疊。
   - `convex/repositories.ts`：與 Plan 02 衝突。
-- **Dependencies**: 建議在 Plan 04 後做（因為 `persistImportResults` 可能已被拆成多階段，要把 `fileCount` 寫入的位置搬到正確的 finalize step）。
+- **Dependencies**: 建議在 Plan 04 後做，因為 `fileCount` 應跟著 finalize publish 一起切換。
+
+## 結論
+
+這個需求仍然建議用**最佳實踐**來做，只是**不需要額外為舊資料設計 migration rollout**。
+
+也就是說：
+
+- 資料模型本身要乾淨
+- query / mutation 邊界要清楚
+- 顯示邏輯和資料語意要分離
+- 但不需要為 legacy repo 加 dual-read、backfill、或暫時相容層
+
+因此這個 plan 採用的方向是：
+
+- **denormalized exact count**
+- **finalize-time publish**
+- **required schema field**
+- **display label derived on read**
+
+前提假設是：部署前先清掉舊 repository，或接受它們不相容而不保留。
+
+詳細設計見 `docs/repository-filecount-rollout-system-design.md`。
 
 ## 背景
 
-`convex/repositories.ts` 的 `getRepositoryDetail` 是前端主畫面的 live subscription：
+`convex/repositories.ts` 的 `getRepositoryDetail` 是前端主畫面的 live subscription。現在它為了顯示檔案數，會對最新 import 額外掃最多 401 筆 `repoFiles`：
 
 ```ts
 const latestImportId = repository.latestImportId;
@@ -18,63 +41,103 @@ const sampledFiles = latestImportId
   ? await ctx.db
       .query('repoFiles')
       .withIndex('by_importId', (q) => q.eq('importId', latestImportId))
-      .take(FILE_COUNT_DISPLAY_LIMIT + 1)  // = 401
+      .take(FILE_COUNT_DISPLAY_LIMIT + 1)
   : [];
-const fileCount = Math.min(sampledFiles.length, FILE_COUNT_DISPLAY_LIMIT);
-const fileCountLabel =
-  sampledFiles.length > FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(fileCount);
 ```
 
-僅僅為了顯示「檔案總數」或「400+」，每次 subscription re-run 都 take 最多 401 筆 `repoFiles`。而任何 `jobs` / `artifacts` / `repository` 的變動都會觸發這個 query 重新執行，造成大量 read amplification。
+這條 query 本身不大，但它掛在高頻 re-run 的 subscription 上。只要 `jobs`、`analysisArtifacts`、`repository` 等資料變動，這段 logic 就可能被重跑，形成不必要的 read amplification。
 
 ## 目標
 
-把 fileCount 持久化到 `repositories` 上，讓 `getRepositoryDetail` 不再掃 `repoFiles`。
+1. 讓新 import 完成後，`repositories.fileCount` 成為主要讀取來源。
+2. 保持 publish boundary 清楚，讓 `fileCount` 和目前 snapshot 一致。
+3. 讓資料語意清楚：`fileCount` 是精確值，`fileCountLabel` 是 UI 顯示值。
+4. 完全移除 `getRepositoryDetail` 的多餘 read。
 
-## 做法
+## 修正版做法
 
-### 1. Schema
+### 1. Schema：直接定成 required 欄位
 
-`convex/schema.ts` `repositories` 新增：
+`convex/schema.ts` 的 `repositories` 新增：
 
 ```ts
-fileCount: v.optional(v.number()),
+fileCount: v.number(),
 ```
 
-### 2. 寫入位置
+因為這次不考慮 migration，所以不需要把它做成 optional。直接定成 required，對程式碼比較乾淨：
 
-`convex/imports.ts`（或 Plan 04 拆出的 `finalizeImportCompletion`）：
+- 讀取端不用處理 `undefined`
+- 型別更簡單
+- 新建 repository 時就能保證欄位存在
 
-- `applyImportCompletionState` / `finalizeImportCompletion` 在 patch `repository` 時帶上 `fileCount: repoFilesCount`。
-- 數量來源：直接從 `args.repoFiles.length`（完整列表長度），或在 Plan 04 分批的情況下，由 `runImportPipeline` 累積 batch 總數後傳入 finalize mutation。
+`createRepositoryImport` 建立新 repository 時，初始值直接寫 `fileCount: 0`。
 
-### 3. 讀取位置
+### 2. 寫入位置：只在 finalize publish 時更新
 
-`convex/repositories.ts` `getRepositoryDetail`：
+`fileCount` 不應該在 `persistRepoFilesBatch` 這種 staged write 階段就更新，而應該跟著 `latestImportId` 一起在 `finalizeImportCompletion` / `applyImportCompletionState` patch 到 `repository`。
 
-- 刪掉 `sampledFiles` 相關 query。
-- `fileCount = repository.fileCount ?? 0`。
-- `fileCountLabel = repository.fileCount && repository.fileCount >= FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(repository.fileCount ?? 0)`。
+建議資料來源：
 
-> 注意：`FILE_COUNT_DISPLAY_LIMIT` 目前在 `repositories.ts` 內，保留即可；它只是顯示上限。
+- 在 `importsNode.runImportPipeline` 產生完 `fileRecords` 後，直接取 `fileRecords.length`
+- 再把 `fileCount` 當成 finalize mutation 的參數傳入
 
-### 4. 舊資料 backfill
+這樣有兩個好處：
 
-由於 `fileCount` 是新欄位，已存在的 repository 不會有這個欄位。處理方式（擇一）：
+1. 不需要在 mutation 內重新 count `repoFiles`
+2. `fileCount` 會和新的 snapshot pointer 同步切換，不會提早曝光
 
-- **A.** 下次 sync / 下次 re-import 時自然補上（可接受的漸進式 backfill）。
-- **B.** 寫一次性 internalMutation `backfillRepositoryFileCounts`：用 `by_importId` 掃每個 repo 的 `latestImportId` 下的 files count，然後寫入。適合在 Convex dashboard 手動觸發。
+### 3. 讀取位置：回傳精確值，顯示字串另外派生
 
-建議採 B，寫完以後 archive 掉這個 mutation（加註解說明已跑過）。
+`convex/repositories.ts` 的 `getRepositoryDetail` 直接改成：
+
+- `fileCount = repository.fileCount`
+- `fileCountLabel = fileCount >= FILE_COUNT_DISPLAY_LIMIT ? '400+' : String(fileCount)`
+
+這樣可以完全拿掉 `repoFiles.by_importId.take(401)` 這條 hot-path read。
+
+這樣的語意也更清楚：
+
+- `fileCount` 是資料層的**精確檔案數**
+- `fileCountLabel` 是 UI 層的**顯示文案**
+
+### 4. 不做 migration / backfill
+
+這個 plan 明確不做 migration，也不做 backfill。
+
+原因不是偷懶，而是這次已經明確放棄舊資料相容性。既然如此，就不應再把 production rollout 複雜度帶進新設計。
+
+## 流程圖
+
+```mermaid
+flowchart TD
+  A[Create Repository] --> B[fileCount = 0]
+  B --> C[Import Pipeline Produces fileRecords]
+  C --> D[finalizeImportCompletion]
+  D --> E[Patch repositories.fileCount to exact count]
+  D --> F[Patch latestImportId and metadata]
+  E --> G[getRepositoryDetail]
+  F --> G
+  G --> H[fileCount exact]
+  G --> I[fileCountLabel derived for UI]
+```
 
 ## 驗證
 
-- 訂閱 `getRepositoryDetail`，Convex dashboard 看這個 query 的 bytes read / function latency 應顯著下降。
-- 新 import 完成後 repository 的 `fileCount` 有值；UI 顯示的 label 不變。
-- 跑過 backfill 後，既有 repository 也有正確 `fileCount`。
+- `getRepositoryDetail` 測試：
+  - `repository.fileCount` 回傳精確值
+  - `fileCountLabel` 對 400 以上維持 `400+`
+- import flow 測試：
+  - finalize 後 repository 會寫入正確 `fileCount`
+  - sync 進行中不會先把新 `fileCount` publish 到舊 snapshot 上
+- 手動驗證：
+  - Convex dashboard 觀察 active repos 的 `getRepositoryDetail` bytes read / latency
+  - 新 import 完成後 UI 顯示不變
+  - 新建但尚未完成 import 的 repository 顯示 `0`
 
 ## Out of Scope
 
-- 不改 `artifacts` / `jobs` / `threads` 的 take 數量。若這些真的成為瓶頸再另開 plan。
-- 不做 `getImportedRepoSummaries` 的優化（目前 take 200 可接受）。
-- 不改 UI 端的顯示邏輯。
+- 不改 `artifacts` / `jobs` / `threads` 的 take 數量
+- 不做 `getImportedRepoSummaries` 的優化
+- 不改 UI 端顯示文案
+- 不做 migration / backfill / dual-read rollout
+- 不在這個 plan 內引入新的 aggregate table 或全域 counter component

@@ -28,6 +28,7 @@ describe('chat reply context', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const threadId = await ctx.db.insert('threads', {
@@ -215,6 +216,7 @@ describe('chat reply context', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const threadId = await ctx.db.insert('threads', {
@@ -372,6 +374,7 @@ describe('chat reply context', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const threadId = await ctx.db.insert('threads', {

@@ -103,6 +103,7 @@ async function runPersistFlow(t: ReturnType<typeof convexTest>, args: PersistFlo
     detectedLanguages: args.detectedLanguages,
     packageManagers: args.packageManagers,
     entrypoints: args.entrypoints,
+    fileCount: args.repoFiles.length,
     summary: args.summary,
     readmeSummary: args.readmeSummary,
     architectureSummary: args.architectureSummary,
@@ -137,6 +138,7 @@ describe('import snapshot cleanup', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const oldJobId = await ctx.db.insert('jobs', {
@@ -319,6 +321,7 @@ describe('batched import persistence', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const jobId = await ctx.db.insert('jobs', {
@@ -489,6 +492,7 @@ describe('batched import persistence', () => {
 
     expect(state.repository?.importStatus).toBe('completed');
     expect(state.repository?.latestImportId).toBe(ids.importId);
+    expect(state.repository?.fileCount).toBe(2);
     expect(state.importRecord?.status).toBe('completed');
     expect(state.job?.status).toBe('completed');
     expect(state.files).toHaveLength(2);
@@ -515,6 +519,7 @@ describe('batched import persistence', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const jobId = await ctx.db.insert('jobs', {
@@ -685,6 +690,7 @@ describe('repository deletion during import', () => {
         detectedLanguages: ['typescript'],
         packageManagers: ['npm'],
         entrypoints: ['src/current.ts'],
+        fileCount: 1,
       });
 
       const completedJobId = await ctx.db.insert('jobs', {
@@ -891,6 +897,7 @@ describe('repository deletion during import', () => {
 
     expect(state.repository?.importStatus).toBe('completed');
     expect(state.repository?.latestImportId).toBe(ids.completedImportId);
+    expect(state.repository?.fileCount).toBe(1);
     expect(state.failedImport?.status).toBe('failed');
     expect(state.failedJob?.status).toBe('failed');
     expect(state.failedFiles).toHaveLength(0);
@@ -919,6 +926,7 @@ describe('repository deletion during import', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const jobId = await ctx.db.insert('jobs', {
@@ -987,6 +995,7 @@ describe('sandbox reservation during import', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const jobId = await ctx.db.insert('jobs', {
@@ -1071,6 +1080,7 @@ describe('sandbox reservation during import', () => {
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
+        fileCount: 0,
       });
 
       const jobId = await ctx.db.insert('jobs', {
