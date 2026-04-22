@@ -31,6 +31,8 @@ flowchart TD
   Convex --> OpenAI
 ```
 
+
+
 ### Frontend
 
 The frontend is a single-page React application built with Vite, routed with the React Router data router, and styled with Tailwind plus shadcn UI components. The entry point is `src/main.tsx`, where the main providers are layered in this order:
@@ -138,6 +140,8 @@ flowchart TD
   IndexRepo --> SyncRepo
 ```
 
+
+
 ## Data And Control Flow Summary
 
 1. The frontend owns UI state and user interaction.
@@ -168,3 +172,4 @@ flowchart TD
 - `chat-and-analysis-pipeline.md`
 - `integrations-and-operations.md`
 - `orphan-resource-handling.md`
+
