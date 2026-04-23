@@ -249,7 +249,7 @@ That means cleanup logic considers:
 
 The action:
 
-- lists Daytona sandboxes with the label `app = architect-agent`
+- lists Daytona sandboxes with the label `app = repospark`
 - checks whether each `remoteId` exists in Convex `sandboxes`
 - ignores recently created sandboxes for a short safety window
 - deletes old unmatched sandboxes from Daytona
@@ -422,7 +422,7 @@ In other words, Repospark does not require another always-on API server. Convex 
 ### Known limitations
 
 - Both webhook and callback handling depend on Convex HTTP routes, so if integrations grow later, the system may need a clearer integration-module split.
-- Daytona webhook verification currently relies on a high-entropy shared token plus optional organization allowlist. If Daytona later publishes a stable signature scheme, this path should move to cryptographic verification on the raw body.
+- Daytona webhook verification now uses Svix signing on the raw body by validating `svix-id`, `svix-timestamp`, and `svix-signature` with `DAYTONA_WEBHOOK_SIGNING_SECRET`, then optionally enforcing the configured organization allowlist.
 - Daytona cleanup is one of the most important cost-control paths, and failed sweeps or failed orphan reconciliation runs can still leave resources around temporarily.
 - OpenAI is currently used mostly for chat, while the analysis pipeline is still centered on sandbox inspection, so the two paths have not yet converged into a single agent framework.
 

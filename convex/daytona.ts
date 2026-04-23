@@ -43,6 +43,9 @@ export type ListedSandbox = {
 };
 
 type RemoteSandboxState = 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
+export const REPOSPARK_DAYTONA_MANAGED_LABELS = {
+  app: 'repospark',
+} as const;
 
 export type RemoteSandboxDetails =
   | {
@@ -51,6 +54,7 @@ export type RemoteSandboxDetails =
       organizationId?: string;
       createdAt?: string;
       updatedAt?: string;
+      labels: Record<string, string>;
       state: RemoteSandboxState;
     }
   | {
@@ -85,7 +89,7 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
     name: sandboxName,
     language: CodeLanguage.TYPESCRIPT,
     labels: {
-      app: 'architect-agent',
+      ...REPOSPARK_DAYTONA_MANAGED_LABELS,
       access: options.accessMode,
       adapter: options.sourceAdapter,
       repositoryId: options.repositoryId,
@@ -156,16 +160,11 @@ export async function stopSandbox(remoteId: string) {
  */
 export async function getSandboxState(
   remoteId: string,
-): Promise<'started' | 'stopped' | 'archived' | 'destroyed' | 'unknown'> {
+): Promise<RemoteSandboxState> {
   try {
     const sandbox = await getSandbox(remoteId);
     await sandbox.refreshData();
-    const state = sandbox.state;
-    if (state === 'started' || state === 'stopped' || state === 'archived') {
-      return state;
-    }
-    // Daytona may report other transient states (e.g., 'stopping', 'starting')
-    return 'unknown';
+    return normalizeRemoteSandboxState(sandbox.state);
   } catch (error) {
     if (!isDaytonaNotFoundError(error)) {
       throw error;
@@ -186,6 +185,7 @@ export async function getRemoteSandboxDetails(remoteId: string): Promise<RemoteS
       organizationId: sandbox.organizationId,
       createdAt: sandbox.createdAt,
       updatedAt: sandbox.updatedAt,
+      labels: sandbox.labels ?? {},
       state: normalizeRemoteSandboxState(sandbox.state),
     };
   } catch (error) {
@@ -301,6 +301,13 @@ PY`;
 
 export function isDaytonaConfigured() {
   return Boolean(process.env.DAYTONA_API_KEY);
+}
+
+export function isReposparkManagedSandbox(labels: Record<string, string> | undefined): boolean {
+  if (!labels) {
+    return false;
+  }
+  return labels.app === REPOSPARK_DAYTONA_MANAGED_LABELS.app;
 }
 
 async function walkRepositoryTree(

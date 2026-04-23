@@ -18,6 +18,7 @@ vi.mock('./daytona', () => ({
   deleteSandbox: deleteSandboxMock,
   getSandboxState: getSandboxStateMock,
   listSandboxesByLabel: listSandboxesByLabelMock,
+  REPOSPARK_DAYTONA_MANAGED_LABELS: { app: 'repospark' },
   stopSandbox: stopSandboxMock,
 }));
 
@@ -335,17 +336,17 @@ describe('expired sandbox sweep', () => {
     listSandboxesByLabelMock.mockResolvedValue([
       {
         remoteId: 'remote-present-in-db',
-        labels: { app: 'architect-agent' },
+        labels: { app: 'repospark' },
         createdAt: olderThanWindow,
       },
       {
         remoteId: 'remote-orphan-old',
-        labels: { app: 'architect-agent' },
+        labels: { app: 'repospark' },
         createdAt: olderThanWindow,
       },
       {
         remoteId: 'remote-orphan-new',
-        labels: { app: 'architect-agent' },
+        labels: { app: 'repospark' },
         createdAt: newerThanWindow,
       },
     ]);

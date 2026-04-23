@@ -4,7 +4,13 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
-import { deleteSandbox, getSandboxState, listSandboxesByLabel, stopSandbox } from './daytona';
+import {
+  deleteSandbox,
+  getSandboxState,
+  listSandboxesByLabel,
+  REPOSPARK_DAYTONA_MANAGED_LABELS,
+  stopSandbox,
+} from './daytona';
 import { logErrorWithId, logInfo } from './lib/observability';
 
 export const runSandboxCleanup = internalAction({
@@ -175,7 +181,7 @@ export const reconcileStaleInteractiveJobs = internalAction({
 export const reconcileDaytonaOrphans = internalAction({
   args: {},
   handler: async (ctx) => {
-    const sandboxes = await listSandboxesByLabel({ app: 'architect-agent' });
+    const sandboxes = await listSandboxesByLabel(REPOSPARK_DAYTONA_MANAGED_LABELS);
 
     if (sandboxes.length === 0) {
       return;

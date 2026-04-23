@@ -144,7 +144,7 @@ async function fetchLatestRemoteSha(
   try {
     const headers: HeadersInit = {
       Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'architect-agent',
+      'User-Agent': 'repospark',
     };
 
     if (token) {

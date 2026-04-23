@@ -15,6 +15,7 @@ const { deleteSandboxMock, getRemoteSandboxDetailsMock } = vi.hoisted(() => ({
 vi.mock('./daytona', () => ({
   deleteSandbox: deleteSandboxMock,
   getRemoteSandboxDetails: getRemoteSandboxDetailsMock,
+  isReposparkManagedSandbox: (labels: Record<string, string> | undefined) => labels?.app === 'repospark',
 }));
 
 async function seedRepository(t: ReturnType<typeof convexTest>, ownerTokenIdentifier: string) {
@@ -211,6 +212,80 @@ describe('daytona webhook processing', () => {
     expect(state.observation?.lastAcceptedEventAt).toBe(newerTimestamp);
   });
 
+  test('processEvent accepts equal-timestamp events when dedupe already handled duplicates', async () => {
+    const t = convexTest(schema, modules);
+    const repositoryId = await seedRepository(t, 'user|equal-timestamp');
+    const timestamp = Date.now();
+
+    const ids = await t.run(async (ctx) => {
+      const sandboxId = await ctx.db.insert('sandboxes', {
+        repositoryId,
+        ownerTokenIdentifier: 'user|equal-timestamp',
+        provider: 'daytona',
+        sourceAdapter: 'git_clone',
+        remoteId: 'remote-equal',
+        status: 'ready',
+        workDir: '/workspace',
+        repoPath: '/workspace/repo',
+        cpuLimit: 2,
+        memoryLimitGiB: 4,
+        diskLimitGiB: 10,
+        ttlExpiresAt: timestamp + 60_000,
+        autoStopIntervalMinutes: 10,
+        autoArchiveIntervalMinutes: 60,
+        autoDeleteIntervalMinutes: 120,
+        networkBlockAll: false,
+      });
+      await ctx.db.insert('sandboxRemoteObservations', {
+        remoteId: 'remote-equal',
+        sandboxId,
+        repositoryId,
+        organizationId: 'org-1',
+        lastObservedState: 'started',
+        lastObservedAt: timestamp,
+        lastWebhookAt: timestamp,
+        lastAcceptedEventAt: timestamp,
+        discoveryStatus: 'known',
+        firstSeenAt: timestamp,
+      });
+      const eventId = await ctx.db.insert('daytonaWebhookEvents', {
+        dedupeKey: 'sandbox.state.updated:remote-equal',
+        eventType: 'sandbox.state.updated',
+        remoteId: 'remote-equal',
+        organizationId: 'org-1',
+        eventTimestamp: timestamp,
+        normalizedState: 'stopped',
+        payloadJson: '{"event":"sandbox.state.updated"}',
+        status: 'received',
+        attemptCount: 0,
+        nextAttemptAt: timestamp,
+        receivedAt: timestamp,
+        retentionExpiresAt: timestamp + 1_000,
+      });
+      return { sandboxId, eventId };
+    });
+
+    const result = await t.mutation(internal.daytonaWebhooks.processEvent, {
+      eventId: ids.eventId,
+    });
+
+    expect(result.kind).toBe('processed_known');
+
+    const state = await t.run(async (ctx) => ({
+      sandbox: await ctx.db.get(ids.sandboxId),
+      event: await ctx.db.get(ids.eventId),
+      observation: await ctx.db
+        .query('sandboxRemoteObservations')
+        .withIndex('by_remoteId', (q) => q.eq('remoteId', 'remote-equal'))
+        .unique(),
+    }));
+
+    expect(state.sandbox?.status).toBe('stopped');
+    expect(state.event?.status).toBe('processed');
+    expect(state.observation?.lastObservedState).toBe('stopped');
+    expect(state.observation?.lastAcceptedEventAt).toBe(timestamp);
+  });
+
   test('confirmUnknownRemote deletes confirmed orphan sandboxes', async () => {
     const t = convexTest(schema, modules);
     const now = Date.now();
@@ -233,6 +308,7 @@ describe('daytona webhook processing', () => {
       exists: true,
       remoteId: 'remote-orphan',
       organizationId: 'org-1',
+      labels: { app: 'repospark' },
       state: 'started',
     });
     deleteSandboxMock.mockResolvedValue(undefined);
@@ -249,6 +325,46 @@ describe('daytona webhook processing', () => {
     });
     expect(observation?.discoveryStatus).toBe('deleted');
     expect(observation?.deletedAt).toBeTypeOf('number');
+  });
+
+  test('confirmUnknownRemote leaves externally managed sandboxes untouched', async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert('sandboxRemoteObservations', {
+        remoteId: 'remote-external',
+        organizationId: 'org-1',
+        lastObservedState: 'started',
+        lastObservedAt: now - 20_000,
+        lastWebhookAt: now - 20_000,
+        lastAcceptedEventAt: now - 20_000,
+        discoveryStatus: 'unknown_pending_confirmation',
+        firstSeenAt: now - 20_000,
+        confirmAfterAt: now - 1_000,
+      });
+    });
+
+    getRemoteSandboxDetailsMock.mockResolvedValue({
+      exists: true,
+      remoteId: 'remote-external',
+      organizationId: 'org-1',
+      labels: {},
+      state: 'started',
+    });
+
+    const result = await t.action(internal.daytonaWebhooksNode.confirmUnknownRemote, {
+      remoteId: 'remote-external',
+    });
+
+    expect(result.kind).toBe('gone');
+    expect(deleteSandboxMock).not.toHaveBeenCalled();
+
+    const observation = await t.query(internal.daytonaWebhooks.getObservationByRemoteId, {
+      remoteId: 'remote-external',
+    });
+    expect(observation?.discoveryStatus).toBe('ignored');
+    expect(observation?.confirmAfterAt).toBeUndefined();
   });
 
   test('confirmUnknownRemote ignores observations only after an explicit not-found lookup', async () => {

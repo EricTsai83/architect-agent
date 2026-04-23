@@ -170,7 +170,7 @@ export const processEvent = internalMutation({
       .withIndex('by_remoteId', (q) => q.eq('remoteId', event.remoteId))
       .unique();
 
-    if (observation && event.eventTimestamp <= observation.lastAcceptedEventAt) {
+    if (observation && event.eventTimestamp < observation.lastAcceptedEventAt) {
       await ctx.db.patch(observation._id, {
         lastWebhookAt: now,
       });

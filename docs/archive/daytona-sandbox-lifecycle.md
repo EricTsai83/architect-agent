@@ -237,7 +237,7 @@ This ensures the Convex DB stays in sync with Daytona and prevents paying for
 orphaned sandboxes.
 
 The current system also runs a separate reconciliation job that periodically lists
-Daytona sandboxes by label (`app = architect-agent`) and deletes old remote
+Daytona sandboxes by label (`app = repospark`) and deletes old remote
 sandboxes that do not have a matching Convex `sandboxes` row. This is the
 backstop for failures between Daytona create and Convex metadata attachment.
 
