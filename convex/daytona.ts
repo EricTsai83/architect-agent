@@ -1,6 +1,6 @@
 "use node";
 
-import { CodeLanguage, Daytona, type Sandbox } from '@daytona/sdk';
+import { CodeLanguage, Daytona, DaytonaError, DaytonaNotFoundError, type Sandbox } from '@daytona/sdk';
 import { shouldReadFile, type RepositorySnapshot } from './lib/repoAnalysis';
 import { buildSandboxName } from './lib/sandboxNames';
 import {
@@ -42,6 +42,28 @@ export type ListedSandbox = {
   createdAt?: string;
 };
 
+type RemoteSandboxState = 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
+export const REPOSPARK_DAYTONA_MANAGED_LABELS = {
+  app: 'repospark',
+} as const;
+
+export type RemoteSandboxDetails =
+  | {
+      exists: true;
+      remoteId: string;
+      organizationId?: string;
+      createdAt?: string;
+      updatedAt?: string;
+      labels: Record<string, string>;
+      state: RemoteSandboxState;
+    }
+  | {
+      exists: false;
+      remoteId: string;
+      state: 'destroyed';
+      errorKind: 'not_found';
+    };
+
 export async function provisionSandbox(options: CreateSandboxOptions): Promise<SandboxProvisionResult> {
   const daytona = createDaytonaClient();
   const sandboxName = buildSandboxName({
@@ -67,7 +89,7 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
     name: sandboxName,
     language: CodeLanguage.TYPESCRIPT,
     labels: {
-      app: 'architect-agent',
+      ...REPOSPARK_DAYTONA_MANAGED_LABELS,
       access: options.accessMode,
       adapter: options.sourceAdapter,
       repositoryId: options.repositoryId,
@@ -138,19 +160,45 @@ export async function stopSandbox(remoteId: string) {
  */
 export async function getSandboxState(
   remoteId: string,
-): Promise<'started' | 'stopped' | 'archived' | 'destroyed' | 'unknown'> {
+): Promise<RemoteSandboxState> {
   try {
     const sandbox = await getSandbox(remoteId);
     await sandbox.refreshData();
-    const state = sandbox.state;
-    if (state === 'started' || state === 'stopped' || state === 'archived') {
-      return state;
+    return normalizeRemoteSandboxState(sandbox.state);
+  } catch (error) {
+    if (!isDaytonaNotFoundError(error)) {
+      throw error;
     }
-    // Daytona may report other transient states (e.g., 'stopping', 'starting')
-    return 'unknown';
-  } catch {
-    // If the sandbox can't be retrieved at all it has been destroyed/deleted
+
     return 'destroyed';
+  }
+}
+
+export async function getRemoteSandboxDetails(remoteId: string): Promise<RemoteSandboxDetails> {
+  try {
+    const sandbox = await getSandbox(remoteId);
+    await sandbox.refreshData();
+
+    return {
+      exists: true,
+      remoteId: sandbox.id,
+      organizationId: sandbox.organizationId,
+      createdAt: sandbox.createdAt,
+      updatedAt: sandbox.updatedAt,
+      labels: sandbox.labels ?? {},
+      state: normalizeRemoteSandboxState(sandbox.state),
+    };
+  } catch (error) {
+    if (!isDaytonaNotFoundError(error)) {
+      throw error;
+    }
+
+    return {
+      exists: false,
+      remoteId,
+      state: 'destroyed',
+      errorKind: 'not_found',
+    };
   }
 }
 
@@ -255,6 +303,13 @@ export function isDaytonaConfigured() {
   return Boolean(process.env.DAYTONA_API_KEY);
 }
 
+export function isReposparkManagedSandbox(labels: Record<string, string> | undefined): boolean {
+  if (!labels) {
+    return false;
+  }
+  return labels.app === REPOSPARK_DAYTONA_MANAGED_LABELS.app;
+}
+
 async function walkRepositoryTree(
   sandbox: Sandbox,
   repoPath: string,
@@ -310,6 +365,29 @@ async function getSandbox(remoteId: string) {
   return daytona.get(remoteId);
 }
 
+function isDaytonaNotFoundError(error: unknown): boolean {
+  if (error instanceof DaytonaNotFoundError) {
+    return true;
+  }
+
+  if (error instanceof DaytonaError && error.statusCode === 404) {
+    return true;
+  }
+
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const candidate = error as {
+    statusCode?: unknown;
+    response?: {
+      status?: unknown;
+    };
+  };
+
+  return candidate.statusCode === 404 || candidate.response?.status === 404;
+}
+
 function createDaytonaClient() {
   const apiKey = process.env.DAYTONA_API_KEY;
   if (!apiKey) {
@@ -341,4 +419,28 @@ function readNumberEnv(name: string, fallback: number) {
   }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeRemoteSandboxState(state: string | undefined): RemoteSandboxState {
+  if (!state) {
+    return 'unknown';
+  }
+
+  const normalized = state.toLowerCase();
+  if (normalized === 'started') {
+    return 'started';
+  }
+  if (normalized === 'stopped') {
+    return 'stopped';
+  }
+  if (normalized === 'archived') {
+    return 'archived';
+  }
+  if (normalized === 'destroyed' || normalized === 'deleted') {
+    return 'destroyed';
+  }
+  if (normalized === 'error' || normalized === 'failed') {
+    return 'error';
+  }
+  return 'unknown';
 }

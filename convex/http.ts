@@ -1,6 +1,14 @@
 import { httpRouter } from 'convex/server';
 import { internal } from './_generated/api';
 import { httpAction } from './_generated/server';
+import {
+  DaytonaWebhookBodyReadError,
+  prepareDaytonaWebhookVerification,
+  readDaytonaWebhookRawBody,
+  verifyDaytonaWebhookRequest,
+  type NormalizedDaytonaWebhookEvent,
+  type DaytonaWebhookVerificationContext,
+} from './lib/daytonaWebhookVerification';
 import { createOpaqueErrorId, logErrorWithId, logInfo, logWarn } from './lib/observability';
 
 const http = httpRouter();
@@ -199,6 +207,82 @@ http.route({
     }
 
     return new Response('OK', { status: 200 });
+  }),
+});
+
+// ---------------------------------------------------------------------------
+// Daytona sandbox webhook receiver
+// ---------------------------------------------------------------------------
+
+http.route({
+  path: '/api/daytona/webhook',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    let verificationContext: DaytonaWebhookVerificationContext;
+    try {
+      verificationContext = prepareDaytonaWebhookVerification(request);
+    } catch (error) {
+      logWarn('webhook', 'daytona_webhook_signature_failed', {
+        error: error instanceof Error ? error.message : 'Unknown verification error',
+      });
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    let rawBody: string;
+    try {
+      rawBody = await readDaytonaWebhookRawBody(request);
+    } catch (error) {
+      if (error instanceof DaytonaWebhookBodyReadError) {
+        logWarn('webhook', 'daytona_webhook_invalid_body', {
+          error: error.message,
+          status: error.status,
+        });
+        return new Response(error.status === 413 ? 'Payload too large' : 'Bad Request', {
+          status: error.status,
+        });
+      }
+      throw error;
+    }
+
+    let verifiedEvent: NormalizedDaytonaWebhookEvent;
+    try {
+      const result = verifyDaytonaWebhookRequest(verificationContext, rawBody);
+      verifiedEvent = result.event;
+    } catch (error) {
+      logWarn('webhook', 'daytona_webhook_signature_failed', {
+        error: error instanceof Error ? error.message : 'Unknown verification error',
+      });
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    try {
+      const ingestResult:
+        | { kind: 'duplicate'; eventId: string }
+        | { kind: 'enqueued'; eventId: string } = await ctx.runMutation(
+        internal.daytonaWebhooks.ingestValidatedEvent,
+        verifiedEvent,
+      );
+
+      logInfo(
+        'webhook',
+        ingestResult.kind === 'duplicate' ? 'daytona_webhook_duplicate' : 'daytona_webhook_received',
+        {
+          eventId: ingestResult.eventId,
+          remoteId: verifiedEvent.remoteId,
+          eventType: verifiedEvent.eventType,
+          organizationId: verifiedEvent.organizationId,
+        },
+      );
+
+      return new Response('OK', { status: 200 });
+    } catch (error) {
+      const errorId = logErrorWithId('webhook', 'daytona_webhook_ingest_failed', error, {
+        remoteId: verifiedEvent.remoteId,
+        eventType: verifiedEvent.eventType,
+        organizationId: verifiedEvent.organizationId,
+      });
+      return new Response(`Failed to ingest webhook. Reference: ${errorId}`, { status: 500 });
+    }
   }),
 });
 
