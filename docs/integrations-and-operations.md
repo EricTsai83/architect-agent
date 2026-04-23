@@ -82,8 +82,8 @@ The actual flow is:
 4. The callback consumes the state and resolves the owner.
 5. The callback fetches installation details from GitHub.
 6. `saveInstallation` either:
-   - connects or refreshes the same installation
-   - or returns a conflict when the owner already has a different active installation
+  - connects or refreshes the same installation
+  - or returns a conflict when the owner already has a different active installation
 7. conflict redirects use `?github_error=already_connected` instead of silently replacing the existing connection.
 
 ### Webhook flow
@@ -181,7 +181,7 @@ The current flow is:
 ```mermaid
 flowchart TD
   A[Daytona webhook] --> B[Convex HTTP ingress]
-  B --> C[Token and organization verification]
+  B --> C[Svix signature and organization verification]
   C --> D[daytonaWebhookEvents inbox]
   D --> E[Background processing]
   E --> F[sandboxRemoteObservations projection]
@@ -189,6 +189,8 @@ flowchart TD
   E --> H[Delayed confirm for unknown remotes]
   H --> I[Delete confirmed orphan]
 ```
+
+
 
 The webhook path is intentionally layered:
 
@@ -374,7 +376,7 @@ These values must exist in the Convex environment, not frontend `.env.local`:
 - `DAYTONA_API_KEY`
 - `DAYTONA_API_URL`
 - `DAYTONA_TARGET`
-- `DAYTONA_WEBHOOK_TOKEN`
+- `DAYTONA_WEBHOOK_SIGNING_SECRET`
 - `DAYTONA_WEBHOOK_ORGANIZATION_ID`
 - `RATE_LIMIT_IMPORT_PER_HOUR`
 - `RATE_LIMIT_DEEP_ANALYSIS_PER_HOUR`

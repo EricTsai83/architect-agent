@@ -1,20 +1,17 @@
 import { httpRouter } from 'convex/server';
 import { internal } from './_generated/api';
 import { httpAction } from './_generated/server';
+import {
+  DaytonaWebhookBodyReadError,
+  prepareDaytonaWebhookVerification,
+  readDaytonaWebhookRawBody,
+  verifyDaytonaWebhookRequest,
+  type NormalizedDaytonaWebhookEvent,
+  type DaytonaWebhookVerificationContext,
+} from './lib/daytonaWebhookVerification';
 import { createOpaqueErrorId, logErrorWithId, logInfo, logWarn } from './lib/observability';
 
 const http = httpRouter();
-
-type NormalizedDaytonaWebhookEvent = {
-  providerDeliveryId?: string;
-  dedupeKey: string;
-  eventType: 'sandbox.created' | 'sandbox.state.updated';
-  remoteId: string;
-  organizationId: string;
-  eventTimestamp: number;
-  normalizedState?: 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
-  payloadJson: string;
-};
 
 function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -23,120 +20,6 @@ function constantTimeEqual(a: string, b: string): boolean {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return result === 0;
-}
-
-function normalizeDaytonaSandboxState(
-  value: unknown,
-): 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown' {
-  if (typeof value !== 'string' || value.length === 0) {
-    return 'unknown';
-  }
-
-  const normalized = value.toLowerCase();
-  if (normalized === 'started') {
-    return 'started';
-  }
-  if (normalized === 'stopped') {
-    return 'stopped';
-  }
-  if (normalized === 'archived') {
-    return 'archived';
-  }
-  if (normalized === 'destroyed' || normalized === 'deleted') {
-    return 'destroyed';
-  }
-  if (normalized === 'error' || normalized === 'failed') {
-    return 'error';
-  }
-  return 'unknown';
-}
-
-function parseDaytonaWebhookEvent(rawBody: string): NormalizedDaytonaWebhookEvent {
-  let payload: unknown;
-  try {
-    payload = JSON.parse(rawBody);
-  } catch {
-    throw new Error('Invalid JSON payload.');
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Webhook payload must be an object.');
-  }
-
-  const event = 'event' in payload ? payload.event : undefined;
-  const timestamp = 'timestamp' in payload ? payload.timestamp : undefined;
-  const remoteId = 'id' in payload ? payload.id : undefined;
-  const organizationId = 'organizationId' in payload ? payload.organizationId : undefined;
-
-  if (event !== 'sandbox.created' && event !== 'sandbox.state.updated') {
-    throw new Error('Unsupported Daytona webhook event.');
-  }
-  if (typeof remoteId !== 'string' || remoteId.length === 0) {
-    throw new Error('Missing sandbox id.');
-  }
-  if (typeof organizationId !== 'string' || organizationId.length === 0) {
-    throw new Error('Missing organization id.');
-  }
-  if (typeof timestamp !== 'string') {
-    throw new Error('Missing event timestamp.');
-  }
-
-  const eventTimestamp = Date.parse(timestamp);
-  if (!Number.isFinite(eventTimestamp)) {
-    throw new Error('Invalid event timestamp.');
-  }
-
-  const normalizedState =
-    event === 'sandbox.created'
-      ? normalizeDaytonaSandboxState('state' in payload ? payload.state : undefined)
-      : normalizeDaytonaSandboxState('newState' in payload ? payload.newState : undefined);
-
-  const dedupeKey = [event, remoteId, eventTimestamp, normalizedState].join(':');
-
-  return {
-    dedupeKey,
-    eventType: event,
-    remoteId,
-    organizationId,
-    eventTimestamp,
-    normalizedState,
-    payloadJson: rawBody,
-  };
-}
-
-function readBearerToken(request: Request) {
-  const header = request.headers.get('authorization');
-  if (!header?.startsWith('Bearer ')) {
-    return null;
-  }
-  return header.slice('Bearer '.length);
-}
-
-function verifyDaytonaWebhookRequest(
-  request: Request,
-  rawBody: string,
-): { verified: true; event: NormalizedDaytonaWebhookEvent } {
-  const configuredToken = process.env.DAYTONA_WEBHOOK_TOKEN;
-  if (!configuredToken) {
-    throw new Error('DAYTONA_WEBHOOK_TOKEN is not set.');
-  }
-
-  const url = new URL(request.url);
-  const providedToken = readBearerToken(request) ?? url.searchParams.get('token');
-  if (!providedToken || !constantTimeEqual(configuredToken, providedToken)) {
-    throw new Error('Invalid Daytona webhook token.');
-  }
-
-  const event = parseDaytonaWebhookEvent(rawBody);
-  const allowedOrganizationId = process.env.DAYTONA_WEBHOOK_ORGANIZATION_ID;
-  if (allowedOrganizationId && !constantTimeEqual(allowedOrganizationId, event.organizationId)) {
-    throw new Error('Unexpected Daytona webhook organization.');
-  }
-
-  return {
-    verified: true,
-    event,
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -335,11 +218,35 @@ http.route({
   path: '/api/daytona/webhook',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const rawBody = await request.text();
+    let verificationContext: DaytonaWebhookVerificationContext;
+    try {
+      verificationContext = prepareDaytonaWebhookVerification(request);
+    } catch (error) {
+      logWarn('webhook', 'daytona_webhook_signature_failed', {
+        error: error instanceof Error ? error.message : 'Unknown verification error',
+      });
+      return new Response('Unauthorized', { status: 401 });
+    }
+
+    let rawBody: string;
+    try {
+      rawBody = await readDaytonaWebhookRawBody(request);
+    } catch (error) {
+      if (error instanceof DaytonaWebhookBodyReadError) {
+        logWarn('webhook', 'daytona_webhook_invalid_body', {
+          error: error.message,
+          status: error.status,
+        });
+        return new Response(error.status === 413 ? 'Payload too large' : 'Bad Request', {
+          status: error.status,
+        });
+      }
+      throw error;
+    }
 
     let verifiedEvent: NormalizedDaytonaWebhookEvent;
     try {
-      const result = verifyDaytonaWebhookRequest(request, rawBody);
+      const result = verifyDaytonaWebhookRequest(verificationContext, rawBody);
       verifiedEvent = result.event;
     } catch (error) {
       logWarn('webhook', 'daytona_webhook_signature_failed', {

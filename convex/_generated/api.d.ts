@@ -23,6 +23,7 @@ import type * as imports from "../imports.js";
 import type * as importsNode from "../importsNode.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_constants from "../lib/constants.js";
+import type * as lib_daytonaWebhookVerification from "../lib/daytonaWebhookVerification.js";
 import type * as lib_github from "../lib/github.js";
 import type * as lib_observability from "../lib/observability.js";
 import type * as lib_openaiPricing from "../lib/openaiPricing.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   importsNode: typeof importsNode;
   "lib/auth": typeof lib_auth;
   "lib/constants": typeof lib_constants;
+  "lib/daytonaWebhookVerification": typeof lib_daytonaWebhookVerification;
   "lib/github": typeof lib_github;
   "lib/observability": typeof lib_observability;
   "lib/openaiPricing": typeof lib_openaiPricing;

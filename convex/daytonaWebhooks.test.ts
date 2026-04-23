@@ -251,6 +251,79 @@ describe('daytona webhook processing', () => {
     expect(observation?.deletedAt).toBeTypeOf('number');
   });
 
+  test('confirmUnknownRemote ignores observations only after an explicit not-found lookup', async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert('sandboxRemoteObservations', {
+        remoteId: 'remote-gone',
+        organizationId: 'org-1',
+        lastObservedState: 'destroyed',
+        lastObservedAt: now - 20_000,
+        lastWebhookAt: now - 20_000,
+        lastAcceptedEventAt: now - 20_000,
+        discoveryStatus: 'unknown_pending_confirmation',
+        firstSeenAt: now - 20_000,
+        confirmAfterAt: now - 1_000,
+      });
+    });
+
+    getRemoteSandboxDetailsMock.mockResolvedValue({
+      exists: false,
+      remoteId: 'remote-gone',
+      state: 'destroyed',
+      errorKind: 'not_found',
+    });
+
+    const result = await t.action(internal.daytonaWebhooksNode.confirmUnknownRemote, {
+      remoteId: 'remote-gone',
+    });
+
+    expect(result.kind).toBe('gone');
+    expect(deleteSandboxMock).not.toHaveBeenCalled();
+
+    const observation = await t.query(internal.daytonaWebhooks.getObservationByRemoteId, {
+      remoteId: 'remote-gone',
+    });
+    expect(observation?.discoveryStatus).toBe('ignored');
+    expect(observation?.confirmAfterAt).toBeUndefined();
+  });
+
+  test('confirmUnknownRemote schedules a retry when Daytona lookup fails', async () => {
+    const t = convexTest(schema, modules);
+    const now = Date.now();
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert('sandboxRemoteObservations', {
+        remoteId: 'remote-transient',
+        organizationId: 'org-1',
+        lastObservedState: 'started',
+        lastObservedAt: now - 20_000,
+        lastWebhookAt: now - 20_000,
+        lastAcceptedEventAt: now - 20_000,
+        discoveryStatus: 'unknown_pending_confirmation',
+        firstSeenAt: now - 20_000,
+        confirmAfterAt: now - 1_000,
+      });
+    });
+
+    getRemoteSandboxDetailsMock.mockRejectedValue(new Error('temporary Daytona failure'));
+
+    const result = await t.action(internal.daytonaWebhooksNode.confirmUnknownRemote, {
+      remoteId: 'remote-transient',
+    });
+
+    expect(result.kind).toBe('retry_scheduled');
+    expect(deleteSandboxMock).not.toHaveBeenCalled();
+
+    const observation = await t.query(internal.daytonaWebhooks.getObservationByRemoteId, {
+      remoteId: 'remote-transient',
+    });
+    expect(observation?.discoveryStatus).toBe('unknown_pending_confirmation');
+    expect(observation?.confirmAfterAt).toBeGreaterThan(now);
+  });
+
   test('cleanupOldWebhookEvents deletes expired inbox rows', async () => {
     const t = convexTest(schema, modules);
     const now = Date.now();
@@ -285,4 +358,46 @@ describe('daytona webhook processing', () => {
     });
     expect(remaining).toBeNull();
   });
+
+  test.each(['processed', 'ignored', 'dead_letter'] as const)(
+    'markEventRetryable leaves terminal %s events unchanged',
+    async (status) => {
+      const t = convexTest(schema, modules);
+      const now = Date.now();
+
+      const eventId = await t.run(async (ctx) => {
+        return await ctx.db.insert('daytonaWebhookEvents', {
+          dedupeKey: `terminal-${status}`,
+          eventType: 'sandbox.created',
+          remoteId: `remote-${status}`,
+          organizationId: 'org-1',
+          eventTimestamp: now - 10_000,
+          normalizedState: 'started',
+          payloadJson: '{"event":"sandbox.created"}',
+          status,
+          attemptCount: 1,
+          nextAttemptAt: now - 10_000,
+          receivedAt: now - 10_000,
+          processedAt: now - 9_000,
+          lastErrorMessage: 'original error',
+          retentionExpiresAt: now + 60_000,
+        });
+      });
+
+      await t.mutation(internal.daytonaWebhooks.markEventRetryable, {
+        eventId,
+        errorMessage: 'new error',
+        retryAt: now + 30_000,
+      });
+
+      const event = await t.run(async (ctx) => {
+        return await ctx.db.get(eventId);
+      });
+
+      expect(event?.status).toBe(status);
+      expect(event?.nextAttemptAt).toBe(now - 10_000);
+      expect(event?.processedAt).toBe(now - 9_000);
+      expect(event?.lastErrorMessage).toBe('original error');
+    },
+  );
 });

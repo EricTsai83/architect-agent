@@ -48,7 +48,35 @@ export const confirmUnknownRemote = internalAction({
       return { kind: 'known' as const };
     }
 
-    const remote = await getRemoteSandboxDetails(args.remoteId);
+    const scheduleRetry = async (error: unknown) => {
+      const retryAt = Date.now() + UNKNOWN_REMOTE_CONFIRM_RETRY_MS;
+      const errorId = logErrorWithId('webhook', 'daytona_unknown_remote_confirm_failed', error, {
+        remoteId: args.remoteId,
+      });
+      await ctx.runMutation(internal.daytonaWebhooks.retryUnknownRemoteConfirmation, {
+        remoteId: args.remoteId,
+        retryAt,
+      });
+      await ctx.scheduler.runAfter(
+        UNKNOWN_REMOTE_CONFIRM_RETRY_MS,
+        internal.daytonaWebhooksNode.confirmUnknownRemote,
+        {
+          remoteId: args.remoteId,
+        },
+      );
+      return {
+        kind: 'retry_scheduled' as const,
+        errorId,
+      };
+    };
+
+    let remote;
+    try {
+      remote = await getRemoteSandboxDetails(args.remoteId);
+    } catch (error) {
+      return await scheduleRetry(error);
+    }
+
     if (!remote.exists) {
       await ctx.runMutation(internal.daytonaWebhooks.markObservationIgnored, {
         remoteId: args.remoteId,
@@ -69,25 +97,7 @@ export const confirmUnknownRemote = internalAction({
       });
       return { kind: 'deleted' as const };
     } catch (error) {
-      const retryAt = Date.now() + UNKNOWN_REMOTE_CONFIRM_RETRY_MS;
-      const errorId = logErrorWithId('webhook', 'daytona_unknown_remote_confirm_failed', error, {
-        remoteId: args.remoteId,
-      });
-      await ctx.runMutation(internal.daytonaWebhooks.retryUnknownRemoteConfirmation, {
-        remoteId: args.remoteId,
-        retryAt,
-      });
-      await ctx.scheduler.runAfter(
-        UNKNOWN_REMOTE_CONFIRM_RETRY_MS,
-        internal.daytonaWebhooksNode.confirmUnknownRemote,
-        {
-          remoteId: args.remoteId,
-        },
-      );
-      return {
-        kind: 'retry_scheduled' as const,
-        errorId,
-      };
+      return await scheduleRetry(error);
     }
   },
 });

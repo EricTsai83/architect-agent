@@ -122,7 +122,7 @@ Required or commonly used Convex runtime variables:
   - `DAYTONA_API_KEY`
   - `DAYTONA_API_URL`
   - `DAYTONA_TARGET`
-  - `DAYTONA_WEBHOOK_TOKEN`
+  - `DAYTONA_WEBHOOK_SIGNING_SECRET`
   - `DAYTONA_WEBHOOK_ORGANIZATION_ID`
   - `DAYTONA_AUTO_STOP_MINUTES`
   - `DAYTONA_AUTO_ARCHIVE_MINUTES`
@@ -164,9 +164,9 @@ When wiring external services, these are the important routes:
 - WorkOS redirect URI: usually `http://localhost:5173/callback` for local development
 - GitHub App callback: `https://<your-convex-site>/api/github/callback`
 - GitHub App webhook: `https://<your-convex-site>/api/github/webhook`
-- Daytona webhook: `https://<your-convex-site>/api/daytona/webhook?token=<DAYTONA_WEBHOOK_TOKEN>`
+- Daytona webhook: `https://<your-convex-site>/api/daytona/webhook`
 
-Keep `DAYTONA_WEBHOOK_TOKEN` high-entropy and secret. `DAYTONA_WEBHOOK_ORGANIZATION_ID` can be used as an additional allowlist check.
+Configure Daytona/Svix to sign deliveries for that endpoint, then store the endpoint signing secret in `DAYTONA_WEBHOOK_SIGNING_SECRET`. `DAYTONA_WEBHOOK_ORGANIZATION_ID` can be used as an additional allowlist check.
 
 ## Available scripts
 

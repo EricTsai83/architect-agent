@@ -1,6 +1,6 @@
 "use node";
 
-import { CodeLanguage, Daytona, type Sandbox } from '@daytona/sdk';
+import { CodeLanguage, Daytona, DaytonaError, DaytonaNotFoundError, type Sandbox } from '@daytona/sdk';
 import { shouldReadFile, type RepositorySnapshot } from './lib/repoAnalysis';
 import { buildSandboxName } from './lib/sandboxNames';
 import {
@@ -42,14 +42,23 @@ export type ListedSandbox = {
   createdAt?: string;
 };
 
-export type RemoteSandboxDetails = {
-  exists: boolean;
-  remoteId: string;
-  organizationId?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  state: 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
-};
+type RemoteSandboxState = 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
+
+export type RemoteSandboxDetails =
+  | {
+      exists: true;
+      remoteId: string;
+      organizationId?: string;
+      createdAt?: string;
+      updatedAt?: string;
+      state: RemoteSandboxState;
+    }
+  | {
+      exists: false;
+      remoteId: string;
+      state: 'destroyed';
+      errorKind: 'not_found';
+    };
 
 export async function provisionSandbox(options: CreateSandboxOptions): Promise<SandboxProvisionResult> {
   const daytona = createDaytonaClient();
@@ -157,8 +166,11 @@ export async function getSandboxState(
     }
     // Daytona may report other transient states (e.g., 'stopping', 'starting')
     return 'unknown';
-  } catch {
-    // If the sandbox can't be retrieved at all it has been destroyed/deleted
+  } catch (error) {
+    if (!isDaytonaNotFoundError(error)) {
+      throw error;
+    }
+
     return 'destroyed';
   }
 }
@@ -176,11 +188,16 @@ export async function getRemoteSandboxDetails(remoteId: string): Promise<RemoteS
       updatedAt: sandbox.updatedAt,
       state: normalizeRemoteSandboxState(sandbox.state),
     };
-  } catch {
+  } catch (error) {
+    if (!isDaytonaNotFoundError(error)) {
+      throw error;
+    }
+
     return {
       exists: false,
       remoteId,
       state: 'destroyed',
+      errorKind: 'not_found',
     };
   }
 }
@@ -341,6 +358,29 @@ async function getSandbox(remoteId: string) {
   return daytona.get(remoteId);
 }
 
+function isDaytonaNotFoundError(error: unknown): boolean {
+  if (error instanceof DaytonaNotFoundError) {
+    return true;
+  }
+
+  if (error instanceof DaytonaError && error.statusCode === 404) {
+    return true;
+  }
+
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const candidate = error as {
+    statusCode?: unknown;
+    response?: {
+      status?: unknown;
+    };
+  };
+
+  return candidate.statusCode === 404 || candidate.response?.status === 404;
+}
+
 function createDaytonaClient() {
   const apiKey = process.env.DAYTONA_API_KEY;
   if (!apiKey) {
@@ -374,9 +414,7 @@ function readNumberEnv(name: string, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function normalizeRemoteSandboxState(
-  state: string | undefined,
-): 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown' {
+function normalizeRemoteSandboxState(state: string | undefined): RemoteSandboxState {
   if (!state) {
     return 'unknown';
   }

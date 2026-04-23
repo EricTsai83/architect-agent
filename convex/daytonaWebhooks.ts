@@ -221,6 +221,9 @@ export const processEvent = internalMutation({
       if (event.normalizedState === 'stopped' && sandbox.status !== 'archived') {
         sandboxPatch.status = 'stopped';
         sandboxPatch.lastUsedAt = now;
+      } else if (event.normalizedState === 'started' && sandbox.status !== 'archived') {
+        sandboxPatch.status = 'ready';
+        sandboxPatch.lastUsedAt = now;
       } else if (
         (event.normalizedState === 'archived' || event.normalizedState === 'destroyed') &&
         sandbox.status !== 'archived'
@@ -403,8 +406,13 @@ export const markEventRetryable = internalMutation({
       return;
     }
 
+    if (event.status === 'processed' || event.status === 'ignored' || event.status === 'dead_letter') {
+      return;
+    }
+
+    const now = Date.now();
     if (event.attemptCount >= DAYTONA_WEBHOOK_MAX_ATTEMPTS) {
-      await ctx.db.patch(event._id, makeProcessedPatch('dead_letter', Date.now(), args.errorMessage));
+      await ctx.db.patch(event._id, makeProcessedPatch('dead_letter', now, args.errorMessage));
       return;
     }
 
