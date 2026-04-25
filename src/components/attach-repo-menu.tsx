@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from 'convex/react';
 import {
   CaretDownIcon,
+  CircleNotchIcon,
   GitBranchIcon,
   GlobeIcon,
   LinkBreakIcon,
   LinkIcon,
   LockIcon,
+  XIcon,
 } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
@@ -52,6 +54,10 @@ export function AttachRepoMenu({
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setError(null);
+  }, [threadId]);
+
   const handleSelect = async (repoId: RepositoryId | null) => {
     setError(null);
     setIsPending(true);
@@ -92,6 +98,12 @@ export function AttachRepoMenu({
                 <span className="font-medium">Attach repository</span>
               </>
             )}
+            {isPending ? (
+              <span className="inline-flex items-center gap-1 text-muted-foreground" aria-live="polite">
+                <CircleNotchIcon size={11} className="animate-spin" />
+                <span>Updating…</span>
+              </span>
+            ) : null}
             <CaretDownIcon size={10} weight="bold" className="opacity-60" />
           </Button>
         </DropdownMenuTrigger>
@@ -147,8 +159,16 @@ export function AttachRepoMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       {error ? (
-        <span role="alert" className="text-xs text-destructive">
-          {error}
+        <span role="alert" className="inline-flex items-center gap-1 text-xs text-destructive">
+          <span>{error}</span>
+          <button
+            type="button"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-destructive/80 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            onClick={() => setError(null)}
+            aria-label="Dismiss repository update error"
+          >
+            <XIcon size={10} weight="bold" />
+          </button>
         </span>
       ) : null}
     </div>

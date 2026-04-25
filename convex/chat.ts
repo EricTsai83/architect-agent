@@ -44,6 +44,10 @@ type DbCtx = Pick<QueryCtx, 'db'> | Pick<MutationCtx, 'db'>;
 
 const STALE_CHAT_JOB_ERROR_MESSAGE = 'The assistant reply stalled and was automatically marked as failed.';
 
+function getDefaultThreadMode(repositoryId?: Id<'repositories'> | null) {
+  return repositoryId ? 'docs' : 'discuss';
+}
+
 async function getActiveChatJobForThread(ctx: MutationCtx, threadId: Id<'threads'>, now: number) {
   const jobs = await ctx.db
     .query('jobs')
@@ -320,7 +324,7 @@ export const createThread = mutation({
     // `discuss` when there is no repo. Keeping this in lockstep with the
     // resolver means the persisted mode and the UI's preselected mode agree
     // on day one.
-    const defaultMode = args.repositoryId ? 'docs' : 'discuss';
+    const defaultMode = getDefaultThreadMode(args.repositoryId);
 
     return await ctx.db.insert('threads', {
       repositoryId: args.repositoryId,
@@ -367,13 +371,14 @@ export const setThreadRepository = mutation({
       return { repositoryId: args.repositoryId };
     }
 
-    // Detach: clear the optional field. The thread's `mode` (e.g. 'sandbox')
-    // may now be invalid for the new no-repo state, but the resolver's
-    // `availableModes` is recomputed dynamically per-render, so the UI
-    // collapses to `discuss` and the next sendMessage call would otherwise
-    // hit the `'docs' mode requires an attached repository` precondition —
-    // which is the desired behaviour, not a bug.
-    await ctx.db.patch(args.threadId, { repositoryId: undefined });
+    // Detach atomically: dropping the repository while resetting the persisted
+    // mode keeps the thread in the same repo-less default state as
+    // `createThread`, so a racing `sendMessage` call never sees a stale
+    // repo-dependent mode like `docs` / `sandbox`.
+    await ctx.db.patch(args.threadId, {
+      repositoryId: undefined,
+      mode: getDefaultThreadMode(null),
+    });
     return { repositoryId: null as null };
   },
 });

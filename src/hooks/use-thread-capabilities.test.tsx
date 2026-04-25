@@ -30,6 +30,7 @@ describe('useThreadCapabilities — bridging behavior', () => {
     const { result } = renderHook(() => useThreadCapabilities(null));
 
     expect(result.current.isLoading).toBe(false);
+    expect(result.current.isMissingThread).toBe(false);
     expect(result.current.attachedRepository).toBeNull();
     expect(result.current.sandboxStatus).toBeNull();
     expect(result.current.availableModes).toEqual(['discuss']);
@@ -46,6 +47,7 @@ describe('useThreadCapabilities — bridging behavior', () => {
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
     expect(result.current.isLoading).toBe(true);
+    expect(result.current.isMissingThread).toBe(false);
     // Even while loading, the selector still has a sensible shape so the UI
     // does not blink between "no modes" and "modes" within a few hundred ms.
     expect(result.current.availableModes).toEqual(['discuss']);
@@ -59,6 +61,7 @@ describe('useThreadCapabilities — bridging behavior', () => {
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
     expect(result.current.isLoading).toBe(false);
+    expect(result.current.isMissingThread).toBe(true);
     expect(result.current.availableModes).toEqual(['discuss']);
     expect(result.current.attachedRepository).toBeNull();
   });
@@ -192,5 +195,31 @@ describe('useThreadCapabilities — bridging behavior', () => {
 
     expect(result.current.sandboxStatus).toBe('stopped');
     expect(result.current.disabledReasons.sandbox).toMatch(/expired/i);
+  });
+
+  test('memoizes the resolved capabilities object while the query result is unchanged', () => {
+    useQueryMock.mockImplementation(() => ({
+      thread: { _id: threadId, repositoryId },
+      attachedRepository: {
+        _id: repositoryId,
+        sourceRepoFullName: 'acme/widget',
+        sourceRepoName: 'widget',
+      },
+      sandboxStatus: 'ready',
+      chatModes: {
+        availableModes: ['discuss', 'docs', 'sandbox'],
+        defaultMode: 'docs',
+        disabledReasons: {},
+      },
+    }));
+
+    const { result, rerender } = renderHook(() => useThreadCapabilities(threadId));
+    const firstResult = result.current;
+    const firstAttachedRepository = result.current.attachedRepository;
+
+    rerender();
+
+    expect(result.current).toBe(firstResult);
+    expect(result.current.attachedRepository).toBe(firstAttachedRepository);
   });
 });

@@ -86,7 +86,7 @@ const artifactKind = v.union(
 
 /**
  * Chat mode persisted on `threads.mode` and `messages.mode`. The enum mirrors
- * the UI's mode selector verbatim (no fast/deep aliasing) per the PRD's
+ * the UI's mode selector verbatim (no legacy quick/deep aliasing) per the PRD's
  * Architectural reversal section: frontend and backend share one vocabulary.
  *
  * - `discuss`  — LLM training only; no repo, no sandbox.

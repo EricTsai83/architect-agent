@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import type React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, test, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { ChatPanel } from './chat-panel';
 import type { MessageId, ThreadId } from '@/lib/types';
@@ -43,6 +43,10 @@ vi.mock('@/components/ui/tooltip', () => ({
 const threadId = 'thread_1' as ThreadId;
 const assistantMessageId = 'message_1' as MessageId;
 
+afterEach(() => {
+  cleanup();
+});
+
 describe('ChatPanel streaming rendering', () => {
   test('renders active stream content for the in-flight assistant message', () => {
     render(
@@ -75,8 +79,8 @@ describe('ChatPanel streaming rendering', () => {
         }}
         isSending={false}
         onSendMessage={vi.fn()}
-        deepModeAvailable
-        deepModeStatus={null}
+        sandboxModeAvailable
+        sandboxModeStatus={null}
         isSyncing={false}
         onSync={vi.fn()}
       />,
@@ -113,8 +117,8 @@ describe('ChatPanel streaming rendering', () => {
         disabledModeReasons={{ sandbox: 'Provision a sandbox to use Sandbox mode.' }}
         isSending={false}
         onSendMessage={vi.fn()}
-        deepModeAvailable
-        deepModeStatus={null}
+        sandboxModeAvailable
+        sandboxModeStatus={null}
         isSyncing={false}
         onSync={vi.fn()}
       />,
@@ -144,13 +148,47 @@ describe('ChatPanel streaming rendering', () => {
         disabledModeReasons={{ sandbox: 'Provision a sandbox to use Sandbox mode.' }}
         isSending={false}
         onSendMessage={vi.fn()}
-        deepModeAvailable
-        deepModeStatus={null}
+        sandboxModeAvailable
+        sandboxModeStatus={null}
         isSyncing={false}
         onSync={vi.fn()}
       />,
     );
 
     expect(screen.getAllByText('final streamed reply')).toHaveLength(1);
+  });
+
+  test('supports arrow-key navigation across enabled modes', () => {
+    const setChatMode = vi.fn();
+
+    render(
+      <ChatPanel
+        selectedThreadId={threadId}
+        messages={[]}
+        activeMessageStream={null}
+        isChatLoading={false}
+        chatInput=""
+        setChatInput={vi.fn()}
+        chatMode="discuss"
+        setChatMode={setChatMode}
+        availableModes={['discuss', 'docs', 'sandbox']}
+        disabledModeReasons={{}}
+        isSending={false}
+        onSendMessage={vi.fn()}
+        sandboxModeAvailable
+        sandboxModeStatus={null}
+        isSyncing={false}
+        onSync={vi.fn()}
+      />,
+    );
+
+    const discussButton = screen.getByRole('radio', { name: /discuss/i });
+    const docsButton = screen.getByRole('radio', { name: /docs/i });
+
+    discussButton.focus();
+    fireEvent.keyDown(discussButton, { key: 'ArrowRight' });
+
+    expect(setChatMode).toHaveBeenCalledWith('docs');
+    expect(docsButton).toHaveFocus();
   });
 });

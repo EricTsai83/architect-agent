@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import {
   PlusIcon,
@@ -177,7 +177,7 @@ export function ImportRepoDialog({
    * (PRD US 9) where the "Import repository" button needs to read as a primary
    * action rather than the compact "+" icon used in the sidebar.
    */
-  trigger?: React.ReactNode;
+  trigger?: ReactElement;
 }) {
   const createRepositoryImport = useMutation(api.repositories.createRepositoryImport);
   const initiateGitHubInstall = useAction(api.githubAppNode.initiateGitHubInstall);
@@ -355,7 +355,7 @@ export function ImportRepoDialog({
   );
 
   // Import by URL
-  async function handleImportByUrl(event: React.FormEvent<HTMLFormElement>) {
+  async function handleImportByUrl(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setImportError(null);
     setImportStage('verifying');

@@ -84,8 +84,8 @@ export function SignedOutShell() {
             {
               label: 'Ask',
               eyebrow: 'step 2',
-              title: 'Pick Quick or Deep mode.',
-              body: 'Quick answers from indexed data. Deep searches the live sandbox for any file.',
+              title: 'Pick Docs or Sandbox mode.',
+              body: 'Docs answers from indexed data. Sandbox searches the live sandbox for any file.',
             },
             {
               label: 'Capture',

@@ -17,8 +17,8 @@ export function DeepAnalysisDialog({
   onOpenChange,
   analysisPrompt,
   onAnalysisPromptChange,
-  deepModeAvailable,
-  deepModeReason,
+  sandboxAvailable,
+  sandboxReason,
   errorMessage,
   isRunning,
   onRun,
@@ -27,8 +27,8 @@ export function DeepAnalysisDialog({
   onOpenChange: (open: boolean) => void;
   analysisPrompt: string;
   onAnalysisPromptChange: (value: string) => void;
-  deepModeAvailable: boolean;
-  deepModeReason?: string | null;
+  sandboxAvailable: boolean;
+  sandboxReason?: string | null;
   errorMessage?: string | null;
   isRunning: boolean;
   onRun: () => Promise<void>;
@@ -39,8 +39,8 @@ export function DeepAnalysisDialog({
         <DialogHeader>
           <DialogTitle>Deep analysis</DialogTitle>
           <DialogDescription>
-            Searches the live sandbox filesystem for files matching your prompt. Unlike Quick mode which only uses
-            pre-indexed data, Deep mode can find any file in the repository.
+            Searches the live sandbox filesystem for files matching your prompt. Unlike Docs mode which only uses
+            pre-indexed data, Sandbox mode can find any file in the repository.
           </DialogDescription>
         </DialogHeader>
         <Textarea
@@ -48,10 +48,10 @@ export function DeepAnalysisDialog({
           onChange={(e) => onAnalysisPromptChange(e.target.value)}
           className="min-h-40"
         />
-        {!deepModeAvailable ? (
+        {!sandboxAvailable ? (
           <AppNotice
             title="Deep analysis unavailable"
-            message={deepModeReason ?? 'Deep analysis is unavailable right now. Sync the repository to provision a fresh sandbox.'}
+            message={sandboxReason ?? 'A live sandbox is unavailable right now. Sync the repository to provision a fresh sandbox.'}
             tone="warning"
           />
         ) : null}
@@ -66,7 +66,7 @@ export function DeepAnalysisDialog({
             type="button"
             variant="default"
             className="min-w-40"
-            disabled={isRunning || !analysisPrompt.trim() || !deepModeAvailable}
+            disabled={isRunning || !analysisPrompt.trim() || !sandboxAvailable}
             onClick={() => {
               void onRun();
             }}

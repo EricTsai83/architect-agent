@@ -1,3 +1,4 @@
+import { useRef, type FormEvent, type KeyboardEvent } from 'react';
 import {
   ChatCircleIcon,
   CubeIcon,
@@ -11,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { ActiveMessageStream, ThreadId, ChatMode, DeepModeStatus } from '@/lib/types';
+import type { ActiveMessageStream, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/types';
 
 /**
  * Static catalogue of every mode the selector can render. Order is stable and
@@ -66,8 +67,8 @@ export function ChatPanel({
   disabledModeReasons,
   isSending,
   onSendMessage,
-  deepModeAvailable,
-  deepModeStatus,
+  sandboxModeAvailable,
+  sandboxModeStatus,
   isSyncing,
   onSync,
 }: {
@@ -82,9 +83,9 @@ export function ChatPanel({
   availableModes: readonly ChatMode[];
   disabledModeReasons: Partial<Record<ChatMode, string>>;
   isSending: boolean;
-  onSendMessage: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
-  deepModeAvailable: boolean;
-  deepModeStatus: DeepModeStatus | null;
+  onSendMessage: (e: FormEvent<HTMLFormElement>) => Promise<void>;
+  sandboxModeAvailable: boolean;
+  sandboxModeStatus: SandboxModeStatus | null;
   isSyncing: boolean;
   onSync: () => void;
 }) {
@@ -95,11 +96,11 @@ export function ChatPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-3 px-6 py-6">
-          {!isChatLoading && chatMode === 'sandbox' && !deepModeAvailable ? (
+          {!isChatLoading && chatMode === 'sandbox' && !sandboxModeAvailable ? (
             <AppNotice
-              title={getDeepModeTitle(deepModeStatus?.reasonCode)}
+              title={getSandboxStatusTitle(sandboxModeStatus?.reasonCode)}
               message={
-                deepModeStatus?.message ??
+                sandboxModeStatus?.message ??
                 'Sandbox mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to a lighter mode.'
               }
               tone="warning"
@@ -174,10 +175,84 @@ function ModePillBar({
   availableModeSet: Set<ChatMode>;
   disabledModeReasons: Partial<Record<ChatMode, string>>;
 }) {
+  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusAndSelect = (targetIndex: number) => {
+    const targetOption = MODE_CATALOG[targetIndex];
+    if (!targetOption || !availableModeSet.has(targetOption.value)) {
+      return;
+    }
+    setChatMode(targetOption.value);
+    buttonRefs.current[targetIndex]?.focus();
+  };
+
+  const getWrappedAvailableIndex = (currentIndex: number, step: -1 | 1) => {
+    for (let offset = 1; offset <= MODE_CATALOG.length; offset += 1) {
+      const nextIndex =
+        (currentIndex + offset * step + MODE_CATALOG.length) % MODE_CATALOG.length;
+      if (availableModeSet.has(MODE_CATALOG[nextIndex]!.value)) {
+        return nextIndex;
+      }
+    }
+    return currentIndex;
+  };
+
+  const getBoundaryAvailableIndex = (direction: 'first' | 'last') => {
+    const orderedIndexes =
+      direction === 'first'
+        ? MODE_CATALOG.map((_, index) => index)
+        : MODE_CATALOG.map((_, index) => MODE_CATALOG.length - 1 - index);
+    return orderedIndexes.find((index) => availableModeSet.has(MODE_CATALOG[index]!.value));
+  };
+
+  const handleOptionKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentIndex: number,
+  ) => {
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp': {
+        event.preventDefault();
+        focusAndSelect(getWrappedAvailableIndex(currentIndex, -1));
+        return;
+      }
+      case 'ArrowRight':
+      case 'ArrowDown': {
+        event.preventDefault();
+        focusAndSelect(getWrappedAvailableIndex(currentIndex, 1));
+        return;
+      }
+      case 'Home': {
+        const firstIndex = getBoundaryAvailableIndex('first');
+        if (firstIndex !== undefined) {
+          event.preventDefault();
+          focusAndSelect(firstIndex);
+        }
+        return;
+      }
+      case 'End': {
+        const lastIndex = getBoundaryAvailableIndex('last');
+        if (lastIndex !== undefined) {
+          event.preventDefault();
+          focusAndSelect(lastIndex);
+        }
+        return;
+      }
+      case ' ':
+      case 'Enter': {
+        event.preventDefault();
+        focusAndSelect(currentIndex);
+        return;
+      }
+      default:
+        return;
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={150}>
       <div role="radiogroup" aria-label="Answer mode" className="flex items-center gap-1">
-        {MODE_CATALOG.map((option) => {
+        {MODE_CATALOG.map((option, index) => {
           const isAvailable = availableModeSet.has(option.value);
           const isSelected = chatMode === option.value;
           const reason = disabledModeReasons[option.value];
@@ -188,10 +263,15 @@ function ModePillBar({
           // pills (US 14: "tooltip explaining how to unlock them").
           const pill = (
             <button
+              ref={(node) => {
+                buttonRefs.current[index] = node;
+              }}
               type="button"
               role="radio"
               aria-checked={isSelected}
               aria-disabled={!isAvailable}
+              tabIndex={isSelected ? 0 : -1}
+              onKeyDown={(event) => handleOptionKeyDown(event, index)}
               onClick={() => {
                 if (!isAvailable) return;
                 setChatMode(option.value);
@@ -280,7 +360,7 @@ function MessageBubble({
   );
 }
 
-function getDeepModeTitle(reasonCode: DeepModeStatus['reasonCode'] | undefined) {
+function getSandboxStatusTitle(reasonCode: SandboxModeStatus['reasonCode'] | undefined) {
   switch (reasonCode) {
     case 'sandbox_provisioning':
       return 'Sandbox still provisioning';

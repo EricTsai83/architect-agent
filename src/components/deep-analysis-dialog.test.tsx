@@ -42,7 +42,7 @@ describe('DeepAnalysisDialog', () => {
         onOpenChange={onOpenChange}
         analysisPrompt="Inspect auth flow"
         onAnalysisPromptChange={vi.fn()}
-        deepModeAvailable
+        sandboxAvailable
         errorMessage={null}
         isRunning={false}
         onRun={onRun}
@@ -55,14 +55,14 @@ describe('DeepAnalysisDialog', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
-  test('disables submission when deep mode is unavailable', () => {
+  test('disables submission when the sandbox is unavailable', () => {
     render(
       <DeepAnalysisDialog
         open
         onOpenChange={vi.fn()}
         analysisPrompt="Inspect auth flow"
         onAnalysisPromptChange={vi.fn()}
-        deepModeAvailable={false}
+        sandboxAvailable={false}
         errorMessage={null}
         isRunning={false}
         onRun={vi.fn().mockResolvedValue(undefined)}
@@ -70,6 +70,6 @@ describe('DeepAnalysisDialog', () => {
     );
 
     expect(screen.getByRole('button', { name: /run deep analysis/i })).toBeDisabled();
-    expect(screen.getByText(/deep analysis is unavailable right now/i)).toBeInTheDocument();
+    expect(screen.getByText(/a live sandbox is unavailable right now/i)).toBeInTheDocument();
   });
 });

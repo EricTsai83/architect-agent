@@ -96,9 +96,9 @@ export function RepoInfoPopover({
             />
           ) : null}
           <InfoRow
-            label="Deep mode"
-            value={repoDetail.deepModeAvailable ? 'Available' : 'Unavailable'}
-            highlight={repoDetail.deepModeAvailable ? 'positive' : 'negative'}
+            label="Sandbox mode"
+            value={repoDetail.sandboxModeAvailable ? 'Available' : 'Unavailable'}
+            highlight={repoDetail.sandboxModeAvailable ? 'positive' : 'negative'}
           />
         </div>
       </PopoverContent>

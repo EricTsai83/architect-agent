@@ -22,14 +22,14 @@ export type ActiveMessageStream = {
   lastAppendedAt: number;
 };
 
-export type DeepModeReasonCode =
+export type SandboxModeReasonCode =
   | 'available'
   | 'missing_sandbox'
   | 'sandbox_unavailable'
   | 'sandbox_expired'
   | 'sandbox_provisioning';
 
-export type DeepModeStatus = {
-  reasonCode: DeepModeReasonCode;
+export type SandboxModeStatus = {
+  reasonCode: SandboxModeReasonCode;
   message: string | null;
 };

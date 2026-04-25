@@ -28,7 +28,7 @@ export type TopBarRepoDetail = {
     lastSyncedCommitSha?: string;
   };
   sandbox: { status: string; ttlExpiresAt: number; autoArchiveIntervalMinutes: number } | null;
-  deepModeAvailable: boolean;
+  sandboxModeAvailable: boolean;
   hasRemoteUpdates: boolean;
   fileCount: number;
   fileCountLabel: string;
@@ -157,14 +157,14 @@ function SyncButton({
   }
 
   const buttonClassName = hasUpdates
-    ? 'relative min-w-[8.75rem] justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
-    : 'min-w-[8.75rem] justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
+    ? 'relative min-w-35 justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
+    : 'min-w-35 justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
 
   if (label === null && !repoDetail && !isBusy) {
     return (
       <span
         aria-hidden="true"
-        className="inline-flex h-8 min-w-[8.75rem] items-center justify-start rounded-md border border-transparent bg-transparent px-3 text-xs text-muted-foreground"
+        className="inline-flex h-8 min-w-35 items-center justify-start rounded-md border border-transparent bg-transparent px-3 text-xs text-muted-foreground"
       />
     );
   }

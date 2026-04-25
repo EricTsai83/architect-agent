@@ -103,7 +103,7 @@ describe('getThreadContext (internal)', () => {
     expect(result).toBeNull();
   });
 
-  test('thread without a repository: only general mode is available', async () => {
+  test('thread without a repository: only discuss mode is available', async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, { withRepository: false });
 

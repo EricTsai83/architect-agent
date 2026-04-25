@@ -29,7 +29,7 @@ import { Logo } from '@/components/logo';
 import { ImportRepoDialog } from '@/components/import-repo-dialog';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { cn } from '@/lib/utils';
-import type { ChatMode, RepositoryId, ThreadId } from '@/lib/types';
+import type { RepositoryId, ThreadId } from '@/lib/types';
 
 /**
  * Thread-first sidebar (PRD #19).
@@ -57,7 +57,6 @@ export function AppSidebar({
   selectedThreadId,
   onSelectThread,
   onDeleteThread,
-  chatMode,
   onImported,
 }: {
   repositories: Doc<'repositories'>[] | undefined;
@@ -66,7 +65,6 @@ export function AppSidebar({
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
-  chatMode: ChatMode;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
   const threads = useQuery(api.chat.listThreads, {});
@@ -84,17 +82,11 @@ export function AppSidebar({
 
   const [isCreatingThread, handleCreateThread] = useAsyncCallback(
     useCallback(async () => {
-      // No repositoryId: the new thread starts in `discuss` mode and only
-      // gets a repo once the user attaches one via AttachRepoMenu (US 1,
-      // US 11). We forward the user's currently selected `chatMode` only if
-      // it is repo-less — otherwise the backend would reject it on the
-      // mode-precondition check; in practice the resolver also collapses to
-      // `discuss` when no repo is attached, so the mismatch is rare.
-      const threadId = await createThreadMutation({
-        mode: chatMode === 'discuss' ? 'discuss' : undefined,
-      });
+      // No repositoryId: let the backend choose the default repo-less mode so
+      // the sidebar stays in lockstep with `createThread`'s source of truth.
+      const threadId = await createThreadMutation({});
       onSelectThread(threadId);
-    }, [chatMode, createThreadMutation, onSelectThread]),
+    }, [createThreadMutation, onSelectThread]),
   );
 
   return (
@@ -165,14 +157,14 @@ function ThreadsSection({
   onDeleteThread: (id: ThreadId) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1 p-3" aria-live="polite">
+    <div className="flex flex-col gap-1 p-3">
       <div className="flex items-center justify-between px-1 pb-1">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Threads
         </p>
       </div>
       {threads === undefined ? null : threads.length === 0 ? (
-        <p className="px-1 text-xs text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-300">
+        <p className="px-1 text-xs text-muted-foreground animate-in fade-in slide-in-from-top-1 duration-300" aria-live="polite">
           No conversations yet. Start one above.
         </p>
       ) : (
@@ -202,7 +194,7 @@ const ThreadsList = memo(function ThreadsList({
   onDeleteThread: (id: ThreadId) => void;
 }) {
   return (
-    <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-300">
+    <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-300" aria-live="polite">
       {threads.map((thread) => {
         const isSelected = selectedThreadId === thread._id;
         const repository = thread.repositoryId

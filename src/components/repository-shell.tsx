@@ -55,14 +55,10 @@ export function RepositoryShell({
   const createThreadMutation = useMutation(api.chat.createThread);
 
   // useThreadCapabilities is the canonical bridge between the resolver-side
-  // ChatModeResolver / ThreadContextResolver and the UI's mode selector. We
-  // also need the underlying threadContext (loaded by the same query inside
-  // the hook — Convex dedupes) for repo derivation, so we read both here.
+  // ChatModeResolver / ThreadContextResolver and the UI's mode selector.
+  // It also forwards the attached repository summary, so we do not need a
+  // second `getThreadContext` subscription here.
   const capabilities = useThreadCapabilities(urlThreadId);
-  const threadContext = useQuery(
-    api.threadContext.getThreadContext,
-    urlThreadId ? { threadId: urlThreadId } : 'skip',
-  );
 
   // Loaded only on the no-selection landing (`/chat`) so we can redirect to
   // the most recent thread when one exists. The query is owner-scoped via
@@ -83,7 +79,7 @@ export function RepositoryShell({
   // collapses to the new thread's resolver-supplied default — no effect or
   // setState required, so the per-thread default behaviour stays a pure
   // derivation. We also drop the pick if it became unavailable for the same
-  // thread (e.g. the user picked `deep` and then the sandbox expired).
+  // thread (e.g. the user picked `sandbox` and then the sandbox expired).
   const [pickedChatMode, setPickedChatMode] = useState<{
     threadId: ThreadId | null;
     mode: ChatMode;
@@ -110,7 +106,7 @@ export function RepositoryShell({
   // /t/:threadId → use thread's repository (if any). /r/:repoId → use the
   // URL repo. /chat → null until the redirect-to-most-recent effect runs.
   const effectiveSelectedRepositoryId: RepositoryId | null =
-    urlRepositoryId ?? threadContext?.attachedRepository?._id ?? null;
+    urlRepositoryId ?? capabilities.attachedRepository?.id ?? null;
 
   const effectiveSelectedThreadId: ThreadId | null = urlThreadId;
 
@@ -143,10 +139,10 @@ export function RepositoryShell({
     if (urlThreadId === null) {
       return;
     }
-    if (threadContext === null) {
+    if (capabilities.isMissingThread) {
       void navigate('/chat', { replace: true });
     }
-  }, [navigate, threadContext, urlThreadId]);
+  }, [capabilities.isMissingThread, navigate, urlThreadId]);
 
   // Check GitHub for new remote commits on tab-focus and repo-switch.
   useCheckForUpdates(effectiveSelectedRepositoryId);
@@ -164,7 +160,7 @@ export function RepositoryShell({
   const isLandingResolving =
     isOnLanding && (ownerThreads === undefined || (ownerThreads.length > 0));
 
-  const workspaceStatus: RepositoryWorkspaceStatus = isRepositoriesLoading
+  const workspaceStatus: RepositoryWorkspaceStatus = isRepositoriesLoading || isLandingResolving
     ? 'initializing'
     : isOnLanding && ownerThreads?.length === 0
       ? 'no-repo'
@@ -174,8 +170,7 @@ export function RepositoryShell({
 
   const isChatLoading =
     workspaceStatus === 'initializing' ||
-    isLandingResolving ||
-    (effectiveSelectedThreadId !== null && (messages === undefined || threadContext === undefined));
+    (effectiveSelectedThreadId !== null && (messages === undefined || capabilities.isLoading));
 
   const handleSelectThread = useCallback(
     (threadId: ThreadId | null) => {
@@ -216,8 +211,9 @@ export function RepositoryShell({
   );
 
   // Empty-state CTA: create a no-repo thread and navigate into it (PRD US 1
-  // and US 9). Always opens in `discuss` mode (matches resolver's default
-  // for no-repo threads); the user can attach a repo later via
+  // and US 9). We intentionally let the backend choose the repo-less default
+  // mode so the empty-state CTA stays in lockstep with `chat.createThread`;
+  // the user can attach a repo later via
   // AttachRepoMenu, at which point the mode selector unlocks `docs` and
   // potentially `sandbox`. Errors surface in the workspace's standard
   // `actionError` slot.
@@ -225,7 +221,7 @@ export function RepositoryShell({
     useCallback(async () => {
       setActionError(null);
       try {
-        const newThreadId = await createThreadMutation({ mode: 'discuss' });
+        const newThreadId = await createThreadMutation({});
         void navigate(`/t/${newThreadId}`);
       } catch (error) {
         setActionError(toUserErrorMessage(error, 'Failed to start a conversation.'));
@@ -276,7 +272,6 @@ export function RepositoryShell({
         selectedThreadId={effectiveSelectedThreadId}
         onSelectThread={handleSelectThread}
         onDeleteThread={setThreadToDelete}
-        chatMode={chatMode}
         onImported={handleImported}
       />
 
@@ -293,7 +288,7 @@ export function RepositoryShell({
           }}
         />
 
-        {effectiveSelectedRepositoryId && actionError ? (
+        {actionError ? (
           <div className="border-b border-border px-6 py-3">
             <AppNotice title="Action failed" message={actionError} tone="error" />
           </div>
@@ -321,27 +316,27 @@ export function RepositoryShell({
               </div>
             ) : null}
             <RepositoryTabs
-            activeTab={activeTab}
-            onActiveTabChange={setActiveTab}
-            jobs={repoDetail?.jobs}
-            artifacts={repoDetail?.artifacts}
-            selectedThreadId={effectiveSelectedThreadId}
-            messages={messages}
-            activeMessageStream={activeMessageStream}
-            isChatLoading={isChatLoading}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            chatMode={chatMode}
-            setChatMode={setChatMode}
-            availableModes={capabilities.availableModes}
-            disabledModeReasons={capabilities.disabledReasons}
-            isSending={isSending}
-            onSendMessage={handleSendMessage}
-            deepModeAvailable={repoDetail?.deepModeAvailable ?? true}
-            deepModeStatus={repoDetail?.deepModeStatus ?? null}
-            isSyncing={isSyncing}
-            onSync={() => void handleSync()}
-          />
+              activeTab={activeTab}
+              onActiveTabChange={setActiveTab}
+              jobs={repoDetail?.jobs}
+              artifacts={repoDetail?.artifacts}
+              selectedThreadId={effectiveSelectedThreadId}
+              messages={messages}
+              activeMessageStream={activeMessageStream}
+              isChatLoading={isChatLoading}
+              chatInput={chatInput}
+              setChatInput={setChatInput}
+              chatMode={chatMode}
+              setChatMode={setChatMode}
+              availableModes={capabilities.availableModes}
+              disabledModeReasons={capabilities.disabledReasons}
+              isSending={isSending}
+              onSendMessage={handleSendMessage}
+              sandboxModeAvailable={repoDetail?.sandboxModeAvailable ?? true}
+              sandboxModeStatus={repoDetail?.sandboxModeStatus ?? null}
+              isSyncing={isSyncing}
+              onSync={() => void handleSync()}
+            />
           </>
         )}
       </SidebarInset>
@@ -380,8 +375,8 @@ export function RepositoryShell({
             }}
             analysisPrompt={analysisPrompt}
             onAnalysisPromptChange={setAnalysisPrompt}
-            deepModeAvailable={repoDetail !== undefined && repoDetail.deepModeAvailable}
-            deepModeReason={repoDetail?.deepModeStatus?.message ?? null}
+            sandboxAvailable={repoDetail !== undefined && repoDetail.sandboxModeAvailable}
+            sandboxReason={repoDetail?.sandboxModeStatus?.message ?? null}
             errorMessage={analysisError}
             isRunning={isRunningAnalysis}
             onRun={handleRunAnalysis}

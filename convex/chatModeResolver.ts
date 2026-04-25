@@ -6,7 +6,7 @@
  * selector and the `chat.sendMessage` / `chat.createThread` validators on the
  * backend. The same `ChatMode` literals are persisted on `threads.mode` and
  * `messages.mode`, so log-line `mode: 'docs'` matches the UI label "Docs"
- * exactly — no fast/deep aliasing.
+ * exactly — no legacy quick/deep aliasing.
  *
  * Mode semantics (PRD #19, Architectural reversal):
  *   - `discuss`  — LLM training only; no repo, no sandbox. Pre-design talk.

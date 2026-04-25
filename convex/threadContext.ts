@@ -22,7 +22,7 @@ export interface ThreadContext {
  * Maps the sandbox table status enum onto the ChatModeResolver's input domain.
  *
  * The sandbox table tracks provider-level lifecycle (`stopped`, `archived`, ...)
- * but the resolver only cares about whether deep mode is available right now.
+ * but the resolver only cares about whether sandbox mode is available right now.
  * Both `stopped` and `archived` collapse to `expired` for resolver purposes —
  * they are not currently usable but the user can re-provision a sandbox.
  */
