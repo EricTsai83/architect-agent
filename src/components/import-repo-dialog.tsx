@@ -169,8 +169,15 @@ function RepoRow({
 
 export function ImportRepoDialog({
   onImported,
+  trigger,
 }: {
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  /**
+   * Optional custom trigger element. Used by the EmptyState's dual-CTA layout
+   * (PRD US 9) where the "Import repository" button needs to read as a primary
+   * action rather than the compact "+" icon used in the sidebar.
+   */
+  trigger?: React.ReactNode;
 }) {
   const createRepositoryImport = useMutation(api.repositories.createRepositoryImport);
   const initiateGitHubInstall = useAction(api.githubAppNode.initiateGitHubInstall);
@@ -390,9 +397,11 @@ export function ImportRepoDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="secondary" size="icon" aria-label="Add repository" title="Add repository">
-          <PlusIcon weight="bold" />
-        </Button>
+        {trigger ?? (
+          <Button variant="secondary" size="icon" aria-label="Add repository" title="Add repository">
+            <PlusIcon weight="bold" />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="flex h-[560px] flex-col overflow-y-hidden">
         <DialogHeader className="shrink-0">

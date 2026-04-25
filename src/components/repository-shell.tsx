@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -12,10 +12,12 @@ import { AppNotice } from '@/components/app-notice';
 import { RepositoryTabs } from '@/components/repository-tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 import { useRepositoryActions } from '@/hooks/use-repository-actions';
 import { useThreadCapabilities } from '@/hooks/use-thread-capabilities';
-import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
+import { toBackendThreadMode, type RepositoryId, type ThreadId, type ChatMode } from '@/lib/types';
+import { toUserErrorMessage } from '@/lib/errors';
 
 type RepositoryWorkspaceStatus = 'initializing' | 'no-repo' | 'ready';
 
@@ -50,6 +52,7 @@ export function RepositoryShell({
 }) {
   const navigate = useNavigate();
   const repositories = useQuery(api.repositories.listRepositories);
+  const createThreadMutation = useMutation(api.chat.createThread);
 
   // useThreadCapabilities is the canonical bridge between the resolver-side
   // ChatModeResolver / ThreadContextResolver and the UI's mode selector. We
@@ -212,6 +215,23 @@ export function RepositoryShell({
     [navigate],
   );
 
+  // Empty-state CTA: create a no-repo thread and navigate into it (PRD US 1
+  // and US 9). Errors surface in the workspace's standard `actionError` slot
+  // so the user sees the same recovery affordance as any other failed action.
+  const [isStartingConversation, handleStartConversation] = useAsyncCallback(
+    useCallback(async () => {
+      setActionError(null);
+      try {
+        const newThreadId = await createThreadMutation({
+          mode: toBackendThreadMode(chatMode),
+        });
+        void navigate(`/t/${newThreadId}`);
+      } catch (error) {
+        setActionError(toUserErrorMessage(error, 'Failed to start a conversation.'));
+      }
+    }, [chatMode, createThreadMutation, navigate]),
+  );
+
   const {
     isSending,
     handleSendMessage,
@@ -279,7 +299,11 @@ export function RepositoryShell({
         ) : null}
 
         {workspaceStatus === 'no-repo' ? (
-          <EmptyState />
+          <EmptyState
+            onStartConversation={() => void handleStartConversation()}
+            onImported={handleImported}
+            isStartingConversation={isStartingConversation}
+          />
         ) : (
           <>
             {effectiveSelectedThreadId !== null ? (
