@@ -31,11 +31,13 @@ vi.mock('@/components/ui/textarea', () => ({
   Textarea: (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
 }));
 
-vi.mock('@/components/ui/select', () => ({
-  Select: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+// Tooltip is rendered as the disabled-mode hint container; the test only
+// cares that the trigger child renders, so we replace it with passthroughs.
+vi.mock('@/components/ui/tooltip', () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 const threadId = 'thread_1' as ThreadId;
@@ -64,8 +66,13 @@ describe('ChatPanel streaming rendering', () => {
         isChatLoading={false}
         chatInput=""
         setChatInput={vi.fn()}
-        chatMode="fast"
+        chatMode="general"
         setChatMode={vi.fn()}
+        availableModes={['general']}
+        disabledModeReasons={{
+          grounded: 'Attach a repository to use grounded mode.',
+          deep: 'Attach a repository with a ready sandbox to use deep mode.',
+        }}
         isSending={false}
         onSendMessage={vi.fn()}
         deepModeAvailable
@@ -100,8 +107,10 @@ describe('ChatPanel streaming rendering', () => {
         isChatLoading={false}
         chatInput=""
         setChatInput={vi.fn()}
-        chatMode="fast"
+        chatMode="grounded"
         setChatMode={vi.fn()}
+        availableModes={['general', 'grounded']}
+        disabledModeReasons={{ deep: 'Provision a sandbox to use deep mode.' }}
         isSending={false}
         onSendMessage={vi.fn()}
         deepModeAvailable
@@ -129,8 +138,10 @@ describe('ChatPanel streaming rendering', () => {
         isChatLoading={false}
         chatInput=""
         setChatInput={vi.fn()}
-        chatMode="fast"
+        chatMode="grounded"
         setChatMode={vi.fn()}
+        availableModes={['general', 'grounded']}
+        disabledModeReasons={{ deep: 'Provision a sandbox to use deep mode.' }}
         isSending={false}
         onSendMessage={vi.fn()}
         deepModeAvailable

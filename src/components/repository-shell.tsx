@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 import { useRepositoryActions } from '@/hooks/use-repository-actions';
+import { useThreadCapabilities } from '@/hooks/use-thread-capabilities';
 import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
 
 type RepositoryWorkspaceStatus = 'initializing' | 'no-repo' | 'ready';
@@ -49,10 +50,11 @@ export function RepositoryShell({
   const navigate = useNavigate();
   const repositories = useQuery(api.repositories.listRepositories);
 
-  // Loaded only when `urlThreadId` is set so that we can:
-  //   - validate the thread belongs to the viewer
-  //   - derive the attached repository (if any) so the repo panel renders
-  //     consistently with /r/:repoId
+  // useThreadCapabilities is the canonical bridge between the resolver-side
+  // ChatModeResolver / ThreadContextResolver and the UI's mode selector. We
+  // also need the underlying threadContext (loaded by the same query inside
+  // the hook — Convex dedupes) for repo derivation, so we read both here.
+  const capabilities = useThreadCapabilities(urlThreadId);
   const threadContext = useQuery(
     api.threadContext.getThreadContext,
     urlThreadId ? { threadId: urlThreadId } : 'skip',
@@ -72,7 +74,28 @@ export function RepositoryShell({
     'Summarize the main modules, data flow, and risk areas for this repository.',
   );
   const [chatInput, setChatInput] = useState('');
-  const [chatMode, setChatMode] = useState<ChatMode>('fast');
+  // The user's last explicit mode pick, scoped to the thread it was made for.
+  // When `urlThreadId` changes, the scope check fails and the effective mode
+  // collapses to the new thread's resolver-supplied default — no effect or
+  // setState required, so the per-thread default behaviour stays a pure
+  // derivation. We also drop the pick if it became unavailable for the same
+  // thread (e.g. the user picked `deep` and then the sandbox expired).
+  const [pickedChatMode, setPickedChatMode] = useState<{
+    threadId: ThreadId | null;
+    mode: ChatMode;
+  } | null>(null);
+  const chatMode: ChatMode =
+    pickedChatMode &&
+    pickedChatMode.threadId === urlThreadId &&
+    capabilities.availableModes.includes(pickedChatMode.mode)
+      ? pickedChatMode.mode
+      : capabilities.defaultMode;
+  const setChatMode = useCallback(
+    (mode: ChatMode) => {
+      setPickedChatMode({ threadId: urlThreadId, mode });
+    },
+    [urlThreadId],
+  );
   const [activeTab, setActiveTab] = useState<'chat' | 'jobs' | 'artifacts'>('chat');
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -270,6 +293,8 @@ export function RepositoryShell({
             setChatInput={setChatInput}
             chatMode={chatMode}
             setChatMode={setChatMode}
+            availableModes={capabilities.availableModes}
+            disabledModeReasons={capabilities.disabledReasons}
             isSending={isSending}
             onSendMessage={handleSendMessage}
             deepModeAvailable={repoDetail?.deepModeAvailable ?? true}

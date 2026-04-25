@@ -3,7 +3,7 @@ import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { toUserErrorMessage } from '@/lib/errors';
-import type { ChatMode, RepositoryId, ThreadId } from '@/lib/types';
+import { toBackendThreadMode, type ChatMode, type RepositoryId, type ThreadId } from '@/lib/types';
 
 /**
  * Aggregates all repo / thread mutations the workspace can fire and exposes
@@ -63,7 +63,11 @@ export function useRepositoryActions({
         if (!selectedThreadId || !chatInput.trim()) return;
         setActionError(null);
         try {
-          await sendMessageMutation({ threadId: selectedThreadId, content: chatInput, mode: chatMode });
+          await sendMessageMutation({
+            threadId: selectedThreadId,
+            content: chatInput,
+            mode: toBackendThreadMode(chatMode),
+          });
           setChatInput('');
         } catch (error) {
           setActionError(toUserErrorMessage(error, 'Failed to send the message.'));

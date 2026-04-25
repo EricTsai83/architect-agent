@@ -10,7 +10,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButto
 import { Logo } from '@/components/logo';
 import { ImportRepoDialog } from '@/components/import-repo-dialog';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
-import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
+import { toBackendThreadMode, type RepositoryId, type ThreadId, type ChatMode } from '@/lib/types';
 
 export function AppSidebar({
   repositories,
@@ -145,7 +145,10 @@ function ThreadsSection({
 
   const [isCreatingThread, handleCreateThread] = useAsyncCallback(
     useCallback(async () => {
-      const threadId = await createThreadMutation({ repositoryId, mode: chatMode });
+      const threadId = await createThreadMutation({
+        repositoryId,
+        mode: toBackendThreadMode(chatMode),
+      });
       onSelectThread(threadId);
     }, [repositoryId, chatMode, createThreadMutation, onSelectThread]),
   );

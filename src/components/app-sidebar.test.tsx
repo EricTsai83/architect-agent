@@ -71,7 +71,7 @@ describe('AppSidebar thread selection', () => {
         selectedThreadId={'thread_1' as never}
         onSelectThread={onSelectThread}
         onDeleteThread={vi.fn()}
-        chatMode="fast"
+        chatMode="general"
         onImported={vi.fn()}
       />,
     );
@@ -98,7 +98,7 @@ describe('AppSidebar thread selection', () => {
         selectedThreadId={'thread_1' as never}
         onSelectThread={onSelectThread}
         onDeleteThread={vi.fn()}
-        chatMode="fast"
+        chatMode="general"
         onImported={vi.fn()}
       />,
     );

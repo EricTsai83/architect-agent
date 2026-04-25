@@ -20,6 +20,8 @@ export function RepositoryTabs({
   setChatInput,
   chatMode,
   setChatMode,
+  availableModes,
+  disabledModeReasons,
   isSending,
   onSendMessage,
   deepModeAvailable,
@@ -39,6 +41,8 @@ export function RepositoryTabs({
   setChatInput: (value: string) => void;
   chatMode: ChatMode;
   setChatMode: (value: ChatMode) => void;
+  availableModes: readonly ChatMode[];
+  disabledModeReasons: Partial<Record<ChatMode, string>>;
   isSending: boolean;
   onSendMessage: (e: FormEvent<HTMLFormElement>) => Promise<void>;
   deepModeAvailable: boolean;
@@ -64,6 +68,8 @@ export function RepositoryTabs({
           setChatInput={setChatInput}
           chatMode={chatMode}
           setChatMode={setChatMode}
+          availableModes={availableModes}
+          disabledModeReasons={disabledModeReasons}
           isSending={isSending}
           onSendMessage={onSendMessage}
           deepModeAvailable={deepModeAvailable}
