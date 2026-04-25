@@ -3,6 +3,7 @@ import { internal } from './_generated/api';
 import type { Id } from './_generated/dataModel';
 import { mutation, query, internalMutation, internalQuery, type MutationCtx } from './_generated/server';
 import { requireViewerIdentity } from './lib/auth';
+import { validateParentPresence } from './artifactStore';
 import {
   consumeDaytonaGlobalRateLimit,
   consumeDeepAnalysisRateLimit,
@@ -62,7 +63,7 @@ export const listArtifacts = query({
     }
 
     return await ctx.db
-      .query('analysisArtifacts')
+      .query('artifacts')
       .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
       .order('desc')
       .take(40);
@@ -177,7 +178,12 @@ export const completeDeepAnalysis = internalMutation({
     contentMarkdown: v.string(),
   },
   handler: async (ctx, args) => {
-    await ctx.db.insert('analysisArtifacts', {
+    // completeDeepAnalysis inserts directly into `artifacts` rather than
+    // routing through createArtifactInternal, so enforce the artifact
+    // parent invariant here so the rule stays centralized.
+    validateParentPresence(undefined, args.repositoryId);
+
+    await ctx.db.insert('artifacts', {
       repositoryId: args.repositoryId,
       jobId: args.jobId,
       ownerTokenIdentifier: args.ownerTokenIdentifier,

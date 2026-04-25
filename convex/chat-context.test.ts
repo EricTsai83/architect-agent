@@ -85,7 +85,7 @@ describe('chat reply context', () => {
         summary: 'Old chunk',
         content: 'const legacyValue = "old";',
       });
-      await ctx.db.insert('analysisArtifacts', {
+      await ctx.db.insert('artifacts', {
         repositoryId,
         jobId: oldJobId,
         ownerTokenIdentifier,
@@ -143,7 +143,7 @@ describe('chat reply context', () => {
         summary: 'New chunk',
         content: 'const currentValue = "new";',
       });
-      await ctx.db.insert('analysisArtifacts', {
+      await ctx.db.insert('artifacts', {
         repositoryId,
         jobId: latestJobId,
         ownerTokenIdentifier,
@@ -165,7 +165,7 @@ describe('chat reply context', () => {
         costCategory: 'deep_analysis',
         triggerSource: 'user',
       });
-      await ctx.db.insert('analysisArtifacts', {
+      await ctx.db.insert('artifacts', {
         repositoryId,
         jobId: deepAnalysisJobId,
         ownerTokenIdentifier,
@@ -518,5 +518,28 @@ describe('chat reply context', () => {
     );
 
     expect(ranked.map((chunk) => chunk.path)).toEqual(['src/zeta.ts', 'src/alpha.ts']);
+  });
+
+  test('returns early with empty artifacts and chunks for repository-less threads', async () => {
+    const ownerTokenIdentifier = 'user|repo-less-thread';
+    const t = convexTest(schema, modules);
+
+    const threadId = await t.run(async (ctx) => {
+      return await ctx.db.insert('threads', {
+        ownerTokenIdentifier,
+        title: 'Design conversation',
+        mode: 'fast',
+        lastMessageAt: Date.now(),
+      });
+    });
+
+    const context = await t.query(internal.chat.getReplyContext, { threadId });
+
+    expect(context.sourceRepoFullName).toBeUndefined();
+    expect(context.artifacts).toHaveLength(0);
+    expect(context.chunks).toHaveLength(0);
+    expect(context.repositorySummary).toBeUndefined();
+    expect(context.readmeSummary).toBeUndefined();
+    expect(context.architectureSummary).toBeUndefined();
   });
 });
