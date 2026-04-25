@@ -42,7 +42,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function githubCallbackErrorResponse(
+function githubCallbackPageResponse(
   status: number,
   title: string,
   message: string,
@@ -97,20 +97,54 @@ function githubCallbackErrorResponse(
   });
 }
 
-function redirectOrReturnError(
+function githubCallbackErrorResponse(
+  status: number,
+  title: string,
+  message: string,
+): Response {
+  return githubCallbackPageResponse(status, title, message);
+}
+
+function githubCallbackSuccessResponse(title: string, message: string): Response {
+  return githubCallbackPageResponse(200, title, message);
+}
+
+function redirectOrReturnPage(
   redirectTarget: string | null,
   params: Record<string, string>,
-  status: number,
-  message: string,
+  fallbackResponse: Response,
 ): Response {
   if (redirectTarget) {
     return Response.redirect(buildRedirectUrl(redirectTarget, params), 302);
   }
 
-  return githubCallbackErrorResponse(
-    status,
-    'GitHub connection could not be completed.',
-    message,
+  return fallbackResponse;
+}
+
+function redirectOrReturnError(
+  redirectTarget: string | null,
+  params: Record<string, string>,
+  status: number,
+  title: string,
+  message: string,
+): Response {
+  return redirectOrReturnPage(
+    redirectTarget,
+    params,
+    githubCallbackErrorResponse(status, title, message),
+  );
+}
+
+function redirectOrReturnSuccess(
+  redirectTarget: string | null,
+  params: Record<string, string>,
+  title: string,
+  message: string,
+): Response {
+  return redirectOrReturnPage(
+    redirectTarget,
+    params,
+    githubCallbackSuccessResponse(title, message),
   );
 }
 
@@ -145,6 +179,7 @@ http.route({
         redirectTarget,
         { github_error: 'missing_params' },
         400,
+        'GitHub connection could not be completed.',
         'GitHub did not send the parameters needed to complete the installation flow.',
       );
     }
@@ -155,6 +190,7 @@ http.route({
         redirectTarget,
         { github_error: 'invalid_installation' },
         400,
+        'GitHub connection could not be completed.',
         'GitHub returned an invalid installation identifier.',
       );
     }
@@ -203,6 +239,7 @@ http.route({
           redirectTarget,
           { github_error: 'already_connected' },
           409,
+          'GitHub connection could not be completed.',
           'This GitHub account is already connected to a different installation in RepoSpark.',
         );
       }
@@ -210,11 +247,11 @@ http.route({
       logInfo('http', 'github_callback_completed', {
         installationId,
       });
-      return redirectOrReturnError(
+      return redirectOrReturnSuccess(
         redirectTarget,
         { github_connected: 'true' },
-        500,
-        'GitHub finished the installation flow, but RepoSpark could not determine where to return you.',
+        'GitHub connection completed.',
+        'GitHub finished the installation flow. You can close this tab and return to RepoSpark.',
       );
     } catch (error) {
       const errorId = logErrorWithId('http', 'github_callback_failed', error, {
@@ -227,6 +264,7 @@ http.route({
           error_id: errorId,
         },
         500,
+        'GitHub connection could not be completed.',
         `GitHub callback processing failed. Reference: ${errorId}`,
       );
     }

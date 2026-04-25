@@ -2,7 +2,7 @@
 
 - **Priority**: P2
 - **Status**: revise before implementation
-- **Scope**: `package.json`, `vercel.json`（new）, frontend auth bootstrap, GitHub callback redirect design, deployment docs
+- **Scope**: `package.json`, `vercel.json` (new), frontend auth bootstrap, GitHub callback redirect design, deployment docs
 - **Related design doc**: `docs/vercel-convex-deployment-system-design.md`
 - **Conflicts**:
   - `package.json`: any script or build flow changes
@@ -80,7 +80,10 @@ The recommended Vercel config for this repo is:
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bun run build:vercel",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/:path((?!api/|.*\\..*).*)", "destination": "/index.html" }
+  ]
 }
 ```
 
@@ -88,7 +91,7 @@ Why:
 
 - `buildCommand`: run Convex deploy before the Vite build
 - `outputDirectory`: Vite outputs to `dist`
-- `rewrites`: preferred Vercel SPA fallback for React Router deep links
+- `rewrites`: preferred Vercel SPA fallback for React Router deep links without rewriting `/api/*` or asset-like paths
 
 ### D. Separate environment ownership clearly
 
@@ -198,7 +201,7 @@ This keeps:
 
 5. Change frontend WorkOS bootstrap to derive redirect URI from runtime origin
 6. Change GitHub install state to store `returnTo`
-7. Change GitHub callback to redirect to stored `returnTo`, and return an explicit error when no usable state exists
+7. Change GitHub callback to redirect to stored `returnTo`, return an explicit error when no usable state exists, and show a success page when installation succeeds without a stored return target
 
 ### Phase 3: docs and quality gates
 
@@ -214,6 +217,7 @@ This keeps:
 - production build uses the production `CONVEX_DEPLOY_KEY`
 - the frontend receives `VITE_CONVEX_URL` from `convex deploy`
 - React Router deep links do not 404 on Vercel
+- `/api/*` and static assets are not rewritten to `index.html`
 - WorkOS callback resolves to the current frontend origin
 - GitHub install started from a preview returns to that same preview
 - GitHub Actions, if present, perform checks only and do not deploy

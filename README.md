@@ -155,9 +155,9 @@ bun run dev
 This starts both app runtimes:
 
 - `vite --open`
-- `convex dev`
+- `npx convex dev`
 
-The `predev` hook waits for Convex to become ready and opens the Convex dashboard.
+The `predev` hook waits for `npx convex dev` to become ready and opens the Convex dashboard.
 
 ## Important local URLs and callbacks
 
@@ -169,7 +169,7 @@ When wiring external services, these are the main endpoints:
 - GitHub App webhook: `https://<your-convex-site>/api/github/webhook`
 - Daytona webhook: `https://<your-convex-site>/api/daytona/webhook`
 
-For GitHub App installation, the frontend sends its current origin when the install flow starts. The Convex callback stores that origin in OAuth state and redirects back to it after installation. If GitHub calls back without a usable state, the endpoint returns an explicit error instead of guessing a frontend URL.
+For GitHub App installation, the frontend sends its current origin when the install flow starts. The Convex callback stores that origin in OAuth state and redirects back to it after installation when possible. If GitHub calls back without a usable state, the endpoint returns an explicit error instead of guessing a frontend URL. If the installation succeeds but no return target is available, the endpoint renders a small success page telling the user to return to RepoSpark manually.
 
 For Daytona, configure Svix signing on the webhook endpoint and store the signing secret in `DAYTONA_WEBHOOK_SIGNING_SECRET`. `DAYTONA_WEBHOOK_ORGANIZATION_ID` can be used as an additional allowlist check.
 
@@ -179,7 +179,7 @@ For Daytona, configure Svix signing on the webhook endpoint and store the signin
 | --- | --- |
 | `bun run dev` | Run frontend and Convex backend in parallel |
 | `bun run dev:frontend` | Start the Vite frontend |
-| `bun run dev:backend` | Start `convex dev` |
+| `bun run dev:backend` | Start `npx convex dev` |
 | `bun run build` | Type-check and build the frontend |
 | `bun run build:vercel` | Deploy Convex, inject `VITE_CONVEX_URL`, and build for Vercel |
 | `bun run typecheck` | Run the app TypeScript build |
@@ -223,7 +223,7 @@ The deployment model is intentionally simple:
 - Backend: Convex cloud
 - External services: WorkOS, GitHub, Daytona, and OpenAI
 - Hosting and CD: Vercel Git integration running `bun run build:vercel`
-- SPA deep links: handled by `vercel.json` rewrites
+- SPA deep links: handled by `vercel.json` rewrites for client routes, without rewriting `/api/*` or file-extension asset requests
 
 There is no separate always-on custom API server in front of the backend.
 
