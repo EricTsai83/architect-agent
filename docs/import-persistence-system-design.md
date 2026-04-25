@@ -136,7 +136,7 @@ For this system, correctness and predictable recovery matter more than minimizin
 
 ## Result
 
-The staged-persist plus finalize-publish design gives Repospark a cleaner snapshot boundary:
+The staged-persist plus finalize-publish design gives Systify a cleaner snapshot boundary:
 
 - writes are bounded
 - retries are safe

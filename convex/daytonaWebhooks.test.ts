@@ -15,7 +15,7 @@ const { deleteSandboxMock, getRemoteSandboxDetailsMock } = vi.hoisted(() => ({
 vi.mock('./daytona', () => ({
   deleteSandbox: deleteSandboxMock,
   getRemoteSandboxDetails: getRemoteSandboxDetailsMock,
-  isReposparkManagedSandbox: (labels: Record<string, string> | undefined) => labels?.app === 'repospark',
+  isSystifyManagedSandbox: (labels: Record<string, string> | undefined) => labels?.app === 'systify',
 }));
 
 async function seedRepository(t: ReturnType<typeof convexTest>, ownerTokenIdentifier: string) {
@@ -308,7 +308,7 @@ describe('daytona webhook processing', () => {
       exists: true,
       remoteId: 'remote-orphan',
       organizationId: 'org-1',
-      labels: { app: 'repospark' },
+      labels: { app: 'systify' },
       state: 'started',
     });
     deleteSandboxMock.mockResolvedValue(undefined);

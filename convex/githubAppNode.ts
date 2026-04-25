@@ -135,7 +135,7 @@ export async function getInstallationAccessToken(installationId: number): Promis
       headers: {
         Accept: 'application/vnd.github.v3+json',
         Authorization: `Bearer ${appJwt}`,
-        'User-Agent': 'repospark',
+        'User-Agent': 'systify',
       },
     },
   );
@@ -251,7 +251,7 @@ export const verifyRepoAccess = action({
         headers: {
           Accept: 'application/vnd.github.v3+json',
           Authorization: `token ${token}`,
-          'User-Agent': 'repospark',
+          'User-Agent': 'systify',
         },
       },
     );
@@ -300,7 +300,7 @@ export const checkRepoAccess = internalAction({
         headers: {
           Accept: 'application/vnd.github.v3+json',
           Authorization: `token ${token}`,
-          'User-Agent': 'repospark',
+          'User-Agent': 'systify',
         },
       },
     );
@@ -379,7 +379,7 @@ export const listInstallationRepos = action({
         headers: {
           Accept: 'application/vnd.github.v3+json',
           Authorization: `token ${token}`,
-          'User-Agent': 'repospark',
+          'User-Agent': 'systify',
         },
       });
 
@@ -461,7 +461,7 @@ export const searchGitHubRepos = action({
       headers: {
         Accept: 'application/vnd.github.v3+json',
         Authorization: `token ${token}`,
-        'User-Agent': 'repospark',
+        'User-Agent': 'systify',
       },
     });
 
@@ -519,7 +519,7 @@ export const fetchInstallationDetails = internalAction({
         headers: {
           Accept: 'application/vnd.github.v3+json',
           Authorization: `Bearer ${appJwt}`,
-          'User-Agent': 'repospark',
+          'User-Agent': 'systify',
         },
       },
     );

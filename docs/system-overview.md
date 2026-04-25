@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This document describes the overall system boundaries of Repospark. Its goal is to give readers a clear high-level picture of how the product is put together before they dive into the data model, authentication, workflows, and integration details.
+This document describes the overall system boundaries of Systify. Its goal is to give readers a clear high-level picture of how the product is put together before they dive into the data model, authentication, workflows, and integration details.
 
 ## Product Positioning
 
-Repospark is a repository-centered architecture analysis product. A user first authorizes repository access through a GitHub App, then the system imports the repository into a Daytona sandbox, extracts files and chunks, persists them into Convex, and finally offers two analysis experiences:
+Systify is a repository-centered architecture analysis product. A user first authorizes repository access through a GitHub App, then the system imports the repository into a Daytona sandbox, extracts files and chunks, persists them into Convex, and finally offers two analysis experiences:
 
 - Quick chat: answers questions using indexed artifacts and code chunks.
 - Deep analysis: performs focused inspection directly against the sandboxed repository.

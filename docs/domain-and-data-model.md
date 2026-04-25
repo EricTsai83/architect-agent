@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document explains Repospark's core domain entities, data responsibility boundaries, and how the current workflows are represented through tables and state fields.
+This document explains Systify's core domain entities, data responsibility boundaries, and how the current workflows are represented through tables and state fields.
 
 ## Design Principles
 
@@ -172,7 +172,7 @@ This design makes the following check pattern consistent across the codebase:
 
 ## Snapshot Strategy
 
-Repospark does not overwrite import data in place. Instead, it keeps each import as its own snapshot and then uses the repository's latest pointers to mark the currently active version.
+Systify does not overwrite import data in place. Instead, it keeps each import as its own snapshot and then uses the repository's latest pointers to mark the currently active version.
 
 This has two effects:
 

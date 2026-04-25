@@ -1,8 +1,8 @@
-# RepoSpark
+# Systify
 
 Ask the repo, not the internet.
 
-RepoSpark is an open source repository analysis app for understanding unfamiliar codebases through grounded, repository-specific context. A user signs in with WorkOS, connects a GitHub App installation, imports a repository into a Daytona sandbox, indexes the codebase into Convex, and then explores it in two modes:
+Systify is an open source repository analysis app for understanding unfamiliar codebases through grounded, repository-specific context. A user signs in with WorkOS, connects a GitHub App installation, imports a repository into a Daytona sandbox, indexes the codebase into Convex, and then explores it in two modes:
 
 - `Quick chat`: answer questions from indexed files, chunks, artifacts, and recent thread history
 - `Deep analysis`: inspect a live sandbox when indexed data is not enough
@@ -11,11 +11,11 @@ The app uses a React frontend and a Convex backend. Convex owns the database, ba
 
 ## Status
 
-RepoSpark is an early-access project. Repository import, chat, artifact generation, sync, and sandbox lifecycle flows are implemented. Sandbox reliability and Daytona webhook reconciliation are still active areas of iteration.
+Systify is an early-access project. Repository import, chat, artifact generation, sync, and sandbox lifecycle flows are implemented. Sandbox reliability and Daytona webhook reconciliation are still active areas of iteration.
 
 This repository is standardized on Bun for package management and script execution.
 
-## What RepoSpark does
+## What Systify does
 
 - Import GitHub repositories through a GitHub App instead of personal access tokens
 - Index repository structure, files, chunks, summaries, and reusable analysis artifacts
@@ -29,7 +29,7 @@ This repository is standardized on Bun for package management and script executi
 
 1. The user signs in with WorkOS AuthKit.
 2. The user connects a GitHub App installation.
-3. RepoSpark verifies repository access and creates an import workflow.
+3. Systify verifies repository access and creates an import workflow.
 4. A Daytona sandbox is provisioned and the repository is cloned.
 5. The import pipeline scans the repository and writes files, chunks, summaries, and artifacts into Convex.
 6. The user explores the repository in `Quick chat` or `Deep analysis`.
@@ -70,7 +70,7 @@ This repository is standardized on Bun for package management and script executi
 
 ## Prerequisites
 
-Before running RepoSpark locally, make sure you have:
+Before running Systify locally, make sure you have:
 
 - Bun 1.3+
 - A Convex deployment
@@ -169,7 +169,7 @@ When wiring external services, these are the main endpoints:
 - GitHub App webhook: `https://<your-convex-site>/api/github/webhook`
 - Daytona webhook: `https://<your-convex-site>/api/daytona/webhook`
 
-For GitHub App installation, the frontend sends its current origin when the install flow starts. The Convex callback stores that origin in OAuth state and redirects back to it after installation when possible. If GitHub calls back without a usable state, the endpoint returns an explicit error instead of guessing a frontend URL. If the installation succeeds but no return target is available, the endpoint renders a small success page telling the user to return to RepoSpark manually.
+For GitHub App installation, the frontend sends its current origin when the install flow starts. The Convex callback stores that origin in OAuth state and redirects back to it after installation when possible. If GitHub calls back without a usable state, the endpoint returns an explicit error instead of guessing a frontend URL. If the installation succeeds but no return target is available, the endpoint renders a small success page telling the user to return to Systify manually.
 
 For Daytona, configure Svix signing on the webhook endpoint and store the signing secret in `DAYTONA_WEBHOOK_SIGNING_SECRET`. `DAYTONA_WEBHOOK_ORGANIZATION_ID` can be used as an additional allowlist check.
 

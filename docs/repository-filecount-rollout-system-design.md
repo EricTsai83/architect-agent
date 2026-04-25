@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document explains how Repospark removes the `getRepositoryDetail` file-count read amplification using a clean steady-state design, without adding migration logic for old repositories.
+This document explains how Systify removes the `getRepositoryDetail` file-count read amplification using a clean steady-state design, without adding migration logic for old repositories.
 
 ## The Problem
 
@@ -95,7 +95,7 @@ flowchart TD
 
 ## Why No Migration Logic
 
-In a mature system, this change might ship with a dual-read rollout or a batched backfill. Repospark does not need that here because the requirement explicitly does not include preserving old repository rows.
+In a mature system, this change might ship with a dual-read rollout or a batched backfill. Systify does not need that here because the requirement explicitly does not include preserving old repository rows.
 
 That lets the system adopt the cleaner steady-state model immediately instead of carrying temporary compatibility code.
 

@@ -43,8 +43,8 @@ export type ListedSandbox = {
 };
 
 type RemoteSandboxState = 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
-export const REPOSPARK_DAYTONA_MANAGED_LABELS = {
-  app: 'repospark',
+export const SYSTIFY_DAYTONA_MANAGED_LABELS = {
+  app: 'systify',
 } as const;
 
 export type RemoteSandboxDetails =
@@ -89,7 +89,7 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
     name: sandboxName,
     language: CodeLanguage.TYPESCRIPT,
     labels: {
-      ...REPOSPARK_DAYTONA_MANAGED_LABELS,
+      ...SYSTIFY_DAYTONA_MANAGED_LABELS,
       access: options.accessMode,
       adapter: options.sourceAdapter,
       repositoryId: options.repositoryId,
@@ -303,11 +303,11 @@ export function isDaytonaConfigured() {
   return Boolean(process.env.DAYTONA_API_KEY);
 }
 
-export function isReposparkManagedSandbox(labels: Record<string, string> | undefined): boolean {
+export function isSystifyManagedSandbox(labels: Record<string, string> | undefined): boolean {
   if (!labels) {
     return false;
   }
-  return labels.app === REPOSPARK_DAYTONA_MANAGED_LABELS.app;
+  return labels.app === SYSTIFY_DAYTONA_MANAGED_LABELS.app;
 }
 
 async function walkRepositoryTree(

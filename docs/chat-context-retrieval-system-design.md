@@ -145,7 +145,7 @@ That is a deliberate trade for:
 
 ## Result
 
-The new retrieval path gives Quick chat a better fit for the current Repospark architecture:
+The new retrieval path gives Quick chat a better fit for the current Systify architecture:
 
 - candidate pools change with the user's question
 - all retrieval stays inside `latestImportId`

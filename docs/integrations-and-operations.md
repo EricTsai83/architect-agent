@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document consolidates Repospark's integration boundaries with external systems and the current operational design around runtime behavior, cleanup, and deployment.
+This document consolidates Systify's integration boundaries with external systems and the current operational design around runtime behavior, cleanup, and deployment.
 
 ## External Integration Overview
 
@@ -28,7 +28,7 @@ flowchart TD
 
 ### Role
 
-WorkOS provides the browser-side sign-in experience and access token. Repospark does not issue its own app tokens. Instead, it hands the WorkOS token to Convex for validation.
+WorkOS provides the browser-side sign-in experience and access token. Systify does not issue its own app tokens. Instead, it hands the WorkOS token to Convex for validation.
 
 ### Boundary
 
@@ -153,22 +153,22 @@ After import finishes, the system stops the sandbox instead of deleting it immed
 - deep analysis may still need a live repository environment
 - Daytona can automatically wake the sandbox on later access
 
-This is Repospark's trade-off between cost and functionality.
+This is Systify's trade-off between cost and functionality.
 
 ### Why Daytona webhook exists
 
-In plain language, Daytona knows the real sandbox state first, while Repospark only knows what it has already recorded.
+In plain language, Daytona knows the real sandbox state first, while Systify only knows what it has already recorded.
 
 That creates a normal delay:
 
 - Daytona may already know that a sandbox was created
 - Daytona may already know that it stopped
 - Daytona may already know that it was archived or deleted
-- Repospark may still be waiting for the next cleanup or reconciliation pass
+- Systify may still be waiting for the next cleanup or reconciliation pass
 
 If the system only checks later, it is still correct eventually, but it reacts more slowly and can leave orphan resources around longer than necessary.
 
-The Daytona webhook exists to shorten that delay. It lets Daytona notify Repospark as soon as something changes.
+The Daytona webhook exists to shorten that delay. It lets Daytona notify Systify as soon as something changes.
 
 That does **not** mean the webhook replaces scheduled reconciliation. It only means:
 
@@ -177,7 +177,7 @@ That does **not** mean the webhook replaces scheduled reconciliation. It only me
 
 ### Daytona webhook convergence
 
-Repospark now also accepts Daytona sandbox lifecycle webhooks at `/api/daytona/webhook`.
+Systify now also accepts Daytona sandbox lifecycle webhooks at `/api/daytona/webhook`.
 
 The current flow is:
 
@@ -252,7 +252,7 @@ That means cleanup logic considers:
 
 The action:
 
-- lists Daytona sandboxes with the label `app = repospark`
+- lists Daytona sandboxes with the label `app = systify`
 - checks whether each `remoteId` exists in Convex `sandboxes`
 - ignores recently created sandboxes for a short safety window
 - deletes old unmatched sandboxes from Daytona
@@ -261,7 +261,7 @@ This is the backstop for failures that happen after Daytona create succeeds but 
 
 ### Webhook backlog repair and retention cleanup
 
-Webhook delivery is not assumed to be perfect. Repospark therefore also runs two maintenance loops:
+Webhook delivery is not assumed to be perfect. Systify therefore also runs two maintenance loops:
 
 - `repairDaytonaWebhookBacklog`: re-schedules inbox rows that are still `received`, are in `retryable_error`, or were left `processing` past their lease
 - `cleanupOldDaytonaWebhookEvents`: deletes old inbox rows after the retention window so the durable inbox does not grow forever
@@ -284,7 +284,7 @@ OpenAI is currently used mainly for Quick chat response generation. If `OPENAI_A
 
 ## Rate Limiting And Lease Recovery
 
-Repospark uses the official `@convex-dev/rate-limiter` Convex component for request-level protection, plus lease-based in-flight guards for long-running interactive jobs.
+Systify uses the official `@convex-dev/rate-limiter` Convex component for request-level protection, plus lease-based in-flight guards for long-running interactive jobs.
 
 ### Request flow
 
@@ -412,7 +412,7 @@ The minimum deployment structure implied by the current codebase is:
 - hosting/CD: Vercel Git integration calling `bun run build:vercel`
 - SPA routing fallback: `vercel.json` rewrites client routes to `index.html` while leaving `/api/*` and file-extension asset requests alone
 
-In other words, Repospark does not require another always-on API server. Convex already fills the roles of application backend, scheduler, HTTP endpoint host, and database.
+In other words, Systify does not require another always-on API server. Convex already fills the roles of application backend, scheduler, HTTP endpoint host, and database.
 
 ## Observations And Limitations
 

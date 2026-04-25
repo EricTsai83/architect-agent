@@ -240,7 +240,7 @@ http.route({
           { github_error: 'already_connected' },
           409,
           'GitHub connection could not be completed.',
-          'This GitHub account is already connected to a different installation in RepoSpark.',
+          'This GitHub account is already connected to a different installation in Systify.',
         );
       }
 
@@ -251,7 +251,7 @@ http.route({
         redirectTarget,
         { github_connected: 'true' },
         'GitHub connection completed.',
-        'GitHub finished the installation flow. You can close this tab and return to RepoSpark.',
+        'GitHub finished the installation flow. You can close this tab and return to Systify.',
       );
     } catch (error) {
       const errorId = logErrorWithId('http', 'github_callback_failed', error, {

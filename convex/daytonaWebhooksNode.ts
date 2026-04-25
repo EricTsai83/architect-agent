@@ -4,7 +4,7 @@ import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
 import { internalAction } from './_generated/server';
-import { deleteSandbox, getRemoteSandboxDetails, isReposparkManagedSandbox } from './daytona';
+import { deleteSandbox, getRemoteSandboxDetails, isSystifyManagedSandbox } from './daytona';
 import { logErrorWithId, logInfo } from './lib/observability';
 
 const UNKNOWN_REMOTE_CONFIRM_RETRY_MS = 5 * 60_000;
@@ -85,7 +85,7 @@ export const confirmUnknownRemote = internalAction({
       return { kind: 'gone' as const };
     }
 
-    if (!isReposparkManagedSandbox(remote.labels)) {
+    if (!isSystifyManagedSandbox(remote.labels)) {
       await ctx.runMutation(internal.daytonaWebhooks.markObservationIgnored, {
         remoteId: args.remoteId,
         discoveryStatus: 'ignored',

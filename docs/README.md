@@ -1,6 +1,6 @@
-# Repospark System Design
+# Systify System Design
 
-This folder contains the system design documentation for the current Repospark codebase. The documents focus on the current state and are meant to help engineers quickly understand the system boundaries, core data model, key workflows, and external integrations.
+This folder contains the system design documentation for the current Systify codebase. The documents focus on the current state and are meant to help engineers quickly understand the system boundaries, core data model, key workflows, and external integrations.
 
 ## Recommended Reading Order
 
@@ -22,7 +22,7 @@ This folder contains the system design documentation for the current Repospark c
 
 ### `system-overview.md`
 
-- What runtimes and external services make up Repospark?
+- What runtimes and external services make up Systify?
 - How do the main user actions flow through the frontend, Convex, and external services?
 - Which modules form the backbone of the product?
 

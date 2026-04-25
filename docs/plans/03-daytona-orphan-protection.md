@@ -29,7 +29,7 @@
 兩條都做：
 
 1. **DB-first provisioning**：在呼叫 Daytona `create` 之前，先插 `status: 'provisioning'` 的佔位 row，這樣無論 action 之後在哪裡 crash，cleanup 流程都能從 DB 認領到這個 sandbox。
-2. **Label-based reconciliation cron**：定期從 Daytona 端列出所有 `app: 'repospark'` label 的 sandbox，與 DB 比對，刪掉沒有對應 DB row 且年齡超過安全門檻的孤兒。
+2. **Label-based reconciliation cron**：定期從 Daytona 端列出所有 `app: 'systify'` label 的 sandbox，與 DB 比對，刪掉沒有對應 DB row 且年齡超過安全門檻的孤兒。
 
 ## 做法
 
@@ -79,7 +79,7 @@ cloneRepositoryInSandbox / collectRepositorySnapshot（維持現狀）
 
 `convex/opsNode.ts` 新增 `reconcileDaytonaOrphans` internalAction：
 
-1. `listSandboxesByLabel({ app: 'repospark' })`
+1. `listSandboxesByLabel({ app: 'systify' })`
 2. 逐個比對 Convex `sandboxes.by_remoteId`。
 3. 若 DB 裡找不到，且 Daytona 端 `createdAt > 10 分鐘之前`（避免誤殺正在 register 中的），呼叫 `deleteSandbox(remoteId)` 並 `logInfo('reconcile', 'orphan_deleted', ...)`。
 
@@ -103,7 +103,7 @@ crons.interval(
   - `runSandboxCleanup` 對 `remoteId === ''` 的 row 不會呼叫 Daytona delete。
 - 手動：
   - 在 `provisionSandbox` 之後、`attachSandboxRemoteInfo` 之前手動 throw，確認 DB 留下 `provisioning` row 且後續有 cleanup job。
-  - 在 Daytona 端手動建一個帶 `app: repospark` label 但 DB 沒有的 sandbox，跑 `reconcileDaytonaOrphans`，應該刪除。
+  - 在 Daytona 端手動建一個帶 `app: systify` label 但 DB 沒有的 sandbox，跑 `reconcileDaytonaOrphans`，應該刪除。
 
 ## Out of Scope
 

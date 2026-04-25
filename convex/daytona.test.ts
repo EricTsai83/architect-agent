@@ -60,7 +60,7 @@ describe('daytona state normalization', () => {
     getMock.mockResolvedValue({
       id: 'remote-1',
       state: remoteState,
-      labels: { app: 'repospark' },
+      labels: { app: 'systify' },
       refreshData: vi.fn().mockResolvedValue(undefined),
     });
 
@@ -74,7 +74,7 @@ describe('daytona state normalization', () => {
       createdAt: '2026-04-24T00:00:00.000Z',
       updatedAt: '2026-04-24T00:00:01.000Z',
       state: 'failed',
-      labels: { app: 'repospark' },
+      labels: { app: 'systify' },
       refreshData: vi.fn().mockResolvedValue(undefined),
     });
 
@@ -84,7 +84,7 @@ describe('daytona state normalization', () => {
       organizationId: 'org-1',
       createdAt: '2026-04-24T00:00:00.000Z',
       updatedAt: '2026-04-24T00:00:01.000Z',
-      labels: { app: 'repospark' },
+      labels: { app: 'systify' },
       state: 'error',
     });
   });

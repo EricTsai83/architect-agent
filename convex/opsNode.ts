@@ -8,7 +8,7 @@ import {
   deleteSandbox,
   getSandboxState,
   listSandboxesByLabel,
-  REPOSPARK_DAYTONA_MANAGED_LABELS,
+  SYSTIFY_DAYTONA_MANAGED_LABELS,
   stopSandbox,
 } from './daytona';
 import { logErrorWithId, logInfo } from './lib/observability';
@@ -181,7 +181,7 @@ export const reconcileStaleInteractiveJobs = internalAction({
 export const reconcileDaytonaOrphans = internalAction({
   args: {},
   handler: async (ctx) => {
-    const sandboxes = await listSandboxesByLabel(REPOSPARK_DAYTONA_MANAGED_LABELS);
+    const sandboxes = await listSandboxesByLabel(SYSTIFY_DAYTONA_MANAGED_LABELS);
 
     if (sandboxes.length === 0) {
       return;

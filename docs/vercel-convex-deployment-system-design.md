@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document explains the long-term deployment shape for Repospark when the frontend is hosted on Vercel and the backend runs on Convex.
+This document explains the long-term deployment shape for Systify when the frontend is hosted on Vercel and the backend runs on Convex.
 
 The goal is to keep deployment:
 
@@ -189,4 +189,4 @@ This design keeps the deployment model small without hiding important boundaries
 - preview and production stay isolated
 - callback routing stays correct without manual branch-by-branch URL maintenance
 
-That is the best long-term fit for Repospark's current architecture.
+That is the best long-term fit for Systify's current architecture.

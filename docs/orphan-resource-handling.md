@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document explains how Repospark handles orphan external resources, why this is a core system-design concern, and how the current cleanup architecture is layered to stay safe under crashes, retries, and third-party failures.
+This document explains how Systify handles orphan external resources, why this is a core system-design concern, and how the current cleanup architecture is layered to stay safe under crashes, retries, and third-party failures.
 
 The main focus today is Daytona sandboxes, because they are the most important external resource with both cost and lifecycle risk.
 
@@ -82,7 +82,7 @@ That means cleanup design must support reconciliation rather than assuming local
 
 The system should try to clean up resources immediately on known failure paths, but it must also have background reconciliation for everything that slips through.
 
-Repospark therefore uses both:
+Systify therefore uses both:
 
 - request-path cleanup, for known failures and repository deletion
 - scheduled reconciliation, for drift between Convex and Daytona
@@ -215,7 +215,7 @@ That trade-off is intentional. It is safer than assuming a single import or dele
 
 The current design tries to preserve these invariants:
 
-- every sandbox that Repospark intends to own should get a Convex row before provider creation
+- every sandbox that Systify intends to own should get a Convex row before provider creation
 - no cleanup path should require a sandbox to have a non-empty `remoteId`
 - provider deletion should be safe to retry
 - unknown Daytona sandboxes should only be deleted after a confirmation window
@@ -223,7 +223,7 @@ The current design tries to preserve these invariants:
 
 ## Webhook-Enhanced Convergence
 
-Repospark now adds Daytona webhook ingestion on top of the earlier three cleanup layers.
+Systify now adds Daytona webhook ingestion on top of the earlier three cleanup layers.
 
 The webhook layer improves convergence speed, but it still does not replace reconciliation. The current shape is:
 

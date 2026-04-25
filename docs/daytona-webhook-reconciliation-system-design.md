@@ -6,7 +6,7 @@ This document explains the recommended long-term design for ingesting Daytona sa
 
 ## Why This Needs A Design
 
-Repospark already has a safe baseline:
+Systify already has a safe baseline:
 
 - DB-first sandbox provisioning
 - request-path cleanup jobs
@@ -32,14 +32,14 @@ That means the two sides can temporarily disagree:
 - Daytona may already know that a sandbox stopped or was archived
 - Convex may still be showing the older state until the next background check
 
-Without a webhook, Repospark learns about those changes later.
+Without a webhook, Systify learns about those changes later.
 
 That delay is usually safe, but it has two costs:
 
 1. the product reacts more slowly to real sandbox state changes
 2. orphan sandboxes can stay around longer before cleanup notices them
 
-The webhook exists so Daytona can tell Repospark, "something changed right now."
+The webhook exists so Daytona can tell Systify, "something changed right now."
 
 That gives the system a faster signal, but not the final source of truth. The cron jobs still stay in place because webhook delivery itself can be delayed, duplicated, or missed.
 

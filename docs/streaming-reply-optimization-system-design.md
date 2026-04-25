@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document explains the long-term streaming architecture now used by Repospark chat.
+This document explains the long-term streaming architecture now used by Systify chat.
 
 The design separates:
 

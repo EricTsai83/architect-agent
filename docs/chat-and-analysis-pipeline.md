@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document describes the two AI interaction paths currently available in Repospark:
+This document describes the two AI interaction paths currently available in Systify:
 
 - Quick chat
 - Deep analysis

@@ -194,7 +194,7 @@ describe('GitHub installation selection', () => {
   test('consumeOAuthState returns the stored returnTo origin and marks the state consumed', async () => {
     const ownerTokenIdentifier = 'user|oauth-return-to';
     const state = 'state-with-return-to';
-    const returnTo = 'https://repospark-git-feature-branch.vercel.app';
+    const returnTo = 'https://systify-git-feature-branch.vercel.app';
     const t = createTestConvex();
 
     await t.mutation(internal.github.createOAuthState, {
@@ -224,7 +224,7 @@ describe('GitHub installation selection', () => {
   test('getOAuthReturnToByState returns the stored origin without consuming the state', async () => {
     const ownerTokenIdentifier = 'user|oauth-read-return-to';
     const state = 'state-read-return-to';
-    const returnTo = 'https://repospark-git-preview.vercel.app';
+    const returnTo = 'https://systify-git-preview.vercel.app';
     const t = createTestConvex();
 
     await t.mutation(internal.github.createOAuthState, {

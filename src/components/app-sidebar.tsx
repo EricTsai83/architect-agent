@@ -37,8 +37,7 @@ import type { RepositoryId, ThreadId } from '@/lib/types';
  *
  * Layout, top to bottom:
  *
- *   1. Header — logo + product name. Branding stays "RepoSpark" until the
- *      external rebrand to "Atrium" lands as its own meta task.
+ *   1. Header — logo + product name. Branding is "Systify".
  *   2. "+ New design conversation" CTA — the primary action. Creates a thread
  *      with no repository attached so the user can start an architectural
  *      discussion before importing any code (US 1, US 10).
@@ -102,7 +101,7 @@ export function AppSidebar({
       <SidebarHeader>
         <Logo size={30} />
         <div className="min-w-0 leading-tight">
-          <div className="truncate text-sm font-semibold tracking-tight">RepoSpark</div>
+          <div className="truncate text-sm font-semibold tracking-tight">Systify</div>
           <div className="truncate text-[11px] text-muted-foreground">
             Design copilot for your codebase
           </div>

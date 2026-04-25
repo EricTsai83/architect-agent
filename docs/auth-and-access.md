@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document explains how Repospark connects WorkOS, Convex, and the GitHub App, and describes where authentication and access control are enforced across the current system.
+This document explains how Systify connects WorkOS, Convex, and the GitHub App, and describes where authentication and access control are enforced across the current system.
 
 ## Authentication Boundary Overview
 
@@ -38,7 +38,7 @@ WorkOS is the source of the browser-side sign-in experience.
 
 ### 2. Convex uses the WorkOS token
 
-Repospark does not treat local WorkOS state as the application's source of truth for auth. Instead, it passes the WorkOS access token into Convex through `ConvexProviderWithAuthKit`.
+Systify does not treat local WorkOS state as the application's source of truth for auth. Instead, it passes the WorkOS access token into Convex through `ConvexProviderWithAuthKit`.
 
 This wrapper has two responsibilities:
 
@@ -101,7 +101,7 @@ So even if someone bypasses the frontend route guard, the backend will still rej
 
 ## How the GitHub App Relates to User Identity
 
-Repospark does not ask users to provide a GitHub personal access token. Instead, it manages repository access through GitHub App installations.
+Systify does not ask users to provide a GitHub personal access token. Instead, it manages repository access through GitHub App installations.
 
 ### Installation flow
 

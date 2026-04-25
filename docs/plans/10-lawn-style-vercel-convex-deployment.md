@@ -44,7 +44,7 @@ These parts of the original idea are still good:
 
 ### A. Keep CD simple
 
-Repospark fits the same high-level model as `lawn`:
+Systify fits the same high-level model as `lawn`:
 
 - frontend: static Vite app
 - backend: Convex

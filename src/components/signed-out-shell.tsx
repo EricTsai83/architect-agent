@@ -32,7 +32,7 @@ export function SignedOutShell() {
           <div className="flex items-center gap-3">
             <Logo size={36} />
             <div className="min-w-0 leading-tight">
-              <div className="text-sm font-semibold tracking-tight">RepoSpark</div>
+              <div className="text-sm font-semibold tracking-tight">Systify</div>
               <div className="text-[11px] text-muted-foreground">Grounded codebase answers</div>
             </div>
           </div>
@@ -65,7 +65,7 @@ export function SignedOutShell() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <AuthButton />
             <Button asChild variant="secondary">
-              <a href="https://github.com" rel="noreferrer" target="_blank">
+              <a href="https://github.com/EricTsai83/systify" rel="noreferrer" target="_blank">
                 <GithubLogoIcon weight="bold" />
                 View on GitHub
               </a>
