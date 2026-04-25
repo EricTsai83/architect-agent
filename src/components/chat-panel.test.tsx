@@ -66,12 +66,12 @@ describe('ChatPanel streaming rendering', () => {
         isChatLoading={false}
         chatInput=""
         setChatInput={vi.fn()}
-        chatMode="general"
+        chatMode="discuss"
         setChatMode={vi.fn()}
-        availableModes={['general']}
+        availableModes={['discuss']}
         disabledModeReasons={{
-          grounded: 'Attach a repository to use grounded mode.',
-          deep: 'Attach a repository with a ready sandbox to use deep mode.',
+          docs: 'Attach a repository to use Docs mode.',
+          sandbox: 'Attach a repository with a ready sandbox to use Sandbox mode.',
         }}
         isSending={false}
         onSendMessage={vi.fn()}
@@ -107,10 +107,10 @@ describe('ChatPanel streaming rendering', () => {
         isChatLoading={false}
         chatInput=""
         setChatInput={vi.fn()}
-        chatMode="grounded"
+        chatMode="docs"
         setChatMode={vi.fn()}
-        availableModes={['general', 'grounded']}
-        disabledModeReasons={{ deep: 'Provision a sandbox to use deep mode.' }}
+        availableModes={['discuss', 'docs']}
+        disabledModeReasons={{ sandbox: 'Provision a sandbox to use Sandbox mode.' }}
         isSending={false}
         onSendMessage={vi.fn()}
         deepModeAvailable
@@ -138,10 +138,10 @@ describe('ChatPanel streaming rendering', () => {
         isChatLoading={false}
         chatInput=""
         setChatInput={vi.fn()}
-        chatMode="grounded"
+        chatMode="docs"
         setChatMode={vi.fn()}
-        availableModes={['general', 'grounded']}
-        disabledModeReasons={{ deep: 'Provision a sandbox to use deep mode.' }}
+        availableModes={['discuss', 'docs']}
+        disabledModeReasons={{ sandbox: 'Provision a sandbox to use Sandbox mode.' }}
         isSending={false}
         onSendMessage={vi.fn()}
         deepModeAvailable

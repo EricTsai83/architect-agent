@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 
 describe('useThreadCapabilities — bridging behavior', () => {
-  test('threadId null: skips the query and returns general-only defaults', () => {
+  test('threadId null: skips the query and returns discuss-only defaults', () => {
     useQueryMock.mockReturnValue(undefined);
 
     const { result } = renderHook(() => useThreadCapabilities(null));
@@ -32,9 +32,9 @@ describe('useThreadCapabilities — bridging behavior', () => {
     expect(result.current.isLoading).toBe(false);
     expect(result.current.attachedRepository).toBeNull();
     expect(result.current.sandboxStatus).toBeNull();
-    expect(result.current.availableModes).toEqual(['general']);
-    expect(result.current.defaultMode).toBe('general');
-    expect(Object.keys(result.current.disabledReasons).sort()).toEqual(['deep', 'grounded']);
+    expect(result.current.availableModes).toEqual(['discuss']);
+    expect(result.current.defaultMode).toBe('discuss');
+    expect(Object.keys(result.current.disabledReasons).sort()).toEqual(['docs', 'sandbox']);
     // The hook must pass the literal 'skip' sentinel so Convex does not run
     // the query for the non-thread case.
     expect(useQueryMock).toHaveBeenCalledWith(expect.anything(), 'skip');
@@ -48,8 +48,8 @@ describe('useThreadCapabilities — bridging behavior', () => {
     expect(result.current.isLoading).toBe(true);
     // Even while loading, the selector still has a sensible shape so the UI
     // does not blink between "no modes" and "modes" within a few hundred ms.
-    expect(result.current.availableModes).toEqual(['general']);
-    expect(result.current.defaultMode).toBe('general');
+    expect(result.current.availableModes).toEqual(['discuss']);
+    expect(result.current.defaultMode).toBe('discuss');
     expect(useQueryMock).toHaveBeenCalledWith(expect.anything(), { threadId });
   });
 
@@ -59,21 +59,21 @@ describe('useThreadCapabilities — bridging behavior', () => {
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
     expect(result.current.isLoading).toBe(false);
-    expect(result.current.availableModes).toEqual(['general']);
+    expect(result.current.availableModes).toEqual(['discuss']);
     expect(result.current.attachedRepository).toBeNull();
   });
 
-  test('thread without a repository: forwards resolver output (general only) and exposes both unlock hints', () => {
+  test('thread without a repository: forwards resolver output (discuss only) and exposes both unlock hints', () => {
     useQueryMock.mockReturnValue({
       thread: { _id: threadId },
       attachedRepository: null,
       sandboxStatus: null,
       chatModes: {
-        availableModes: ['general'],
-        defaultMode: 'general',
+        availableModes: ['discuss'],
+        defaultMode: 'discuss',
         disabledReasons: {
-          grounded: 'Attach a repository to use grounded mode.',
-          deep: 'Attach a repository with a ready sandbox to use deep mode.',
+          docs: 'Attach a repository to use Docs mode.',
+          sandbox: 'Attach a repository with a ready sandbox to use Sandbox mode.',
         },
       },
     });
@@ -81,13 +81,13 @@ describe('useThreadCapabilities — bridging behavior', () => {
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
     expect(result.current.attachedRepository).toBeNull();
-    expect(result.current.availableModes).toEqual(['general']);
-    expect(result.current.defaultMode).toBe('general');
-    expect(result.current.disabledReasons.grounded).toBeTruthy();
-    expect(result.current.disabledReasons.deep).toBeTruthy();
+    expect(result.current.availableModes).toEqual(['discuss']);
+    expect(result.current.defaultMode).toBe('discuss');
+    expect(result.current.disabledReasons.docs).toBeTruthy();
+    expect(result.current.disabledReasons.sandbox).toBeTruthy();
   });
 
-  test('thread with a repository but no sandbox: bridges general+grounded with a deep tooltip', () => {
+  test('thread with a repository but no sandbox: bridges discuss+docs with a sandbox tooltip', () => {
     useQueryMock.mockReturnValue({
       thread: { _id: threadId, repositoryId },
       attachedRepository: {
@@ -97,9 +97,9 @@ describe('useThreadCapabilities — bridging behavior', () => {
       },
       sandboxStatus: null,
       chatModes: {
-        availableModes: ['general', 'grounded'],
-        defaultMode: 'grounded',
-        disabledReasons: { deep: 'Provision a sandbox to use deep mode.' },
+        availableModes: ['discuss', 'docs'],
+        defaultMode: 'docs',
+        disabledReasons: { sandbox: 'Provision a sandbox to use Sandbox mode.' },
       },
     });
 
@@ -111,13 +111,13 @@ describe('useThreadCapabilities — bridging behavior', () => {
       shortName: 'widget',
     });
     expect(result.current.sandboxStatus).toBeNull();
-    expect(result.current.availableModes).toEqual(['general', 'grounded']);
-    expect(result.current.defaultMode).toBe('grounded');
-    expect(result.current.disabledReasons.deep).toMatch(/sandbox/i);
-    expect(result.current.disabledReasons.grounded).toBeUndefined();
+    expect(result.current.availableModes).toEqual(['discuss', 'docs']);
+    expect(result.current.defaultMode).toBe('docs');
+    expect(result.current.disabledReasons.sandbox).toMatch(/sandbox/i);
+    expect(result.current.disabledReasons.docs).toBeUndefined();
   });
 
-  test('thread with a ready sandbox: bridges all three modes; default stays grounded so deep is opt-in', () => {
+  test('thread with a ready sandbox: bridges all three modes; default stays docs so sandbox is opt-in', () => {
     useQueryMock.mockReturnValue({
       thread: { _id: threadId, repositoryId },
       attachedRepository: {
@@ -127,21 +127,21 @@ describe('useThreadCapabilities — bridging behavior', () => {
       },
       sandboxStatus: 'ready',
       chatModes: {
-        availableModes: ['general', 'grounded', 'deep'],
-        defaultMode: 'grounded',
+        availableModes: ['discuss', 'docs', 'sandbox'],
+        defaultMode: 'docs',
         disabledReasons: {},
       },
     });
 
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
-    expect(result.current.availableModes).toEqual(['general', 'grounded', 'deep']);
-    expect(result.current.defaultMode).toBe('grounded');
+    expect(result.current.availableModes).toEqual(['discuss', 'docs', 'sandbox']);
+    expect(result.current.defaultMode).toBe('docs');
     expect(result.current.sandboxStatus).toBe('ready');
     expect(result.current.disabledReasons).toEqual({});
   });
 
-  test('thread with a provisioning sandbox: bridges the provisioning hint into the deep tooltip', () => {
+  test('thread with a provisioning sandbox: bridges the provisioning hint into the sandbox tooltip', () => {
     useQueryMock.mockReturnValue({
       thread: { _id: threadId, repositoryId },
       attachedRepository: {
@@ -151,10 +151,11 @@ describe('useThreadCapabilities — bridging behavior', () => {
       },
       sandboxStatus: 'provisioning',
       chatModes: {
-        availableModes: ['general', 'grounded'],
-        defaultMode: 'grounded',
+        availableModes: ['discuss', 'docs'],
+        defaultMode: 'docs',
         disabledReasons: {
-          deep: 'Sandbox is provisioning — deep mode will be available once it is ready.',
+          sandbox:
+            'Sandbox is provisioning — Sandbox mode will be available once it is ready.',
         },
       },
     });
@@ -162,7 +163,7 @@ describe('useThreadCapabilities — bridging behavior', () => {
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
     expect(result.current.sandboxStatus).toBe('provisioning');
-    expect(result.current.disabledReasons.deep).toMatch(/provisioning/i);
+    expect(result.current.disabledReasons.sandbox).toMatch(/provisioning/i);
   });
 
   test('thread with a stopped sandbox: forwards the resolver-side "expired" hint without re-deriving it', () => {
@@ -179,15 +180,17 @@ describe('useThreadCapabilities — bridging behavior', () => {
       // carry the user-visible explanation.
       sandboxStatus: 'stopped',
       chatModes: {
-        availableModes: ['general', 'grounded'],
-        defaultMode: 'grounded',
-        disabledReasons: { deep: 'Sandbox expired — provision a new sandbox to use deep mode.' },
+        availableModes: ['discuss', 'docs'],
+        defaultMode: 'docs',
+        disabledReasons: {
+          sandbox: 'Sandbox expired — provision a new sandbox to use Sandbox mode.',
+        },
       },
     });
 
     const { result } = renderHook(() => useThreadCapabilities(threadId));
 
     expect(result.current.sandboxStatus).toBe('stopped');
-    expect(result.current.disabledReasons.deep).toMatch(/expired/i);
+    expect(result.current.disabledReasons.sandbox).toMatch(/expired/i);
   });
 });

@@ -29,12 +29,7 @@ import { Logo } from '@/components/logo';
 import { ImportRepoDialog } from '@/components/import-repo-dialog';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { cn } from '@/lib/utils';
-import {
-  toBackendThreadMode,
-  type ChatMode,
-  type RepositoryId,
-  type ThreadId,
-} from '@/lib/types';
+import type { ChatMode, RepositoryId, ThreadId } from '@/lib/types';
 
 /**
  * Thread-first sidebar (PRD #19).
@@ -89,10 +84,14 @@ export function AppSidebar({
 
   const [isCreatingThread, handleCreateThread] = useAsyncCallback(
     useCallback(async () => {
-      // No repositoryId: the new thread starts in general mode and only gets
-      // a repo once the user attaches one via AttachRepoMenu (US 1, US 11).
+      // No repositoryId: the new thread starts in `discuss` mode and only
+      // gets a repo once the user attaches one via AttachRepoMenu (US 1,
+      // US 11). We forward the user's currently selected `chatMode` only if
+      // it is repo-less — otherwise the backend would reject it on the
+      // mode-precondition check; in practice the resolver also collapses to
+      // `discuss` when no repo is attached, so the mismatch is rare.
       const threadId = await createThreadMutation({
-        mode: toBackendThreadMode(chatMode),
+        mode: chatMode === 'discuss' ? 'discuss' : undefined,
       });
       onSelectThread(threadId);
     }, [chatMode, createThreadMutation, onSelectThread]),

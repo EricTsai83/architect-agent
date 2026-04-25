@@ -295,7 +295,10 @@ export const createRepositoryImport = mutation({
         repositoryId,
         ownerTokenIdentifier: identity.tokenIdentifier,
         title: `${makeRepositoryTitle(parsed.fullName)} chat`,
-        mode: 'fast',
+        // Matches `resolveChatModes(true, 'none' | 'provisioning' | …).defaultMode`
+        // for any repo-attached thread, so the auto-created default thread
+        // and a manually-created one start on the same mode.
+        mode: 'docs',
         lastMessageAt: Date.now(),
       });
 

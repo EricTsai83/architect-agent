@@ -16,7 +16,7 @@ import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
 import { useRepositoryActions } from '@/hooks/use-repository-actions';
 import { useThreadCapabilities } from '@/hooks/use-thread-capabilities';
-import { toBackendThreadMode, type RepositoryId, type ThreadId, type ChatMode } from '@/lib/types';
+import type { RepositoryId, ThreadId, ChatMode } from '@/lib/types';
 import { toUserErrorMessage } from '@/lib/errors';
 
 type RepositoryWorkspaceStatus = 'initializing' | 'no-repo' | 'ready';
@@ -216,20 +216,21 @@ export function RepositoryShell({
   );
 
   // Empty-state CTA: create a no-repo thread and navigate into it (PRD US 1
-  // and US 9). Errors surface in the workspace's standard `actionError` slot
-  // so the user sees the same recovery affordance as any other failed action.
+  // and US 9). Always opens in `discuss` mode (matches resolver's default
+  // for no-repo threads); the user can attach a repo later via
+  // AttachRepoMenu, at which point the mode selector unlocks `docs` and
+  // potentially `sandbox`. Errors surface in the workspace's standard
+  // `actionError` slot.
   const [isStartingConversation, handleStartConversation] = useAsyncCallback(
     useCallback(async () => {
       setActionError(null);
       try {
-        const newThreadId = await createThreadMutation({
-          mode: toBackendThreadMode(chatMode),
-        });
+        const newThreadId = await createThreadMutation({ mode: 'discuss' });
         void navigate(`/t/${newThreadId}`);
       } catch (error) {
         setActionError(toUserErrorMessage(error, 'Failed to start a conversation.'));
       }
-    }, [chatMode, createThreadMutation, navigate]),
+    }, [createThreadMutation, navigate]),
   );
 
   const {

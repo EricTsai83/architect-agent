@@ -6,25 +6,14 @@ export type ThreadId = Id<'threads'>;
 export type MessageId = Id<'messages'>;
 
 /**
- * UI-level chat mode the user picks in the ChatPanel selector. Mirrors the
- * resolver's `ChatMode` so there is exactly one source of truth across the
- * client and server.
+ * UI-level chat mode the user picks in the ChatPanel selector. The frontend
+ * type and the schema-level `threads.mode` / `messages.mode` enum share the
+ * exact same string literals (`discuss | docs | sandbox`) — there is no
+ * mapping layer between them, by design (PRD §"Architectural reversal":
+ * "Frontend and backend share the same mode enum"). Re-exported here so
+ * frontend imports do not have to reach into `convex/` for the type.
  */
 export type { ChatMode };
-
-/**
- * Schema-level mode persisted on `threads.mode` and `messages.mode`. The
- * schema only records whether sandbox-backed analysis was used (`'deep'`)
- * versus everything else (`'fast'`); the repository attachment is encoded
- * separately on `thread.repositoryId`. Hence both `'general'` and `'grounded'`
- * map to `'fast'` here — the distinction is purely UI-level for the mode
- * selector and the disabled-mode tooltips.
- */
-export type BackendThreadMode = 'fast' | 'deep';
-
-export function toBackendThreadMode(mode: ChatMode): BackendThreadMode {
-  return mode === 'deep' ? 'deep' : 'fast';
-}
 
 export type ActiveMessageStream = {
   assistantMessageId: MessageId;

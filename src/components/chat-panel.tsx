@@ -1,4 +1,9 @@
-import { ChatCircleIcon, GraphIcon, LightningIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import {
+  ChatCircleIcon,
+  CubeIcon,
+  FileTextIcon,
+  PaperPlaneTiltIcon,
+} from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { AppNotice } from '@/components/app-notice';
 import { Button } from '@/components/ui/button';
@@ -10,32 +15,37 @@ import type { ActiveMessageStream, ThreadId, ChatMode, DeepModeStatus } from '@/
 
 /**
  * Static catalogue of every mode the selector can render. Order is stable and
- * doubles as the visual order of the pill bar so that the user's eye learns:
- * general → grounded → deep, low-context to high-context.
+ * doubles as the visual order of the pill bar so the user's eye learns the
+ * capability ladder left-to-right: discuss → docs → sandbox, lowest-context
+ * to highest-context (and lowest-cost to highest-cost).
+ *
+ * Each caption is the short user-facing answer to "what does this mode read
+ * from?". The disabled-mode tooltip (rendered by the resolver via
+ * `disabledModeReasons`) takes over when the option isn't usable.
  */
 const MODE_CATALOG: ReadonlyArray<{
   value: ChatMode;
   label: string;
   caption: string;
-  icon: typeof LightningIcon;
+  icon: typeof ChatCircleIcon;
 }> = [
   {
-    value: 'general',
-    label: 'General',
-    caption: 'no repo context',
+    value: 'discuss',
+    label: 'Discuss',
+    caption: 'no code reference',
     icon: ChatCircleIcon,
   },
   {
-    value: 'grounded',
-    label: 'Grounded',
-    caption: 'cites your code',
-    icon: LightningIcon,
+    value: 'docs',
+    label: 'Docs',
+    caption: 'searches your design docs',
+    icon: FileTextIcon,
   },
   {
-    value: 'deep',
-    label: 'Deep',
-    caption: 'reads live code via sandbox',
-    icon: GraphIcon,
+    value: 'sandbox',
+    label: 'Sandbox',
+    caption: 'runs in a sandbox against live code',
+    icon: CubeIcon,
   },
 ];
 
@@ -85,12 +95,12 @@ export function ChatPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-3 px-6 py-6">
-          {!isChatLoading && chatMode === 'deep' && !deepModeAvailable ? (
+          {!isChatLoading && chatMode === 'sandbox' && !deepModeAvailable ? (
             <AppNotice
               title={getDeepModeTitle(deepModeStatus?.reasonCode)}
               message={
                 deepModeStatus?.message ??
-                'Deep mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to a lighter mode.'
+                'Sandbox mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to a lighter mode.'
               }
               tone="warning"
               actionLabel={isSyncing ? 'Syncing…' : 'Sync now'}

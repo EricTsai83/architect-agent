@@ -34,16 +34,17 @@ export interface ThreadCapabilities {
  * them to start a conversation first, then attach a repo.
  */
 const NO_THREAD_DISABLED_REASONS: ChatModeResolution['disabledReasons'] = {
-  grounded: 'Start a thread and attach a repository to use grounded mode.',
-  deep: 'Start a thread, attach a repository, and provision a sandbox to use deep mode.',
+  docs: 'Start a thread and attach a repository to use Docs mode.',
+  sandbox:
+    'Start a thread, attach a repository, and provision a sandbox to use Sandbox mode.',
 };
 
 const NO_THREAD_CAPABILITIES: ThreadCapabilities = {
   isLoading: false,
   attachedRepository: null,
   sandboxStatus: null,
-  availableModes: ['general'],
-  defaultMode: 'general',
+  availableModes: ['discuss'],
+  defaultMode: 'discuss',
   disabledReasons: NO_THREAD_DISABLED_REASONS,
 };
 

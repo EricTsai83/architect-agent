@@ -285,13 +285,23 @@ export const createThread = mutation({
   args: {
     repositoryId: v.optional(v.id('repositories')),
     title: v.optional(v.string()),
-    mode: v.optional(v.union(v.literal('fast'), v.literal('deep'))),
+    mode: v.optional(
+      v.union(v.literal('discuss'), v.literal('docs'), v.literal('sandbox')),
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
 
-    if (args.mode === 'deep' && !args.repositoryId) {
-      throw new Error('Deep mode requires an attached repository.');
+    // `docs` and `sandbox` both require an attached repo; the resolver's
+    // capability ladder already prevents the UI from offering them in the
+    // no-repo case, but we re-check here so direct callers (and racing UI
+    // states) can't bypass it. We do NOT enforce sandbox-ready at thread
+    // creation — the user may create a thread before sandbox provisioning
+    // finishes; `sendMessage` re-validates at the actual send moment.
+    if ((args.mode === 'docs' || args.mode === 'sandbox') && !args.repositoryId) {
+      throw new Error(
+        `'${args.mode}' mode requires an attached repository.`,
+      );
     }
 
     let title = args.title;
@@ -305,11 +315,18 @@ export const createThread = mutation({
       title ??= 'New design conversation';
     }
 
+    // Default mode picks `docs` when a repo is in play (matches resolver's
+    // `defaultMode` for repo-attached threads with non-ready sandboxes), and
+    // `discuss` when there is no repo. Keeping this in lockstep with the
+    // resolver means the persisted mode and the UI's preselected mode agree
+    // on day one.
+    const defaultMode = args.repositoryId ? 'docs' : 'discuss';
+
     return await ctx.db.insert('threads', {
       repositoryId: args.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
       title,
-      mode: args.mode ?? 'fast',
+      mode: args.mode ?? defaultMode,
       lastMessageAt: Date.now(),
     });
   },
@@ -350,10 +367,12 @@ export const setThreadRepository = mutation({
       return { repositoryId: args.repositoryId };
     }
 
-    // Detach: clear the optional field. The thread's `mode` (e.g. 'deep')
-    // may now be invalid, but the resolver's `availableModes` is recomputed
-    // dynamically per-render, so the UI degrades gracefully and the next
-    // sendMessage call will use a still-available mode.
+    // Detach: clear the optional field. The thread's `mode` (e.g. 'sandbox')
+    // may now be invalid for the new no-repo state, but the resolver's
+    // `availableModes` is recomputed dynamically per-render, so the UI
+    // collapses to `discuss` and the next sendMessage call would otherwise
+    // hit the `'docs' mode requires an attached repository` precondition —
+    // which is the desired behaviour, not a bug.
     await ctx.db.patch(args.threadId, { repositoryId: undefined });
     return { repositoryId: null as null };
   },
@@ -456,7 +475,9 @@ export const sendMessage = mutation({
   args: {
     threadId: v.id('threads'),
     content: v.string(),
-    mode: v.optional(v.union(v.literal('fast'), v.literal('deep'))),
+    mode: v.optional(
+      v.union(v.literal('discuss'), v.literal('docs'), v.literal('sandbox')),
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
@@ -478,8 +499,26 @@ export const sendMessage = mutation({
     }
 
     const mode = args.mode ?? thread.mode;
-    if (mode === 'deep' && !repository) {
-      throw new Error('Deep mode requires an attached repository.');
+
+    // Mirror the resolver's preconditions on the write path. The UI
+    // disabled-mode tooltips also encode these, but a direct mutation caller
+    // (or a UI race where the user picked `sandbox` and then the sandbox
+    // expired before they hit Send) needs the same gate enforced server-side.
+    if ((mode === 'docs' || mode === 'sandbox') && !repository) {
+      throw new Error(`'${mode}' mode requires an attached repository.`);
+    }
+    if (mode === 'sandbox') {
+      // `repository` is guaranteed non-null by the previous check, but TS
+      // can't narrow across the `||` without restating it.
+      const repo = repository!;
+      const sandbox = repo.latestSandboxId
+        ? await ctx.db.get(repo.latestSandboxId)
+        : null;
+      if (!sandbox || sandbox.status !== 'ready') {
+        throw new Error(
+          "'sandbox' mode requires the repository's sandbox to be in 'ready' state.",
+        );
+      }
     }
 
     const now = Date.now();
@@ -506,7 +545,10 @@ export const sendMessage = mutation({
       status: 'queued',
       stage: 'queued',
       progress: 0,
-      costCategory: mode === 'deep' ? 'deep_analysis' : 'chat',
+      // Sandbox mode is the only one that consumes Daytona compute, so it
+      // bills against the `deep_analysis` cost category. `discuss` and `docs`
+      // both stay on the standard `chat` category.
+      costCategory: mode === 'sandbox' ? 'deep_analysis' : 'chat',
       triggerSource: 'user',
       leaseExpiresAt: now + CHAT_JOB_LEASE_MS,
     });
