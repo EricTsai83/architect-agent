@@ -51,14 +51,11 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
                   <code>VITE_WORKOS_CLIENT_ID="your-client-id"</code>
                 </li>
                 <li>
-                  <code>VITE_WORKOS_API_HOSTNAME="api.workos.com"</code>
-                </li>
-                <li>
-                  <code>VITE_WORKOS_REDIRECT_URI="your-redirect-uri"</code>
+                  <code>VITE_CONVEX_URL="your-convex-url"</code>
                 </li>
               </ul>
               <p>
-                You can find these values in your WorkOS dashboard at{' '}
+                You can find <code>VITE_WORKOS_CLIENT_ID</code> in your WorkOS dashboard at{' '}
                 <a
                   className="underline hover:no-underline"
                   href="https://dashboard.workos.com"
@@ -67,6 +64,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
                 >
                   https://dashboard.workos.com
                 </a>
+                . <code>VITE_CONVEX_URL</code> comes from Convex, usually via{' '}
+                <code>npx convex dev</code> in local development or <code>bun run build:vercel</code>{' '}
+                during Vercel builds.
               </p>
             </>
           ) : (
