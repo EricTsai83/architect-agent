@@ -59,6 +59,7 @@ vi.mock('convex/react', async () => {
 describe('App auth token failures', () => {
   afterEach(() => {
     cleanup();
+    window.sessionStorage.clear();
     getAccessTokenMock.mockReset();
     vi.restoreAllMocks();
   });
@@ -110,6 +111,85 @@ describe('App auth token failures', () => {
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
   });
+
+  test('redirects signed-in users from /callback to /chat', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+  });
+
+  test('redirects callback users back to stored destination', async () => {
+    window.sessionStorage.setItem('systify.auth.returnTo', '/r/repo_123');
+
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/r/repo_123');
+  });
+
+  test('ignores unsafe callback return destination and falls back to /chat', async () => {
+    window.sessionStorage.setItem('systify.auth.returnTo', '//evil.example/steal');
+
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+  });
+
+  test('shows a clear callback error message for cancelled sign-in', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    renderWithAuth(useAuth, ['/callback?error=access_denied']);
+
+    expect(await screen.findByText('Sign-in was cancelled')).toBeInTheDocument();
+    expect(await screen.findByText('Back to home')).toBeInTheDocument();
+  });
+
+  test('shows a friendly 404 route page instead of router default error', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    renderWithAuth(useAuth, ['/does-not-exist']);
+
+    expect(await screen.findByText('This page does not exist.')).toBeInTheDocument();
+    expect(await screen.findByText('Go to home')).toBeInTheDocument();
+  });
 });
 
 function renderWithAuth(
@@ -127,4 +207,6 @@ function renderWithAuth(
       <AppRouter router={router} />
     </ConvexProviderWithAuthKit>,
   );
+
+  return router;
 }

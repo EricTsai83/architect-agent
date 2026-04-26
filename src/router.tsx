@@ -3,7 +3,14 @@ import {
   createMemoryRouter,
   type RouteObject,
 } from 'react-router-dom';
-import { AppLayout, LandingRoute, ProtectedLayout } from '@/router-layouts';
+import {
+  AppLayout,
+  AuthCallbackRoute,
+  LandingRoute,
+  NotFoundRoute,
+  ProtectedLayout,
+  RouteErrorBoundary,
+} from '@/router-layouts';
 
 async function loadChatRoute() {
   const module = await import('@/pages/chat');
@@ -14,10 +21,15 @@ export const appRoutes: RouteObject[] = [
   {
     path: '/',
     Component: AppLayout,
+    ErrorBoundary: RouteErrorBoundary,
     children: [
       {
         index: true,
         Component: LandingRoute,
+      },
+      {
+        path: 'callback',
+        Component: AuthCallbackRoute,
       },
       {
         Component: ProtectedLayout,
@@ -42,6 +54,10 @@ export const appRoutes: RouteObject[] = [
             lazy: loadChatRoute,
           },
         ],
+      },
+      {
+        path: '*',
+        Component: NotFoundRoute,
       },
     ],
   },
