@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useConvexAuth } from 'convex/react';
 import {
   Navigate,
@@ -13,9 +13,16 @@ import { AppNotice } from '@/components/app-notice';
 import { ScreenState } from '@/components/screen-state';
 import { Button } from '@/components/ui/button';
 import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
+import { isProtectedReturnTo } from '@/router';
 
 const HomePage = lazy(() => import('@/pages/home').then((module) => ({ default: module.HomePage })));
-const AUTH_RETURN_TO_KEY = 'systify.auth.returnTo';
+/**
+ * sessionStorage key used to remember the protected URL an unauthenticated
+ * user attempted to visit, so AuthCallbackRoute can return them there after
+ * sign-in. Exported so tests assert against the same constant the
+ * implementation uses (no magic-string drift).
+ */
+export const AUTH_RETURN_TO_KEY = 'systify.auth.returnTo';
 
 export function AppLayout() {
   const { authError } = useConvexAuthStatus();
@@ -59,14 +66,30 @@ export function LandingRoute() {
 export function ProtectedLayout() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const location = useLocation();
+  const attemptedPath = `${location.pathname}${location.search}${location.hash}`;
+
+  // Persist the attempted protected path so AuthCallbackRoute can return the
+  // user there after sign-in. Two reasons this lives in a committed effect
+  // rather than the render path:
+  //   1. Writing to sessionStorage during render is a side effect; under
+  //      concurrent rendering / Strict Mode the same render can run twice
+  //      and we'd write the same value redundantly.
+  //   2. We must wait for `isLoading` to settle before persisting, otherwise
+  //      we'd stash a "return-to" entry for a user who is actually already
+  //      authenticated (initial `isAuthenticated` is `false` simply because
+  //      the auth check hasn't completed yet) and never clean it up — the
+  //      callback-side cleanup only runs on `/callback`.
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      persistAuthReturnTo(attemptedPath);
+    }
+  }, [isLoading, isAuthenticated, attemptedPath]);
 
   if (isLoading) {
     return <AuthLoadingScreen />;
   }
 
   if (!isAuthenticated) {
-    const attemptedPath = `${location.pathname}${location.search}${location.hash}`;
-    persistAuthReturnTo(attemptedPath);
     return <Navigate to="/" replace />;
   }
 
@@ -84,7 +107,11 @@ export function AuthCallbackRoute() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const callbackError = searchParams.get('error');
   const callbackErrorDescription = searchParams.get('error_description');
-  const returnTo = useMemo(() => getStoredReturnTo(), []);
+  // Read the stored destination exactly once at mount. `useState`'s lazy
+  // initializer (unlike `useMemo`) is guaranteed not to re-run, so the value
+  // is stable for the component's lifetime even if React decides to discard
+  // memoized values.
+  const [returnTo] = useState(() => getStoredReturnTo());
 
   useEffect(() => {
     if (!isLoading) {
@@ -269,7 +296,9 @@ function persistAuthReturnTo(path: string) {
 }
 
 function normalizeReturnTo(path: string) {
-  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/callback')) {
+  // Reject schemeless or protocol-relative URLs (e.g. `//evil.com`) before
+  // parsing — they could otherwise resolve to a different origin.
+  if (!path.startsWith('/') || path.startsWith('//')) {
     return null;
   }
 
@@ -278,9 +307,15 @@ function normalizeReturnTo(path: string) {
     if (parsed.origin !== window.location.origin) {
       return null;
     }
-    const isAllowedPath =
-      parsed.pathname === '/chat' || parsed.pathname.startsWith('/t/') || parsed.pathname.startsWith('/r/');
-    if (!isAllowedPath) {
+    // Defense-in-depth: never return the user to `/callback`, which would
+    // create a redirect loop. Use an exact pathname match so we don't
+    // overbroadly reject siblings like `/callback-help` if such routes are
+    // ever added (and we still rely on `isProtectedReturnTo` as the
+    // single-source allowlist below).
+    if (parsed.pathname === '/callback') {
+      return null;
+    }
+    if (!isProtectedReturnTo(parsed.pathname)) {
       return null;
     }
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;

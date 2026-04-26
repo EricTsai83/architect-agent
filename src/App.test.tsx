@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { AppRouter } from './app-router';
 import { ConvexProviderWithAuthKit } from './providers/convex-provider-with-auth-kit';
 import { createAppMemoryRouter } from './router';
+import { AUTH_RETURN_TO_KEY } from './router-layouts';
 
 const getAccessTokenMock = vi.fn<() => Promise<string | null>>();
 
@@ -127,8 +128,27 @@ describe('App auth token failures', () => {
     expect(router.state.location.pathname).toBe('/chat');
   });
 
+  test('persists attempted protected path before redirecting unauthenticated users to /', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/r/repo_xyz']);
+
+    // ProtectedLayout should bounce signed-out users back to the landing route.
+    expect(await screen.findByText('home page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+    // …and have stashed the originally-requested path so AuthCallbackRoute can
+    // resume there after sign-in (covers persistAuthReturnTo + normalizeReturnTo).
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBe('/r/repo_xyz');
+  });
+
   test('redirects callback users back to stored destination', async () => {
-    window.sessionStorage.setItem('systify.auth.returnTo', '/r/repo_123');
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, '/r/repo_123');
 
     function useAuth() {
       return {
@@ -145,7 +165,7 @@ describe('App auth token failures', () => {
   });
 
   test('ignores unsafe callback return destination and falls back to /chat', async () => {
-    window.sessionStorage.setItem('systify.auth.returnTo', '//evil.example/steal');
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, '//evil.example/steal');
 
     function useAuth() {
       return {
