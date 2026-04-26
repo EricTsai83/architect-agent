@@ -173,6 +173,23 @@ For GitHub App installation, the frontend sends its current origin when the inst
 
 For Daytona, configure Svix signing on the webhook endpoint and store the signing secret in `DAYTONA_WEBHOOK_SIGNING_SECRET`. `DAYTONA_WEBHOOK_ORGANIZATION_ID` can be used as an additional allowlist check.
 
+### Daytona webhook endpoint in local vs production
+
+Daytona should always call Convex directly, not the frontend server:
+
+- local development deployment:
+  - `https://<your-local-convex-site>/api/daytona/webhook`
+- production deployment:
+  - `https://<your-production-convex-site>/api/daytona/webhook`
+
+Recommended setup:
+
+1. register the correct Convex endpoint URL in Daytona webhook settings
+2. subscribe to:
+   - `sandbox.created`
+   - `sandbox.state.updated`
+3. store the endpoint signing secret in Convex env as `DAYTONA_WEBHOOK_SIGNING_SECRET`
+
 ## Available scripts
 
 | Command | Description |

@@ -204,6 +204,25 @@ The webhook path is intentionally layered:
 
 This gives the system faster convergence without turning webhook delivery into a single point of correctness.
 
+### Daytona permission and credential boundary
+
+Systify currently uses a single Daytona API key (`DAYTONA_API_KEY`) for sandbox
+operations. The key must be limited to the minimum capabilities required by the
+backend integration:
+
+- sandbox lifecycle operations (create/get/list/stop/delete)
+- sandbox filesystem reads used during indexing and snapshot collection
+- sandbox command execution used by focused/deep analysis flows
+
+Webhook trust is separate from API-key trust:
+
+- webhook authenticity is enforced through Svix signature verification with
+  `DAYTONA_WEBHOOK_SIGNING_SECRET`
+- optional org-level narrowing is enforced with
+  `DAYTONA_WEBHOOK_ORGANIZATION_ID`
+- both secrets live only in Convex runtime env and must not be exposed to the
+  frontend bundle
+
 ## Sandbox Cleanup And Cron
 
 ### Orphan resource handling strategy

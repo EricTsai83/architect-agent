@@ -17,9 +17,41 @@ This folder contains the system design documentation for the current Systify cod
 - `vercel-convex-deployment-system-design.md`
   - Why is the Vercel + Convex deployment model simple but still a system-design concern?
   - How should preview-safe callback URLs and environment ownership be split?
+- `daytona-webhook-reconciliation-system-design.md`
+  - How should webhook ingress, durable inbox, projection updates, and cron backstops work together?
+  - How do signature verification and organization allowlisting define the webhook trust boundary?
+- `import-persistence-system-design.md`
+  - Why should import persistence be idempotent, batched, and finalized through a single publish boundary?
+  - How does staged write plus cleanup preserve snapshot integrity under retries and failures?
+- `chat-context-retrieval-system-design.md`
+  - How does query-aware retrieval improve chunk selection without introducing embeddings?
+  - Why should retrieval stay bounded to the latest import snapshot?
+- `repository-filecount-rollout-system-design.md`
+  - Why is `repositories.fileCount` published only at finalize instead of per-batch?
+  - How does denormalization remove hot-path read amplification safely?
+- `streaming-reply-optimization-system-design.md`
+  - Why are active stream state and durable history stored in separate tables?
+  - How does compaction plus finalize-once keep streaming reliable?
+- `deep-analysis-installation-cost-system-design.md`
+  - Why should deep-analysis requests extend sandbox TTL right before execution?
+  - Why is installation conflict handled as an explicit product path instead of silent replacement?
 - `architecture-diagram-artifact-system-design.md`
   - Why is architecture diagram generation an end-to-end system-design concern, not only frontend rendering?
   - How do deterministic generation, bounded output caps, and renderer recovery work together?
+
+## Implementation Coverage
+
+The current codebase keeps system-design documentation for all implemented high-impact flows:
+
+- Rate limiting and lease recovery: `integrations-and-operations.md`
+- Daytona orphan protection and reconciliation layers: `orphan-resource-handling.md`
+- Daytona webhook reconciliation path: `daytona-webhook-reconciliation-system-design.md`
+- Import persistence idempotency and finalize boundary: `import-persistence-system-design.md`
+- Chat context retrieval strategy: `chat-context-retrieval-system-design.md`
+- Repository file-count denormalization: `repository-filecount-rollout-system-design.md`
+- Chat streaming architecture: `streaming-reply-optimization-system-design.md`
+- Deep analysis TTL, installation conflict handling, and chat usage-cost writing: `deep-analysis-installation-cost-system-design.md`
+- Vercel + Convex deployment model: `vercel-convex-deployment-system-design.md`
 
 ## What Each Document Answers
 

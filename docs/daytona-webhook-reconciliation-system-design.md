@@ -59,6 +59,42 @@ The webhook design should optimize for:
 5. low write contention on the main `sandboxes` table
 6. repairability when processors fail or deploys interrupt in-flight work
 
+## Security And Permission Contract
+
+This webhook design assumes explicit provider-side and receiver-side boundaries.
+
+### Daytona API key capabilities
+
+Systify's Daytona integration uses one API key (`DAYTONA_API_KEY`) and requires
+capabilities that match the operations in `convex/daytona.ts`:
+
+- sandbox lifecycle management: create, get, list, stop, delete
+- sandbox workspace access: clone repository, list files, download files
+- sandbox command execution for focused inspection
+
+The key should be scoped to the minimum Daytona permissions that satisfy these
+capabilities. If Daytona's permission labels change by version, the capability
+list above is the source of truth for re-validation.
+
+### Webhook endpoint trust boundary
+
+The webhook ingress accepts only Daytona sandbox lifecycle events and verifies:
+
+- Svix signature headers (`svix-id`, `svix-timestamp`, `svix-signature`)
+- endpoint signing secret (`DAYTONA_WEBHOOK_SIGNING_SECRET`)
+- optional organization allowlist (`DAYTONA_WEBHOOK_ORGANIZATION_ID`)
+
+Any failure in this chain must fail closed (401) and avoid mutating business
+state.
+
+### Secret storage and rotation
+
+- `DAYTONA_API_KEY` and `DAYTONA_WEBHOOK_SIGNING_SECRET` live only in Convex
+  runtime environment variables.
+- Secrets are never read from frontend `.env`.
+- Rotation should update provider and Convex env in a coordinated window and
+  verify with a test delivery before completing rollout.
+
 ## Core Idea
 
 The recommended shape is:
