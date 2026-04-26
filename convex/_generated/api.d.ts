@@ -10,7 +10,9 @@
 
 import type * as analysis from "../analysis.js";
 import type * as analysisNode from "../analysisNode.js";
+import type * as architectureDiagram from "../architectureDiagram.js";
 import type * as artifactStore from "../artifactStore.js";
+import type * as artifacts from "../artifacts.js";
 import type * as chat from "../chat.js";
 import type * as chatModeResolver from "../chatModeResolver.js";
 import type * as crons from "../crons.js";
@@ -23,6 +25,7 @@ import type * as githubCheck from "../githubCheck.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as importsNode from "../importsNode.js";
+import type * as lib_architectureDiagram from "../lib/architectureDiagram.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_daytonaWebhookVerification from "../lib/daytonaWebhookVerification.js";
@@ -47,7 +50,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   analysis: typeof analysis;
   analysisNode: typeof analysisNode;
+  architectureDiagram: typeof architectureDiagram;
   artifactStore: typeof artifactStore;
+  artifacts: typeof artifacts;
   chat: typeof chat;
   chatModeResolver: typeof chatModeResolver;
   crons: typeof crons;
@@ -60,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   imports: typeof imports;
   importsNode: typeof importsNode;
+  "lib/architectureDiagram": typeof lib_architectureDiagram;
   "lib/auth": typeof lib_auth;
   "lib/constants": typeof lib_constants;
   "lib/daytonaWebhookVerification": typeof lib_daytonaWebhookVerification;

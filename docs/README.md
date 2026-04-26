@@ -17,6 +17,9 @@ This folder contains the system design documentation for the current Systify cod
 - `vercel-convex-deployment-system-design.md`
   - Why is the Vercel + Convex deployment model simple but still a system-design concern?
   - How should preview-safe callback URLs and environment ownership be split?
+- `architecture-diagram-artifact-system-design.md`
+  - Why is architecture diagram generation an end-to-end system-design concern, not only frontend rendering?
+  - How do deterministic generation, bounded output caps, and renderer recovery work together?
 
 ## What Each Document Answers
 
@@ -66,6 +69,11 @@ This folder contains the system design documentation for the current Systify cod
 
 - How should Vercel hosting and Convex deployment fit together without adding a second CD system?
 - Why should browser callback URLs and server callback redirects use different sources of truth?
+
+### `architecture-diagram-artifact-system-design.md`
+
+- How is architecture diagram generation split between Convex orchestration and a pure generator?
+- Which invariants keep graph output correct, bounded, and recoverable across backend and frontend?
 
 ## Writing Principles
 

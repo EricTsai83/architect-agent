@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
+import { ArtifactPanel } from '@/components/artifact-panel';
 import { AttachRepoMenu } from '@/components/attach-repo-menu';
 import { TopBar } from '@/components/top-bar';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -344,6 +345,22 @@ export function RepositoryShell({
           </>
         )}
       </SidebarInset>
+
+      {/*
+       * Right-side ArtifactPanel rail (PRD #19, "Modules to build (frontend)"
+       * + US 23). Sits alongside SidebarInset as a flex sibling so artifacts
+       * are visible while the user is mid-conversation. Hidden on the
+       * empty-state screen (no thread, no repo) where the sidebar's CTA is
+       * the primary affordance, and hidden below `lg` breakpoint where the
+       * main pane needs the full width.
+       */}
+      {workspaceStatus !== 'no-repo' ? (
+        <ArtifactPanel
+          threadId={effectiveSelectedThreadId}
+          hasAttachedRepository={capabilities.attachedRepository !== null}
+          className="hidden lg:flex"
+        />
+      ) : null}
 
       <ConfirmDialog
         open={threadToDelete !== null}
