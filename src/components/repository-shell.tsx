@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from 'convex/react';
+import type { Doc } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
@@ -112,7 +113,7 @@ export function RepositoryShell({
   const effectiveSelectedThreadId: ThreadId | null = urlThreadId;
 
   const selectedRepoName = repositories?.find(
-    (repository) => repository._id === effectiveSelectedRepositoryId,
+    (repository: Doc<'repositories'>) => repository._id === effectiveSelectedRepositoryId,
   )?.sourceRepoFullName;
 
   const repoDetail = useQuery(
@@ -358,6 +359,7 @@ export function RepositoryShell({
         <ArtifactPanel
           threadId={effectiveSelectedThreadId}
           hasAttachedRepository={capabilities.attachedRepository !== null}
+          sandboxModeStatus={capabilities.sandboxModeStatus}
           className="hidden lg:flex"
         />
       ) : null}
