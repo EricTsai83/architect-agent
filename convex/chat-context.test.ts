@@ -542,4 +542,115 @@ describe('chat reply context', () => {
     expect(context.readmeSummary).toBeUndefined();
     expect(context.architectureSummary).toBeUndefined();
   });
+
+  test('docs mode uses artifact-only context and skips indexed code chunks', async () => {
+    const ownerTokenIdentifier = 'user|docs-artifact-only';
+    const t = convexTest(schema, modules);
+
+    const threadId = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert('repositories', {
+        ownerTokenIdentifier,
+        sourceHost: 'github',
+        sourceUrl: 'https://github.com/acme/docs-mode',
+        sourceRepoFullName: 'acme/docs-mode',
+        sourceRepoOwner: 'acme',
+        sourceRepoName: 'docs-mode',
+        defaultBranch: 'main',
+        visibility: 'private',
+        accessMode: 'private',
+        importStatus: 'completed',
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+        fileCount: 0,
+      });
+
+      const threadId = await ctx.db.insert('threads', {
+        repositoryId,
+        ownerTokenIdentifier,
+        title: 'Docs thread',
+        mode: 'docs',
+        lastMessageAt: Date.now(),
+      });
+
+      const importJobId = await ctx.db.insert('jobs', {
+        repositoryId,
+        ownerTokenIdentifier,
+        kind: 'import',
+        status: 'completed',
+        stage: 'completed',
+        progress: 1,
+        costCategory: 'indexing',
+        triggerSource: 'user',
+      });
+      const importId = await ctx.db.insert('imports', {
+        repositoryId,
+        ownerTokenIdentifier,
+        sourceUrl: 'https://github.com/acme/docs-mode',
+        branch: 'main',
+        adapterKind: 'git_clone',
+        status: 'completed',
+        jobId: importJobId,
+      });
+      const fileId = await ctx.db.insert('repoFiles', {
+        repositoryId,
+        ownerTokenIdentifier,
+        importId,
+        path: 'src/engine.ts',
+        parentPath: 'src',
+        fileType: 'file',
+        extension: 'ts',
+        language: 'typescript',
+        sizeBytes: 128,
+        isEntryPoint: false,
+        isConfig: false,
+        isImportant: true,
+      });
+      await ctx.db.insert('repoChunks', {
+        repositoryId,
+        ownerTokenIdentifier,
+        importId,
+        fileId,
+        path: 'src/engine.ts',
+        chunkIndex: 0,
+        startLine: 1,
+        endLine: 3,
+        chunkKind: 'code',
+        summary: 'engine internals',
+        content: 'export const engine = () => "hot path";',
+      });
+
+      await ctx.db.insert('artifacts', {
+        repositoryId,
+        threadId,
+        ownerTokenIdentifier,
+        kind: 'architecture_diagram',
+        title: 'Architecture diagram',
+        summary: 'Module boundaries',
+        contentMarkdown: 'graph TD\nA-->B',
+        source: 'heuristic',
+        version: 1,
+      });
+      await ctx.db.insert('messages', {
+        repositoryId,
+        threadId,
+        ownerTokenIdentifier,
+        role: 'user',
+        status: 'completed',
+        mode: 'docs',
+        content: 'What did we already decide about architecture?',
+      });
+
+      await ctx.db.patch(repositoryId, {
+        latestImportId: importId,
+        latestImportJobId: importJobId,
+      });
+
+      return threadId;
+    });
+
+    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    expect(context.artifacts.map((artifact) => artifact.title)).toContain('Architecture diagram');
+    expect(context.chunks).toHaveLength(0);
+  });
 });

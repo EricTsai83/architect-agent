@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import {
   CircleNotchIcon,
+  FileTextIcon,
   GraphIcon,
   LightningIcon,
   WarningCircleIcon,
@@ -12,12 +13,13 @@ import type { Doc } from '../../convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MermaidRenderer } from '@/components/mermaid-renderer';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { toUserErrorMessage } from '@/lib/errors';
-import type { ThreadId } from '@/lib/types';
+import type { SandboxModeStatus, ThreadId } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 /**
@@ -41,10 +43,12 @@ import { cn } from '@/lib/utils';
 export function ArtifactPanel({
   threadId,
   hasAttachedRepository,
+  sandboxModeStatus,
   className,
 }: {
   threadId: ThreadId | null;
   hasAttachedRepository: boolean;
+  sandboxModeStatus: SandboxModeStatus | null;
   className?: string;
 }) {
   // Query is scoped to thread-level artifacts. A diagram is double-parented
@@ -74,9 +78,10 @@ export function ArtifactPanel({
 
       {threadId ? (
         <div className="border-b border-border px-4 py-3">
-          <ArchitectureDiagramCta
+          <ArtifactActions
             threadId={threadId}
             hasAttachedRepository={hasAttachedRepository}
+            sandboxModeStatus={sandboxModeStatus}
           />
         </div>
       ) : null}
@@ -100,7 +105,9 @@ export function ArtifactPanel({
               }
             />
           ) : (
-            artifacts.map((artifact) => <ArtifactCard key={artifact._id} artifact={artifact} />)
+            artifacts.map((artifact: Doc<'artifacts'>) => (
+              <ArtifactCard key={artifact._id} artifact={artifact} />
+            ))
           )}
         </div>
       </ScrollArea>
@@ -108,78 +115,189 @@ export function ArtifactPanel({
   );
 }
 
-function ArchitectureDiagramCta({
+function ArtifactActions({
   threadId,
   hasAttachedRepository,
+  sandboxModeStatus,
 }: {
   threadId: ThreadId;
   hasAttachedRepository: boolean;
+  sandboxModeStatus: SandboxModeStatus | null;
 }) {
+  const [subsystem, setSubsystem] = useState('');
+  const captureAdr = useMutation(api.designArtifacts.captureAdr);
+  const requestFailureMode = useMutation(api.designArtifacts.requestFailureModeAnalysis);
   const requestDiagram = useMutation(api.architectureDiagram.requestArchitectureDiagram);
+  const sandboxReady = sandboxModeStatus?.reasonCode === 'available';
 
-  // The error state is keyed by `threadId`. Reading via the comparison below
-  // means a thread switch hides the prior thread's failure without needing
-  // an effect to clear the underlying state — the next failed call on the
-  // new thread overwrites it, and the prior thread won't render again.
-  const [errorState, setErrorState] = useState<{ threadId: ThreadId; message: string } | null>(null);
-  const error = errorState?.threadId === threadId ? errorState.message : null;
+  const [diagramError, setDiagramError] = useState<string | null>(null);
+  const [adrError, setAdrError] = useState<string | null>(null);
+  const [failureError, setFailureError] = useState<string | null>(null);
 
-  const [isPending, run] = useAsyncCallback(async () => {
-    setErrorState(null);
+  const [isDiagramPending, runDiagram] = useAsyncCallback(async () => {
+    setDiagramError(null);
     try {
       await requestDiagram({ threadId, depth: 'module' });
     } catch (err) {
-      setErrorState({
+      setDiagramError(toUserErrorMessage(err, 'Failed to generate architecture diagram.'));
+    }
+  });
+
+  const [isAdrPending, runAdr] = useAsyncCallback(async () => {
+    setAdrError(null);
+    try {
+      await captureAdr({ threadId });
+    } catch (err) {
+      setAdrError(toUserErrorMessage(err, 'Failed to capture ADR.'));
+    }
+  });
+
+  const [isFailurePending, runFailureMode] = useAsyncCallback(async () => {
+    setFailureError(null);
+    try {
+      await requestFailureMode({
         threadId,
-        message: toUserErrorMessage(err, 'Failed to generate architecture diagram.'),
+        subsystem: subsystem.trim(),
       });
+    } catch (err) {
+      setFailureError(toUserErrorMessage(err, 'Failed to start failure mode analysis.'));
     }
   });
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-4">
+      <ActionRow
+        pending={isDiagramPending}
+        onClick={() => void runDiagram()}
+        caption={
+          hasAttachedRepository
+            ? "Module-level Mermaid graph from your repo's structure."
+            : 'Attach a repository to enable diagram generation.'
+        }
+        error={diagramError}
+        onDismiss={() => setDiagramError(null)}
+        buttonLabel="Generate architecture diagram"
+        pendingLabel="Generating diagram…"
+        icon={<GraphIcon size={14} weight="bold" />}
+        disabled={!hasAttachedRepository || isDiagramPending}
+      />
+
+      <ActionRow
+        pending={isAdrPending}
+        onClick={() => void runAdr()}
+        caption={
+          hasAttachedRepository
+            ? 'One-click ADR in Context / Decision / Consequences / Alternatives format.'
+            : 'Attach a repository to enable ADR capture.'
+        }
+        error={adrError}
+        onDismiss={() => setAdrError(null)}
+        buttonLabel="Capture as ADR"
+        pendingLabel="Capturing ADR…"
+        icon={<FileTextIcon size={14} weight="bold" />}
+        variant="outline"
+        disabled={!hasAttachedRepository || isAdrPending}
+      />
+
+      <div className="flex flex-col gap-2">
+        <Input
+          value={subsystem}
+          onChange={(event) => setSubsystem(event.target.value)}
+          placeholder="API and data access"
+        />
+        <ActionRow
+          pending={isFailurePending}
+          onClick={() => void runFailureMode()}
+          caption={
+            hasAttachedRepository
+              ? sandboxReady
+                ? 'Sandbox-backed scan that records component, blast radius, mitigation, and code references.'
+                : sandboxModeStatus?.message ?? 'Sandbox is not ready yet. Sync and wait for ready state.'
+              : 'Attach a repository to enable failure mode analysis.'
+          }
+          error={failureError}
+          onDismiss={() => setFailureError(null)}
+          buttonLabel="Run failure mode analysis"
+          pendingLabel="Running failure mode analysis…"
+          icon={<WarningCircleIcon size={14} weight="bold" />}
+          variant="outline"
+          disabled={!hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ActionRow({
+  pending,
+  onClick,
+  caption,
+  error,
+  onDismiss,
+  buttonLabel,
+  pendingLabel,
+  icon,
+  disabled,
+  variant = 'default',
+}: {
+  pending: boolean;
+  onClick: () => void;
+  caption: string;
+  error: string | null;
+  onDismiss: () => void;
+  buttonLabel: string;
+  pendingLabel: string;
+  icon: ReactNode;
+  disabled?: boolean;
+  variant?: 'default' | 'outline';
+}) {
+  return (
+    <>
       <Button
         type="button"
-        variant="default"
+        variant={variant}
         size="sm"
-        disabled={!hasAttachedRepository || isPending}
-        onClick={() => void run()}
+        disabled={disabled}
+        onClick={onClick}
         className="justify-center gap-2"
       >
-        {isPending ? (
+        {pending ? (
           <>
             <CircleNotchIcon size={14} className="animate-spin" weight="bold" />
-            Generating diagram…
+            {pendingLabel}
           </>
         ) : (
           <>
-            <GraphIcon size={14} weight="bold" />
-            Generate architecture diagram
+            {icon}
+            {buttonLabel}
           </>
         )}
       </Button>
-      <p className="text-[11px] text-muted-foreground">
-        {hasAttachedRepository
-          ? "Module-level Mermaid graph from your repo's structure."
-          : 'Attach a repository to enable diagram generation.'}
-      </p>
-      {error ? (
-        <div
-          role="alert"
-          className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-[11px] text-destructive"
-        >
-          <WarningCircleIcon size={12} weight="bold" className="mt-0.5 shrink-0" />
-          <p className="flex-1">{error}</p>
-          <button
-            type="button"
-            onClick={() => setErrorState(null)}
-            className="text-destructive/70 hover:text-destructive"
-            aria-label="Dismiss error"
-          >
-            <XIcon size={10} weight="bold" />
-          </button>
-        </div>
-      ) : null}
+      <p className="text-[11px] text-muted-foreground">{caption}</p>
+      <InlineError error={error} onClear={onDismiss} />
+    </>
+  );
+}
+
+function InlineError({ error, onClear }: { error: string | null; onClear: () => void }) {
+  if (!error) {
+    return null;
+  }
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-[11px] text-destructive"
+    >
+      <WarningCircleIcon size={12} weight="bold" className="mt-0.5 shrink-0" />
+      <p className="flex-1">{error}</p>
+      <button
+        type="button"
+        onClick={onClear}
+        className="text-destructive/70 hover:text-destructive"
+        aria-label="Dismiss error"
+      >
+        <XIcon size={10} weight="bold" />
+      </button>
     </div>
   );
 }

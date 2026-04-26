@@ -44,6 +44,19 @@ type ReplyContext = {
 type DbCtx = Pick<QueryCtx, 'db'> | Pick<MutationCtx, 'db'>;
 
 const STALE_CHAT_JOB_ERROR_MESSAGE = 'The assistant reply stalled and was automatically marked as failed.';
+const DOCS_ARTIFACT_KINDS: Array<Doc<'artifacts'>['kind']> = [
+  'architecture_diagram',
+  'adr',
+  'failure_mode_analysis',
+  'deep_analysis',
+  'architecture_overview',
+  'design_review',
+  'migration_plan',
+  'trade_off_matrix',
+  'capacity_estimate',
+];
+const DOCS_ARTIFACTS_PER_KIND_LIMIT = 12;
+const DOCS_ARTIFACTS_TOTAL_LIMIT = 12;
 
 async function getActiveChatJobForThread(ctx: MutationCtx, threadId: Id<'threads'>, now: number) {
   const jobs = await ctx.db
@@ -624,6 +637,7 @@ export const getReplyContext = internalQuery({
       .filter((message) => message.content.trim().length > 0)
       .slice(-MAX_CONTEXT_MESSAGES);
     const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+    const effectiveMode = latestUserMessage?.mode ?? thread.mode;
 
     if (!thread.repositoryId) {
       return {
@@ -646,23 +660,48 @@ export const getReplyContext = internalQuery({
       throw new Error('Repository not found.');
     }
 
-    const importArtifacts = repository.latestImportJobId
-      ? await ctx.db
-          .query('artifacts')
-          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
-          .take(10)
-      : [];
-    const deepAnalysisArtifacts = await ctx.db
-      .query('artifacts')
-      .withIndex('by_repositoryId_and_kind', (q) =>
-        q.eq('repositoryId', repository._id).eq('kind', 'deep_analysis'),
-      )
-      .order('desc')
-      .take(10);
-    const artifacts = [...importArtifacts, ...deepAnalysisArtifacts];
-    const chunks = repository.latestImportId
-      ? await loadCandidateChunks(ctx, repository.latestImportId, latestUserMessage?.content ?? '')
-      : [];
+    const artifacts =
+      effectiveMode === 'docs'
+        ? (
+            await Promise.all(
+              DOCS_ARTIFACT_KINDS.map((kind) =>
+                ctx.db
+                  .query('artifacts')
+                  .withIndex('by_repositoryId_and_kind', (q) =>
+                    q.eq('repositoryId', repository._id).eq('kind', kind),
+                  )
+                  .order('desc')
+                  .take(DOCS_ARTIFACTS_PER_KIND_LIMIT),
+              ),
+            )
+          )
+            .flat()
+            .sort((left, right) => right._creationTime - left._creationTime)
+            .slice(0, DOCS_ARTIFACTS_TOTAL_LIMIT)
+        : [
+            ...(repository.latestImportJobId
+              ? await ctx.db
+                  .query('artifacts')
+                  .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+                  .take(10)
+              : []),
+            ...(await ctx.db
+              .query('artifacts')
+              .withIndex('by_repositoryId_and_kind', (q) =>
+                q.eq('repositoryId', repository._id).eq('kind', 'deep_analysis'),
+              )
+              .order('desc')
+              .take(10)),
+          ];
+    // Phase 4 rollout: `docs` mode is artifact-only retrieval. We intentionally
+    // stop pulling indexed code chunks in this mode so knowledge sources stay
+    // non-overlapping (`docs` => artifacts, `sandbox` => live/code-grounded).
+    const chunks =
+      effectiveMode === 'docs'
+        ? []
+        : repository.latestImportId
+          ? await loadCandidateChunks(ctx, repository.latestImportId, latestUserMessage?.content ?? '')
+          : [];
 
     return {
       ownerTokenIdentifier: repository.ownerTokenIdentifier,
