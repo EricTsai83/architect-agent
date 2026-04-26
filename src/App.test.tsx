@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { AppRouter } from './app-router';
 import { ConvexProviderWithAuthKit } from './providers/convex-provider-with-auth-kit';
 import { createAppMemoryRouter } from './router';
+import { AUTH_RETURN_TO_KEY } from './router-layouts';
 
 const getAccessTokenMock = vi.fn<() => Promise<string | null>>();
 
@@ -59,6 +60,7 @@ vi.mock('convex/react', async () => {
 describe('App auth token failures', () => {
   afterEach(() => {
     cleanup();
+    window.sessionStorage.clear();
     getAccessTokenMock.mockReset();
     vi.restoreAllMocks();
   });
@@ -110,6 +112,104 @@ describe('App auth token failures', () => {
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
   });
+
+  test('redirects signed-in users from /callback to /chat', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+  });
+
+  test('persists attempted protected path before redirecting unauthenticated users to /', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/r/repo_xyz']);
+
+    // ProtectedLayout should bounce signed-out users back to the landing route.
+    expect(await screen.findByText('home page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+    // …and have stashed the originally-requested path so AuthCallbackRoute can
+    // resume there after sign-in (covers persistAuthReturnTo + normalizeReturnTo).
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBe('/r/repo_xyz');
+  });
+
+  test('redirects callback users back to stored destination', async () => {
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, '/r/repo_123');
+
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/r/repo_123');
+  });
+
+  test('ignores unsafe callback return destination and falls back to /chat', async () => {
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, '//evil.example/steal');
+
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+  });
+
+  test('shows a clear callback error message for cancelled sign-in', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    renderWithAuth(useAuth, ['/callback?error=access_denied']);
+
+    expect(await screen.findByText('Sign-in was cancelled')).toBeInTheDocument();
+    expect(await screen.findByText('Back to home')).toBeInTheDocument();
+  });
+
+  test('shows a friendly 404 route page instead of router default error', async () => {
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: null,
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    renderWithAuth(useAuth, ['/does-not-exist']);
+
+    expect(await screen.findByText('This page does not exist.')).toBeInTheDocument();
+    expect(await screen.findByText('Go to home')).toBeInTheDocument();
+  });
 });
 
 function renderWithAuth(
@@ -127,4 +227,6 @@ function renderWithAuth(
       <AppRouter router={router} />
     </ConvexProviderWithAuthKit>,
   );
+
+  return router;
 }
