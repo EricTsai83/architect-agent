@@ -44,6 +44,19 @@ type ReplyContext = {
 type DbCtx = Pick<QueryCtx, 'db'> | Pick<MutationCtx, 'db'>;
 
 const STALE_CHAT_JOB_ERROR_MESSAGE = 'The assistant reply stalled and was automatically marked as failed.';
+const DOCS_ARTIFACT_KINDS: Array<Doc<'artifacts'>['kind']> = [
+  'architecture_diagram',
+  'adr',
+  'failure_mode_analysis',
+  'deep_analysis',
+  'architecture_overview',
+  'design_review',
+  'migration_plan',
+  'trade_off_matrix',
+  'capacity_estimate',
+];
+const DOCS_ARTIFACTS_PER_KIND_LIMIT = 12;
+const DOCS_ARTIFACTS_TOTAL_LIMIT = 12;
 
 async function getActiveChatJobForThread(ctx: MutationCtx, threadId: Id<'threads'>, now: number) {
   const jobs = await ctx.db
@@ -650,26 +663,21 @@ export const getReplyContext = internalQuery({
     const artifacts =
       effectiveMode === 'docs'
         ? (
-            await ctx.db
-              .query('artifacts')
-              .withIndex('by_repositoryId', (q) => q.eq('repositoryId', repository._id))
-              .order('desc')
-              .take(40)
-          )
-            .filter((artifact) =>
-              new Set<Doc<'artifacts'>['kind']>([
-                'architecture_diagram',
-                'adr',
-                'failure_mode_analysis',
-                'deep_analysis',
-                'architecture_overview',
-                'design_review',
-                'migration_plan',
-                'trade_off_matrix',
-                'capacity_estimate',
-              ]).has(artifact.kind),
+            await Promise.all(
+              DOCS_ARTIFACT_KINDS.map((kind) =>
+                ctx.db
+                  .query('artifacts')
+                  .withIndex('by_repositoryId_and_kind', (q) =>
+                    q.eq('repositoryId', repository._id).eq('kind', kind),
+                  )
+                  .order('desc')
+                  .take(DOCS_ARTIFACTS_PER_KIND_LIMIT),
+              ),
             )
-            .slice(0, 12)
+          )
+            .flat()
+            .sort((left, right) => right._creationTime - left._creationTime)
+            .slice(0, DOCS_ARTIFACTS_TOTAL_LIMIT)
         : [
             ...(repository.latestImportJobId
               ? await ctx.db

@@ -64,6 +64,7 @@ type ExpiredSandbox = {
 type StaleInteractiveJob = {
   jobId: Id<'jobs'>;
   kind: 'chat' | 'deep_analysis';
+  requestedCommand?: string;
 };
 
 type SandboxLookupResult = {
@@ -169,11 +170,17 @@ export const reconcileStaleInteractiveJobs = internalAction({
         continue;
       }
 
-      await ctx.runMutation(internal.analysis.failDeepAnalysis, {
-        jobId: job.jobId,
-        errorMessage: STALE_DEEP_ANALYSIS_ERROR_MESSAGE,
-        onlyIfStale: true,
-      });
+      if (job.requestedCommand?.startsWith('failure_mode_analysis:')) {
+        await ctx.runMutation(internal.designArtifacts.recoverStaleFailureModeJob, {
+          jobId: job.jobId,
+        });
+      } else {
+        await ctx.runMutation(internal.analysis.failDeepAnalysis, {
+          jobId: job.jobId,
+          errorMessage: STALE_DEEP_ANALYSIS_ERROR_MESSAGE,
+          onlyIfStale: true,
+        });
+      }
     }
   },
 });

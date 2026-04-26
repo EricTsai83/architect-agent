@@ -12,6 +12,7 @@ import {
   isLeaseActive,
   throwOperationAlreadyInProgress,
 } from './lib/rateLimit';
+import { createOpaqueErrorId } from './lib/observability';
 
 const MAX_ADR_SOURCE_MESSAGES = 10;
 
@@ -33,7 +34,8 @@ export const captureAdr = mutation({
       .order('desc')
       .take(MAX_ADR_SOURCE_MESSAGES);
 
-    const adr = synthesizeAdrFromThreadMessages([...messages].reverse());
+    const completedMessages = messages.filter((message) => message.status === 'completed');
+    const adr = synthesizeAdrFromThreadMessages([...completedMessages].reverse());
     const title = args.title?.trim() || adr.title;
     const artifactId: Id<'artifacts'> = await ctx.runMutation(internal.artifactStore.createArtifact, {
       threadId: args.threadId,
@@ -43,7 +45,7 @@ export const captureAdr = mutation({
       title,
       summary: adr.summary,
       contentMarkdown: adr.contentMarkdown,
-      source: 'llm',
+      source: 'heuristic',
     });
 
     return { artifactId };
@@ -85,13 +87,13 @@ export const requestFailureModeAnalysis = mutation({
       );
     }
 
-    await consumeDeepAnalysisRateLimit(ctx, identity.tokenIdentifier);
-    await consumeDaytonaGlobalRateLimit(ctx);
-
     const trimmedSubsystem = args.subsystem.trim();
     if (!trimmedSubsystem) {
       throw new Error('Please provide a subsystem to analyze.');
     }
+
+    await consumeDeepAnalysisRateLimit(ctx, identity.tokenIdentifier);
+    await consumeDaytonaGlobalRateLimit(ctx);
 
     const jobId = await ctx.db.insert('jobs', {
       repositoryId: repository._id,
@@ -213,6 +215,37 @@ export const failFailureModeAnalysis = internalMutation({
   },
 });
 
+const STALE_FAILURE_MODE_JOB_ERROR_MESSAGE =
+  'The failure mode analysis stalled and was automatically marked as failed.';
+
+export const recoverStaleFailureModeJob = internalMutation({
+  args: {
+    jobId: v.id('jobs'),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const job = await ctx.db.get(args.jobId);
+    const now = Date.now();
+    if (
+      !job ||
+      job.kind !== 'deep_analysis' ||
+      (job.status !== 'queued' && job.status !== 'running') ||
+      !job.requestedCommand?.startsWith('failure_mode_analysis:') ||
+      typeof job.leaseExpiresAt !== 'number' ||
+      job.leaseExpiresAt > now
+    ) {
+      return;
+    }
+
+    const message = args.errorMessage ?? STALE_FAILURE_MODE_JOB_ERROR_MESSAGE;
+    const errorId = createOpaqueErrorId('design_artifacts');
+    await ctx.runMutation(internal.designArtifacts.failFailureModeAnalysis, {
+      jobId: args.jobId,
+      errorMessage: `${message}\n\nReference: ${errorId}`,
+    });
+  },
+});
+
 function synthesizeAdrFromThreadMessages(messages: Doc<'messages'>[]) {
   const userPoints = messages
     .filter((message) => message.role === 'user')
@@ -302,7 +335,7 @@ async function getActiveFailureModeJob(
     (job) =>
       job.kind === 'deep_analysis' &&
       (job.status === 'queued' || job.status === 'running') &&
-      job.stage === 'failure_mode_analysis' &&
+      job.requestedCommand?.startsWith('failure_mode_analysis:') &&
       isLeaseActive(job.leaseExpiresAt, now),
   );
 }

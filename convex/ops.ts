@@ -271,6 +271,7 @@ export const listStaleInteractiveJobs = internalQuery({
       .map((job) => ({
         jobId: job._id,
         kind: job.kind,
+        requestedCommand: job.requestedCommand,
       }));
   },
 });

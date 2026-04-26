@@ -124,7 +124,7 @@ function ArtifactActions({
   hasAttachedRepository: boolean;
   sandboxModeStatus: SandboxModeStatus | null;
 }) {
-  const [subsystem, setSubsystem] = useState('API and data access');
+  const [subsystem, setSubsystem] = useState('');
   const captureAdr = useMutation(api.designArtifacts.captureAdr);
   const requestFailureMode = useMutation(api.designArtifacts.requestFailureModeAnalysis);
   const requestDiagram = useMutation(api.architectureDiagram.requestArchitectureDiagram);
@@ -166,94 +166,116 @@ function ArtifactActions({
 
   return (
     <div className="flex flex-col gap-4">
-      <Button
-        type="button"
-        variant="default"
-        size="sm"
-        disabled={!hasAttachedRepository || isDiagramPending}
+      <ActionRow
+        pending={isDiagramPending}
         onClick={() => void runDiagram()}
-        className="justify-center gap-2"
-      >
-        {isDiagramPending ? (
-          <>
-            <CircleNotchIcon size={14} className="animate-spin" weight="bold" />
-            Generating diagram…
-          </>
-        ) : (
-          <>
-            <GraphIcon size={14} weight="bold" />
-            Generate architecture diagram
-          </>
-        )}
-      </Button>
-      <p className="text-[11px] text-muted-foreground">
-        {hasAttachedRepository
-          ? "Module-level Mermaid graph from your repo's structure."
-          : 'Attach a repository to enable diagram generation.'}
-      </p>
-      <InlineError error={diagramError} onClear={() => setDiagramError(null)} />
+        caption={
+          hasAttachedRepository
+            ? "Module-level Mermaid graph from your repo's structure."
+            : 'Attach a repository to enable diagram generation.'
+        }
+        error={diagramError}
+        onDismiss={() => setDiagramError(null)}
+        buttonLabel="Generate architecture diagram"
+        pendingLabel="Generating diagram…"
+        icon={<GraphIcon size={14} weight="bold" />}
+        disabled={!hasAttachedRepository || isDiagramPending}
+      />
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={isAdrPending}
+      <ActionRow
+        pending={isAdrPending}
         onClick={() => void runAdr()}
-        className="justify-center gap-2"
-      >
-        {isAdrPending ? (
-          <>
-            <CircleNotchIcon size={14} className="animate-spin" weight="bold" />
-            Capturing ADR…
-          </>
-        ) : (
-          <>
-            <FileTextIcon size={14} weight="bold" />
-            Capture as ADR
-          </>
-        )}
-      </Button>
-      <p className="text-[11px] text-muted-foreground">
-        One-click ADR in Context / Decision / Consequences / Alternatives format.
-      </p>
-      <InlineError error={adrError} onClear={() => setAdrError(null)} />
+        caption={
+          hasAttachedRepository
+            ? 'One-click ADR in Context / Decision / Consequences / Alternatives format.'
+            : 'Attach a repository to enable ADR capture.'
+        }
+        error={adrError}
+        onDismiss={() => setAdrError(null)}
+        buttonLabel="Capture as ADR"
+        pendingLabel="Capturing ADR…"
+        icon={<FileTextIcon size={14} weight="bold" />}
+        variant="outline"
+        disabled={!hasAttachedRepository || isAdrPending}
+      />
 
       <div className="flex flex-col gap-2">
         <Input
           value={subsystem}
           onChange={(event) => setSubsystem(event.target.value)}
-          placeholder="Subsystem (e.g. payments pipeline)"
+          placeholder="API and data access"
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()}
+        <ActionRow
+          pending={isFailurePending}
           onClick={() => void runFailureMode()}
-          className="justify-center gap-2"
-        >
-          {isFailurePending ? (
-            <>
-              <CircleNotchIcon size={14} className="animate-spin" weight="bold" />
-              Running failure mode analysis…
-            </>
-          ) : (
-            <>
-              <WarningCircleIcon size={14} weight="bold" />
-              Run failure mode analysis
-            </>
-          )}
-        </Button>
-        <p className="text-[11px] text-muted-foreground">
-          {hasAttachedRepository
-            ? sandboxReady
-              ? 'Sandbox-backed scan that records component, blast radius, mitigation, and code references.'
-              : sandboxModeStatus?.message ?? 'Sandbox is not ready yet. Sync and wait for ready state.'
-            : 'Attach a repository to enable failure mode analysis.'}
-        </p>
-        <InlineError error={failureError} onClear={() => setFailureError(null)} />
+          caption={
+            hasAttachedRepository
+              ? sandboxReady
+                ? 'Sandbox-backed scan that records component, blast radius, mitigation, and code references.'
+                : sandboxModeStatus?.message ?? 'Sandbox is not ready yet. Sync and wait for ready state.'
+              : 'Attach a repository to enable failure mode analysis.'
+          }
+          error={failureError}
+          onDismiss={() => setFailureError(null)}
+          buttonLabel="Run failure mode analysis"
+          pendingLabel="Running failure mode analysis…"
+          icon={<WarningCircleIcon size={14} weight="bold" />}
+          variant="outline"
+          disabled={!hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()}
+        />
       </div>
     </div>
+  );
+}
+
+function ActionRow({
+  pending,
+  onClick,
+  caption,
+  error,
+  onDismiss,
+  buttonLabel,
+  pendingLabel,
+  icon,
+  disabled,
+  variant = 'default',
+}: {
+  pending: boolean;
+  onClick: () => void;
+  caption: string;
+  error: string | null;
+  onDismiss: () => void;
+  buttonLabel: string;
+  pendingLabel: string;
+  icon: ReactNode;
+  disabled?: boolean;
+  variant?: 'default' | 'outline';
+}) {
+  return (
+    <>
+      <Button
+        type="button"
+        variant={variant}
+        size="sm"
+        disabled={disabled}
+        onClick={onClick}
+        className="justify-center gap-2"
+      >
+        {pending ? (
+          <>
+            <CircleNotchIcon size={14} className="animate-spin" weight="bold" />
+            {pendingLabel}
+          </>
+        ) : (
+          <>
+            {icon}
+            {buttonLabel}
+          </>
+        )}
+      </Button>
+      <p className="text-[11px] text-muted-foreground">{caption}</p>
+      <InlineError error={error} onClear={onDismiss} />
+    </>
   );
 }
 
