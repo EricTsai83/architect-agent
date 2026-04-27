@@ -15,6 +15,8 @@ import {
 } from './lib/rateLimit';
 
 const FILE_COUNT_DISPLAY_LIMIT = 400;
+const REPOSITORY_DETAIL_ARTIFACT_LIMIT = 20;
+const REPOSITORY_DETAIL_IMPORT_ARTIFACT_LIMIT = 10;
 const REPOSITORY_DELETE_RETRY_MS = 5_000;
 const STREAM_CHUNK_DRAIN_PASS_LIMIT = 8;
 
@@ -143,37 +145,30 @@ export const getRepositoryDetail = query({
       ? await ctx.db
           .query('artifacts')
           .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
-          .take(10)
+          .take(REPOSITORY_DETAIL_IMPORT_ARTIFACT_LIMIT)
       : [];
-    const recentDeepAnalysisArtifacts = await ctx.db
-      .query('artifacts')
-      .withIndex('by_repositoryId_and_kind', (q) =>
-        q.eq('repositoryId', args.repositoryId).eq('kind', 'deep_analysis'),
-      )
-      .order('desc')
-      .take(Math.max(0, 20 - currentImportArtifacts.length));
+    const remainingArtifactSlots = Math.max(
+      0,
+      REPOSITORY_DETAIL_ARTIFACT_LIMIT - currentImportArtifacts.length,
+    );
+    const recentDeepAnalysisArtifacts =
+      remainingArtifactSlots > 0
+        ? await ctx.db
+            .query('artifacts')
+            .withIndex('by_repositoryId_and_kind', (q) =>
+              q.eq('repositoryId', args.repositoryId).eq('kind', 'deep_analysis'),
+            )
+            .order('desc')
+            .take(remainingArtifactSlots)
+        : [];
 
-    const threadScopedDeepAnalysisArtifacts: typeof recentDeepAnalysisArtifacts = [];
-    const repositoryThreads = await ctx.db
-      .query('threads')
-      .withIndex('by_repositoryId_and_lastMessageAt', (q) => q.eq('repositoryId', args.repositoryId))
-      .take(50);
-    for (const thread of repositoryThreads) {
-      const threadDeepArtifacts = await ctx.db
-        .query('artifacts')
-        .withIndex('by_threadId_and_kind', (q) =>
-          q.eq('threadId', thread._id).eq('kind', 'deep_analysis'),
-        )
-        .order('desc')
-        .take(5);
-      threadScopedDeepAnalysisArtifacts.push(...threadDeepArtifacts);
+    const artifactsById = new Map<string, (typeof currentImportArtifacts)[number]>();
+    for (const artifact of [...currentImportArtifacts, ...recentDeepAnalysisArtifacts]) {
+      if (!artifactsById.has(artifact._id)) {
+        artifactsById.set(artifact._id, artifact);
+      }
     }
-
-    const artifacts = [
-      ...currentImportArtifacts,
-      ...recentDeepAnalysisArtifacts,
-      ...threadScopedDeepAnalysisArtifacts,
-    ];
+    const artifacts = Array.from(artifactsById.values());
     const jobs = await ctx.db
       .query('jobs')
       .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))

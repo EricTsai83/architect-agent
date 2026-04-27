@@ -123,6 +123,81 @@ describe('repository detail metadata', () => {
     expect(repository?.latestImportId).toBeDefined();
     expect(repository?.latestImportJobId).toBeDefined();
   });
+
+  test('getRepositoryDetail limits artifacts to 20 without thread fan-out lookups', async () => {
+    const ownerTokenIdentifier = 'user|repo-detail-artifacts';
+    const t = createTestConvex();
+
+    const repositoryId = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert('repositories', {
+        ownerTokenIdentifier,
+        sourceHost: 'github',
+        sourceUrl: 'https://github.com/acme/artifact-heavy',
+        sourceRepoFullName: 'acme/artifact-heavy',
+        sourceRepoOwner: 'acme',
+        sourceRepoName: 'artifact-heavy',
+        defaultBranch: 'main',
+        visibility: 'private',
+        accessMode: 'private',
+        importStatus: 'completed',
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+        fileCount: 24,
+      });
+
+      const importJobId = await ctx.db.insert('jobs', {
+        repositoryId,
+        ownerTokenIdentifier,
+        kind: 'import',
+        status: 'completed',
+        stage: 'completed',
+        progress: 1,
+        costCategory: 'indexing',
+        triggerSource: 'user',
+      });
+
+      await ctx.db.patch(repositoryId, {
+        latestImportJobId: importJobId,
+      });
+
+      for (let index = 0; index < 10; index += 1) {
+        await ctx.db.insert('artifacts', {
+          repositoryId,
+          ownerTokenIdentifier,
+          jobId: importJobId,
+          kind: 'manifest',
+          title: `import-artifact-${index}`,
+          summary: `Import artifact ${index}`,
+          contentMarkdown: 'import content',
+          source: 'heuristic',
+          version: 1,
+        });
+      }
+
+      for (let index = 0; index < 40; index += 1) {
+        await ctx.db.insert('artifacts', {
+          repositoryId,
+          ownerTokenIdentifier,
+          kind: 'deep_analysis',
+          title: `deep-artifact-${index}`,
+          summary: `Deep artifact ${index}`,
+          contentMarkdown: 'deep content',
+          source: 'llm',
+          version: 1,
+        });
+      }
+
+      return repositoryId;
+    });
+
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+    const detail = await viewer.query(api.repositories.getRepositoryDetail, { repositoryId });
+
+    expect(detail.artifacts).toHaveLength(20);
+    const uniqueArtifactIds = new Set(detail.artifacts.map((artifact) => artifact._id));
+    expect(uniqueArtifactIds.size).toBe(detail.artifacts.length);
+  });
 });
 
 describe('repository import guards', () => {

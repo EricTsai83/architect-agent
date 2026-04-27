@@ -536,8 +536,12 @@ export const sendMessage = mutation({
       }
     }
 
-    const now = Date.now();
     const trimmedContent = args.content.trim();
+    if (!trimmedContent) {
+      throw new Error('Message content cannot be empty.');
+    }
+
+    const now = Date.now();
     const activeJob = await getActiveChatJobForThread(ctx, args.threadId, now);
 
     if (activeJob) {
