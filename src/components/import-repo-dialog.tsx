@@ -526,7 +526,7 @@ export function ImportRepoDialog({
                       <p className="text-sm text-destructive">{searchError}</p>
                     </div>
                   ) : searchResults && searchResults.length === 0 ? (
-                    <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+                    <div className="flex flex-1 animate-in flex-col items-center justify-center gap-2 text-center fade-in duration-300">
                       <p className="text-sm text-muted-foreground">
                         No repositories found for &ldquo;{publicInput.trim()}&rdquo;
                       </p>

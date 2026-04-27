@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MermaidRenderer } from '@/components/mermaid-renderer';
@@ -101,9 +100,7 @@ export function ArtifactPanel({
               title="No conversation selected"
               description="Pick or start a thread to see its artifacts here."
             />
-          ) : artifacts === undefined ? (
-            <ArtifactSkeleton />
-          ) : artifacts.length === 0 ? (
+          ) : artifacts === undefined ? null : artifacts.length === 0 ? (
             <EmptyArtifactState
               title="No artifacts yet"
               description={
@@ -429,16 +426,6 @@ function formatRelative(timestamp: number) {
   return `${days}d ago`;
 }
 
-function ArtifactSkeleton() {
-  return (
-    <div className="flex flex-col gap-3" aria-busy="true" role="status">
-      <span className="sr-only">Loading artifacts…</span>
-      <Skeleton className="h-32 w-full" />
-      <Skeleton className="h-32 w-full" />
-    </div>
-  );
-}
-
 function EmptyArtifactState({
   title,
   description,
@@ -447,7 +434,7 @@ function EmptyArtifactState({
   description: string;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-md border border-dashed border-border bg-background/50 p-4 text-center">
+    <div className="flex animate-in flex-col gap-1 rounded-md border border-dashed border-border bg-background/50 p-4 text-center fade-in duration-300">
       <p className="text-xs font-medium text-foreground">{title}</p>
       <p className="text-[11px] text-muted-foreground">{description}</p>
     </div>

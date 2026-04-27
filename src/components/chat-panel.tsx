@@ -321,7 +321,7 @@ function ModePillBar({
 
 function EmptyChatHint() {
   return (
-    <div className="flex flex-1 items-center justify-center">
+    <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
       <div className="flex flex-col items-center text-center">
         <div className="relative mb-1 inline-grid place-items-center">
           <pre
