@@ -288,7 +288,9 @@ function ModePillBar({
             >
               <option.icon size={12} weight="bold" />
               <span className="font-medium">{option.label}</span>
-              <span className="hidden text-muted-foreground sm:inline">{option.caption}</span>
+              {isSelected ? (
+                <span className="hidden text-muted-foreground sm:inline">{option.caption}</span>
+              ) : null}
             </button>
           );
 
@@ -300,6 +302,16 @@ function ModePillBar({
               </Tooltip>
             );
           }
+
+          if (isAvailable && !isSelected) {
+            return (
+              <Tooltip key={option.value}>
+                <TooltipTrigger asChild>{pill}</TooltipTrigger>
+                <TooltipContent side="top">{option.caption}</TooltipContent>
+              </Tooltip>
+            );
+          }
+
           return <span key={option.value}>{pill}</span>;
         })}
       </div>

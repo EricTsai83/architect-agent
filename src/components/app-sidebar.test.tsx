@@ -79,6 +79,7 @@ let threadsResult: Doc<'threads'>[] | undefined;
 
 beforeEach(() => {
   threadsResult = [];
+  window.localStorage.clear();
   createThreadMutationMock.mockReset();
   useMutationMock.mockReset();
   useQueryMock.mockReset();

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import {
+  CaretDownIcon,
   CircleNotchIcon,
   FileTextIcon,
   GraphIcon,
@@ -16,6 +17,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MermaidRenderer } from '@/components/mermaid-renderer';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { toUserErrorMessage } from '@/lib/errors';
@@ -58,6 +61,9 @@ export function ArtifactPanel({
     api.artifacts.listByThread,
     threadId ? { threadId } : 'skip',
   );
+  const artifactCount = artifacts?.length ?? 0;
+  const [actionsOpen, setActionsOpen] = useState<boolean | null>(null);
+  const effectiveActionsOpen = actionsOpen ?? artifactCount === 0;
 
   return (
     <aside
@@ -82,6 +88,8 @@ export function ArtifactPanel({
             threadId={threadId}
             hasAttachedRepository={hasAttachedRepository}
             sandboxModeStatus={sandboxModeStatus}
+            open={effectiveActionsOpen}
+            onOpenChange={setActionsOpen}
           />
         </div>
       ) : null}
@@ -119,12 +127,17 @@ function ArtifactActions({
   threadId,
   hasAttachedRepository,
   sandboxModeStatus,
+  open,
+  onOpenChange,
 }: {
   threadId: ThreadId;
   hasAttachedRepository: boolean;
   sandboxModeStatus: SandboxModeStatus | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const [subsystem, setSubsystem] = useState('');
+  const [activeTab, setActiveTab] = useState<'diagram' | 'adr' | 'failure'>('diagram');
   const captureAdr = useMutation(api.designArtifacts.captureAdr);
   const requestFailureMode = useMutation(api.designArtifacts.requestFailureModeAnalysis);
   const requestDiagram = useMutation(api.architectureDiagram.requestArchitectureDiagram);
@@ -165,66 +178,104 @@ function ArtifactActions({
   });
 
   return (
-    <div className="flex flex-col gap-4">
-      <ActionRow
-        pending={isDiagramPending}
-        onClick={() => void runDiagram()}
-        caption={
-          hasAttachedRepository
-            ? "Module-level Mermaid graph from your repo's structure."
-            : 'Attach a repository to enable diagram generation.'
-        }
-        error={diagramError}
-        onDismiss={() => setDiagramError(null)}
-        buttonLabel="Generate architecture diagram"
-        pendingLabel="Generating diagram…"
-        icon={<GraphIcon size={14} weight="bold" />}
-        disabled={!hasAttachedRepository || isDiagramPending}
-      />
+    <Collapsible open={open} onOpenChange={onOpenChange} className="flex flex-col gap-2">
+      <CollapsibleTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="justify-between gap-2">
+          <span>+ Generate</span>
+          <CaretDownIcon
+            size={12}
+            weight="bold"
+            className={cn('transition-transform duration-200', open ? 'rotate-180' : '')}
+          />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-1">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'diagram' | 'adr' | 'failure')}
+          className="flex flex-col gap-2"
+        >
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="diagram" className="px-2 py-1.5 text-[11px]">
+              Diagram
+            </TabsTrigger>
+            <TabsTrigger value="adr" className="px-2 py-1.5 text-[11px]">
+              ADR
+            </TabsTrigger>
+            <TabsTrigger value="failure" className="px-2 py-1.5 text-[11px]">
+              Failure
+            </TabsTrigger>
+          </TabsList>
 
-      <ActionRow
-        pending={isAdrPending}
-        onClick={() => void runAdr()}
-        caption={
-          hasAttachedRepository
-            ? 'One-click ADR in Context / Decision / Consequences / Alternatives format.'
-            : 'Attach a repository to enable ADR capture.'
-        }
-        error={adrError}
-        onDismiss={() => setAdrError(null)}
-        buttonLabel="Capture as ADR"
-        pendingLabel="Capturing ADR…"
-        icon={<FileTextIcon size={14} weight="bold" />}
-        variant="outline"
-        disabled={!hasAttachedRepository || isAdrPending}
-      />
+          <TabsContent value="diagram">
+            <ActionRow
+              pending={isDiagramPending}
+              onClick={() => void runDiagram()}
+              caption={
+                hasAttachedRepository
+                  ? "Module-level Mermaid graph from your repo's structure."
+                  : 'Attach a repository to enable diagram generation.'
+              }
+              error={diagramError}
+              onDismiss={() => setDiagramError(null)}
+              buttonLabel="Generate architecture diagram"
+              pendingLabel="Generating diagram…"
+              icon={<GraphIcon size={14} weight="bold" />}
+              disabled={!hasAttachedRepository || isDiagramPending}
+            />
+          </TabsContent>
 
-      <div className="flex flex-col gap-2">
-        <Input
-          value={subsystem}
-          onChange={(event) => setSubsystem(event.target.value)}
-          placeholder="API and data access"
-        />
-        <ActionRow
-          pending={isFailurePending}
-          onClick={() => void runFailureMode()}
-          caption={
-            hasAttachedRepository
-              ? sandboxReady
-                ? 'Sandbox-backed scan that records component, blast radius, mitigation, and code references.'
-                : sandboxModeStatus?.message ?? 'Sandbox is not ready yet. Sync and wait for ready state.'
-              : 'Attach a repository to enable failure mode analysis.'
-          }
-          error={failureError}
-          onDismiss={() => setFailureError(null)}
-          buttonLabel="Run failure mode analysis"
-          pendingLabel="Running failure mode analysis…"
-          icon={<WarningCircleIcon size={14} weight="bold" />}
-          variant="outline"
-          disabled={!hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()}
-        />
-      </div>
-    </div>
+          <TabsContent value="adr">
+            <ActionRow
+              pending={isAdrPending}
+              onClick={() => void runAdr()}
+              caption={
+                hasAttachedRepository
+                  ? 'One-click ADR in Context / Decision / Consequences / Alternatives format.'
+                  : 'Attach a repository to enable ADR capture.'
+              }
+              error={adrError}
+              onDismiss={() => setAdrError(null)}
+              buttonLabel="Capture as ADR"
+              pendingLabel="Capturing ADR…"
+              icon={<FileTextIcon size={14} weight="bold" />}
+              variant="outline"
+              disabled={!hasAttachedRepository || isAdrPending}
+            />
+          </TabsContent>
+
+          <TabsContent value="failure">
+            <div className="flex flex-col gap-2">
+              <Input
+                value={subsystem}
+                onChange={(event) => setSubsystem(event.target.value)}
+                placeholder="API and data access"
+              />
+              <ActionRow
+                pending={isFailurePending}
+                onClick={() => void runFailureMode()}
+                caption={
+                  hasAttachedRepository
+                    ? sandboxReady
+                      ? 'Sandbox-backed scan that records component, blast radius, mitigation, and code references.'
+                      : sandboxModeStatus?.message ?? 'Sandbox is not ready yet. Sync and wait for ready state.'
+                    : 'Attach a repository to enable failure mode analysis.'
+                }
+                error={failureError}
+                onDismiss={() => setFailureError(null)}
+                buttonLabel="Run failure mode analysis"
+                pendingLabel="Running failure mode analysis…"
+                icon={<WarningCircleIcon size={14} weight="bold" />}
+                variant="outline"
+                disabled={
+                  !hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()
+                }
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -252,7 +303,7 @@ function ActionRow({
   variant?: 'default' | 'outline';
 }) {
   return (
-    <>
+    <div className="flex flex-col gap-1.5">
       <Button
         type="button"
         variant={variant}
@@ -275,7 +326,7 @@ function ActionRow({
       </Button>
       <p className="text-[11px] text-muted-foreground">{caption}</p>
       <InlineError error={error} onClear={onDismiss} />
-    </>
+    </div>
   );
 }
 

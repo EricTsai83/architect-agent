@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import {
   CaretDownIcon,
@@ -28,6 +28,7 @@ import {
 import { Logo } from '@/components/logo';
 import { ImportRepoDialog } from '@/components/import-repo-dialog';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
+import { useLocalStorageBoolean } from '@/hooks/use-persisted-state';
 import { toUserErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import type { RepositoryId, ThreadId } from '@/lib/types';
@@ -133,6 +134,7 @@ export function AppSidebar({
 
         <RepositoriesSection
           repositories={repositories}
+          threadCount={threads?.length}
           selectedRepositoryId={selectedRepositoryId}
           onSelectRepository={onSelectRepository}
           onImported={onImported}
@@ -297,19 +299,19 @@ function ThreadRepoBadge({ repository }: { repository: Doc<'repositories'> | und
 
 function RepositoriesSection({
   repositories,
+  threadCount,
   selectedRepositoryId,
   onSelectRepository,
   onImported,
 }: {
   repositories: Doc<'repositories'>[] | undefined;
+  threadCount: number | undefined;
   selectedRepositoryId: RepositoryId | null;
   onSelectRepository: (id: RepositoryId) => void;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
-  // Default the section open so existing users still see their repos without
-  // an extra click; they can collapse it to free vertical space if their
-  // thread list grows long.
-  const [open, setOpen] = useState(true);
+  const defaultOpen = threadCount === undefined ? true : threadCount <= 3;
+  const [open, setOpen] = useLocalStorageBoolean('systify.sidebar.reposOpen', defaultOpen);
   const count = repositories?.length;
 
   return (
