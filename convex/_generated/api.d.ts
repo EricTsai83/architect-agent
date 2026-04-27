@@ -36,6 +36,7 @@ import type * as lib_observability from "../lib/observability.js";
 import type * as lib_openaiPricing from "../lib/openaiPricing.js";
 import type * as lib_rateLimit from "../lib/rateLimit.js";
 import type * as lib_repoAnalysis from "../lib/repoAnalysis.js";
+import type * as lib_returnTo from "../lib/returnTo.js";
 import type * as lib_sandboxAvailability from "../lib/sandboxAvailability.js";
 import type * as lib_sandboxNames from "../lib/sandboxNames.js";
 import type * as ops from "../ops.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   "lib/openaiPricing": typeof lib_openaiPricing;
   "lib/rateLimit": typeof lib_rateLimit;
   "lib/repoAnalysis": typeof lib_repoAnalysis;
+  "lib/returnTo": typeof lib_returnTo;
   "lib/sandboxAvailability": typeof lib_sandboxAvailability;
   "lib/sandboxNames": typeof lib_sandboxNames;
   ops: typeof ops;

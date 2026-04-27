@@ -25,7 +25,7 @@ export function EmptyState({
   isStartingConversation?: boolean;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 p-10 text-center">
+    <div className="flex flex-1 animate-in flex-col items-center justify-center gap-6 p-10 text-center fade-in duration-300">
       <Logo size={64} hero />
       <div className="max-w-md">
         <h1 className="text-2xl font-semibold tracking-tight">Design with your codebase</h1>
