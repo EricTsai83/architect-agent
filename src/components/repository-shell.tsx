@@ -102,7 +102,7 @@ export function RepositoryShell({
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  const [isArtifactPanelOpen, setIsArtifactPanelOpen] = useLocalStorageBoolean(
+  const [isArtifactPanelOpen, setIsArtifactPanelOpen, isArtifactPanelHydrated] = useLocalStorageBoolean(
     'systify.artifactPanel.open',
     true,
   );
@@ -118,6 +118,7 @@ export function RepositoryShell({
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    setIsDesktopLayout(mediaQuery.matches);
     const handleChange = (event: MediaQueryListEvent) => {
       setIsDesktopLayout(event.matches);
       if (event.matches) {
@@ -374,7 +375,10 @@ export function RepositoryShell({
         )}
       </SidebarInset>
 
-      {workspaceStatus !== 'no-repo' && isDesktopLayout && isArtifactPanelOpen ? (
+      {workspaceStatus !== 'no-repo' &&
+      isDesktopLayout &&
+      isArtifactPanelHydrated &&
+      isArtifactPanelOpen ? (
         <ArtifactPanel
           threadId={effectiveSelectedThreadId}
           hasAttachedRepository={capabilities.attachedRepository !== null}

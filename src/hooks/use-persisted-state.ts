@@ -19,7 +19,7 @@ function parseStoredBoolean(value: string | null): boolean | null {
 export function useLocalStorageBoolean(
   key: string,
   defaultValue: boolean,
-): readonly [boolean, (next: boolean | ((prev: boolean) => boolean)) => void] {
+): readonly [boolean, (next: boolean | ((prev: boolean) => boolean)) => void, boolean] {
   const [value, setValue] = useState(defaultValue);
   const [isHydrated, setIsHydrated] = useState(false);
   const hasStoredValueRef = useRef(false);
@@ -45,7 +45,7 @@ export function useLocalStorageBoolean(
     } finally {
       setIsHydrated(true);
     }
-  }, [defaultValue, key]);
+  }, [key]);
 
   useEffect(() => {
     if (!isHydrated || hasStoredValueRef.current) {
@@ -55,7 +55,16 @@ export function useLocalStorageBoolean(
   }, [defaultValue, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated || !hasStoredValueRef.current || typeof window === 'undefined') {
+    if (!isHydrated || typeof window === 'undefined') {
+      return;
+    }
+    let parsedStoredValue: boolean | null = null;
+    try {
+      parsedStoredValue = parseStoredBoolean(window.localStorage.getItem(key));
+    } catch {
+      parsedStoredValue = null;
+    }
+    if (parsedStoredValue === value) {
       return;
     }
     try {
@@ -94,5 +103,5 @@ export function useLocalStorageBoolean(
     [],
   );
 
-  return [value, setPersistedValue] as const;
+  return [value, setPersistedValue, isHydrated] as const;
 }

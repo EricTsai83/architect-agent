@@ -76,22 +76,24 @@ describe('useLocalStorageBoolean', () => {
           throw new Error('blocked');
         });
 
-      const { result } = renderHook(() => useLocalStorageBoolean('systify.test.flag', true));
+      try {
+        const { result } = renderHook(() => useLocalStorageBoolean('systify.test.flag', true));
 
-      await waitFor(() => {
-        expect(result.current[0]).toBe(true);
-      });
+        await waitFor(() => {
+          expect(result.current[0]).toBe(true);
+        });
 
-      act(() => {
-        result.current[1](false);
-      });
+        act(() => {
+          result.current[1](false);
+        });
 
-      await waitFor(() => {
-        expect(result.current[0]).toBe(false);
-      });
-
-      getItemSpy.mockRestore();
-      setItemSpy.mockRestore();
+        await waitFor(() => {
+          expect(result.current[0]).toBe(false);
+        });
+      } finally {
+        getItemSpy.mockRestore();
+        setItemSpy.mockRestore();
+      }
     });
   });
 

@@ -84,6 +84,9 @@ export function TopBar({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) {
+        return;
+      }
       if (event.key !== '.' || (!event.metaKey && !event.ctrlKey) || event.shiftKey || event.altKey) {
         return;
       }
@@ -153,22 +156,30 @@ export function TopBar({
       <div className="ml-auto flex items-center gap-1.5">
         <JobsPopoverButton jobs={repoDetail?.jobs} />
 
-        <SyncButton
-          repoDetail={repoDetail}
-          isSyncing={isSyncing}
-          onSync={onSync}
-        />
-
         <TooltipProvider delayDuration={150}>
+          <SyncButton
+            repoDetail={repoDetail}
+            isSyncing={isSyncing}
+            onSync={onSync}
+          />
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={onToggleArtifactPanel}
-                disabled={!isArtifactPanelToggleEnabled}
+                onClick={() => {
+                  if (!isArtifactPanelToggleEnabled) {
+                    return;
+                  }
+                  onToggleArtifactPanel();
+                }}
+                aria-disabled={!isArtifactPanelToggleEnabled}
                 aria-label="Toggle artifacts panel"
-                className="text-muted-foreground hover:text-foreground"
+                className={cn(
+                  'text-muted-foreground hover:text-foreground',
+                  !isArtifactPanelToggleEnabled && 'cursor-not-allowed opacity-50 hover:text-muted-foreground',
+                )}
               >
                 <SidebarSimpleIcon
                   weight="bold"
