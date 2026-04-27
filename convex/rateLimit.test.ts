@@ -150,6 +150,22 @@ describe('rate limits and interactive job guards', () => {
     expect(await getThreadCounts(t, threadId)).toEqual(before);
   });
 
+  test('sendMessage rejects blank content before enqueueing any work', async () => {
+    const ownerTokenIdentifier = 'user|chat-empty-content';
+    const t = createTestConvex();
+    const { threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'chat-empty-content');
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+
+    const before = await getThreadCounts(t, threadId);
+    await expect(
+      viewer.mutation(api.chat.sendMessage, {
+        threadId,
+        content: '   \n\t  ',
+      }),
+    ).rejects.toThrow('Message content cannot be empty.');
+    expect(await getThreadCounts(t, threadId)).toEqual(before);
+  });
+
   test('chat global limiter eventually rejects a multi-owner burst without side effects', async () => {
     const t = createTestConvex();
 
