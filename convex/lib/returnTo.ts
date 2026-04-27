@@ -1,5 +1,7 @@
 const RETURN_TO_ALLOWLIST_ENV = 'ALLOWED_RETURN_TO_ORIGINS';
 const LOCAL_HTTP_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+let cachedAllowlistRawValue: string | null = null;
+let cachedAllowlist: Set<string> | null = null;
 
 function normalizeConfiguredOrigin(rawOrigin: string): string {
   let parsed: URL;
@@ -21,13 +23,25 @@ function normalizeConfiguredOrigin(rawOrigin: string): string {
     );
   }
 
+  if (parsed.protocol === 'http:' && !LOCAL_HTTP_HOSTS.has(parsed.hostname)) {
+    throw new Error(
+      `Origin "${rawOrigin}" in ${RETURN_TO_ALLOWLIST_ENV} with http is only allowed for localhost development origins.`,
+    );
+  }
+
   return parsed.origin;
 }
 
 export function getAllowedReturnToOriginsFromEnv(): Set<string> {
-  const configured = process.env[RETURN_TO_ALLOWLIST_ENV];
-  if (!configured?.trim()) {
-    return new Set<string>();
+  const configured = process.env[RETURN_TO_ALLOWLIST_ENV]?.trim();
+  if (!configured) {
+    throw new Error(
+      `${RETURN_TO_ALLOWLIST_ENV} is required and must include at least one allowed origin.`,
+    );
+  }
+
+  if (cachedAllowlistRawValue === configured && cachedAllowlist) {
+    return new Set(cachedAllowlist);
   }
 
   const origins = configured
@@ -36,10 +50,12 @@ export function getAllowedReturnToOriginsFromEnv(): Set<string> {
     .filter((entry) => entry.length > 0)
     .map(normalizeConfiguredOrigin);
 
-  return new Set(origins);
+  cachedAllowlistRawValue = configured;
+  cachedAllowlist = new Set(origins);
+  return new Set(cachedAllowlist);
 }
 
-export function normalizeReturnToOrigin(returnTo: string, allowedOrigins?: Set<string>): string {
+export function normalizeReturnToUrl(returnTo: string, allowedOrigins?: Set<string>): string {
   let parsed: URL;
   try {
     parsed = new URL(returnTo);
@@ -67,5 +83,9 @@ export function normalizeReturnToOrigin(returnTo: string, allowedOrigins?: Set<s
     );
   }
 
-  return normalizedOrigin;
+  const sanitizedReturnTo = new URL(normalizedOrigin);
+  sanitizedReturnTo.pathname = parsed.pathname;
+  sanitizedReturnTo.search = parsed.search;
+  sanitizedReturnTo.hash = '';
+  return sanitizedReturnTo.toString();
 }

@@ -10,7 +10,7 @@ import {
   type DaytonaWebhookVerificationContext,
 } from './lib/daytonaWebhookVerification';
 import { createOpaqueErrorId, logErrorWithId, logInfo, logWarn } from './lib/observability';
-import { normalizeReturnToOrigin } from './lib/returnTo';
+import { normalizeReturnToUrl } from './lib/returnTo';
 
 const http = httpRouter();
 
@@ -117,8 +117,8 @@ function redirectOrReturnPage(
 ): Response {
   if (redirectTarget) {
     try {
-      const normalizedRedirectTarget = normalizeReturnToOrigin(redirectTarget);
-      return Response.redirect(buildRedirectUrl(normalizedRedirectTarget, params), 302);
+      const sanitizedRedirectTarget = normalizeReturnToUrl(redirectTarget);
+      return Response.redirect(buildRedirectUrl(sanitizedRedirectTarget, params), 302);
     } catch (error) {
       logWarn('http', 'github_callback_redirect_target_rejected', {
         redirectTarget,

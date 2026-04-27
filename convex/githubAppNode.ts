@@ -7,7 +7,7 @@ import { action, internalAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { requireViewerIdentity } from './lib/auth';
 import { parseGitHubUrl } from './lib/github';
-import { normalizeReturnToOrigin } from './lib/returnTo';
+import { normalizeReturnToUrl } from './lib/returnTo';
 
 // ---------------------------------------------------------------------------
 // GitHub App JWT helper
@@ -180,7 +180,7 @@ export const initiateGitHubInstall = action({
     const stateBytes = new Uint8Array(32);
     crypto.getRandomValues(stateBytes);
     const state = Array.from(stateBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    const normalizedReturnTo = args.returnTo ? normalizeReturnToOrigin(args.returnTo) : undefined;
+    const normalizedReturnTo = args.returnTo ? normalizeReturnToUrl(args.returnTo) : undefined;
 
     // Store the state for later validation (10-minute expiry)
     await ctx.runMutation(internal.github.createOAuthState, {

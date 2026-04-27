@@ -60,7 +60,7 @@ const DOCS_ARTIFACTS_TOTAL_LIMIT = 12;
 type DocsArtifactCursorState = {
   kind: Doc<'artifacts'>['kind'];
   cursor: string | null;
-  current: Doc<'artifacts'> | null;
+  buffer: Doc<'artifacts'>[];
   isDone: boolean;
 };
 
@@ -166,11 +166,11 @@ async function loadNextDocsArtifactForKind(
     .order('desc')
     .paginate({
       cursor,
-      numItems: 1,
+      numItems: DOCS_ARTIFACTS_TOTAL_LIMIT,
     });
 
   return {
-    artifact: page.page[0] ?? null,
+    page: page.page,
     continueCursor: page.continueCursor,
     isDone: page.isDone,
   };
@@ -186,7 +186,7 @@ async function loadLatestDocsArtifacts(
       return {
         kind,
         cursor: first.continueCursor,
-        current: first.artifact,
+        buffer: first.page,
         isDone: first.isDone,
       };
     }),
@@ -194,9 +194,26 @@ async function loadLatestDocsArtifacts(
 
   const selected: Doc<'artifacts'>[] = [];
   while (selected.length < DOCS_ARTIFACTS_TOTAL_LIMIT) {
+    await Promise.all(
+      states.map(async (state) => {
+        if (state.buffer.length > 0 || state.isDone) {
+          return;
+        }
+        const next = await loadNextDocsArtifactForKind(
+          ctx,
+          repositoryId,
+          state.kind,
+          state.cursor,
+        );
+        state.cursor = next.continueCursor;
+        state.buffer = next.page;
+        state.isDone = next.isDone;
+      }),
+    );
+
     let nextStateIndex = -1;
     for (let index = 0; index < states.length; index += 1) {
-      const candidate = states[index]?.current;
+      const candidate = states[index]?.buffer[0];
       if (!candidate) {
         continue;
       }
@@ -206,7 +223,7 @@ async function loadLatestDocsArtifacts(
         continue;
       }
 
-      const best = states[nextStateIndex]?.current;
+      const best = states[nextStateIndex]?.buffer[0];
       if (
         best &&
         (candidate._creationTime > best._creationTime ||
@@ -221,21 +238,10 @@ async function loadLatestDocsArtifacts(
     }
 
     const nextState = states[nextStateIndex]!;
-    selected.push(nextState.current!);
-    if (nextState.isDone) {
-      nextState.current = null;
-      continue;
+    const nextArtifact = nextState.buffer.shift();
+    if (nextArtifact) {
+      selected.push(nextArtifact);
     }
-
-    const next = await loadNextDocsArtifactForKind(
-      ctx,
-      repositoryId,
-      nextState.kind,
-      nextState.cursor,
-    );
-    nextState.cursor = next.continueCursor;
-    nextState.current = next.artifact;
-    nextState.isDone = next.isDone;
   }
 
   return selected;
