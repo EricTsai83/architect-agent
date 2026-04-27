@@ -1,12 +1,29 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, afterEach } from 'vitest';
 import { register as registerRateLimiter } from '@convex-dev/rate-limiter/test';
 import { convexTest } from 'convex-test';
 import { api, internal } from './_generated/api';
 import schema from './schema';
 
 const modules = import.meta.glob('./**/*.ts');
+const RETURN_TO_ALLOWLIST_ENV = 'ALLOWED_RETURN_TO_ORIGINS';
+const originalGitHubAppSlug = process.env.GITHUB_APP_SLUG;
+const originalReturnToAllowlist = process.env[RETURN_TO_ALLOWLIST_ENV];
+
+afterEach(() => {
+  if (originalGitHubAppSlug === undefined) {
+    delete process.env.GITHUB_APP_SLUG;
+  } else {
+    process.env.GITHUB_APP_SLUG = originalGitHubAppSlug;
+  }
+
+  if (originalReturnToAllowlist === undefined) {
+    delete process.env[RETURN_TO_ALLOWLIST_ENV];
+  } else {
+    process.env[RETURN_TO_ALLOWLIST_ENV] = originalReturnToAllowlist;
+  }
+});
 
 function createTestConvex() {
   const t = convexTest(schema, modules);
@@ -270,5 +287,28 @@ describe('GitHub installation selection', () => {
       ownerTokenIdentifier,
       returnTo: null,
     });
+  });
+
+  test('initiateGitHubInstall stores sanitized returnTo URL used by callback state lookup', async () => {
+    const ownerTokenIdentifier = 'user|oauth-initiate-return-to';
+    process.env.GITHUB_APP_SLUG = 'systify-app';
+    process.env[RETURN_TO_ALLOWLIST_ENV] = 'https://app.systify.dev';
+    const t = createTestConvex();
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+
+    const installUrl = await viewer.action(api.githubAppNode.initiateGitHubInstall, {
+      returnTo: 'https://app.systify.dev/settings/integrations?tab=github#close-this-tab',
+    });
+
+    const parsedInstallUrl = new URL(installUrl);
+    const state = parsedInstallUrl.searchParams.get('state');
+    expect(parsedInstallUrl.origin).toBe('https://github.com');
+    expect(parsedInstallUrl.pathname).toBe('/apps/systify-app/installations/new');
+    expect(state).toBeTruthy();
+
+    const lookedUpReturnTo = await t.query(internal.github.getOAuthReturnToByState, {
+      state: state!,
+    });
+    expect(lookedUpReturnTo).toBe('https://app.systify.dev/settings/integrations?tab=github');
   });
 });

@@ -7,6 +7,7 @@ import { action, internalAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { requireViewerIdentity } from './lib/auth';
 import { parseGitHubUrl } from './lib/github';
+import { normalizeReturnToUrl } from './lib/returnTo';
 
 // ---------------------------------------------------------------------------
 // GitHub App JWT helper
@@ -94,25 +95,6 @@ function looksLikePemPrivateKey(value: string): boolean {
   return /^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(value);
 }
 
-function normalizeReturnToOrigin(returnTo: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(returnTo);
-  } catch {
-    throw new Error('returnTo must be an absolute URL.');
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error('returnTo must use http or https.');
-  }
-
-  if (parsed.username || parsed.password) {
-    throw new Error('returnTo must not include username or password.');
-  }
-
-  return parsed.origin;
-}
-
 // ---------------------------------------------------------------------------
 // Installation access token helper
 // ---------------------------------------------------------------------------
@@ -198,7 +180,7 @@ export const initiateGitHubInstall = action({
     const stateBytes = new Uint8Array(32);
     crypto.getRandomValues(stateBytes);
     const state = Array.from(stateBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    const normalizedReturnTo = args.returnTo ? normalizeReturnToOrigin(args.returnTo) : undefined;
+    const normalizedReturnTo = args.returnTo ? normalizeReturnToUrl(args.returnTo) : undefined;
 
     // Store the state for later validation (10-minute expiry)
     await ctx.runMutation(internal.github.createOAuthState, {
