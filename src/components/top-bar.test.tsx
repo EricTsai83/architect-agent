@@ -118,9 +118,6 @@ function createTopBarProps(overrides: Partial<TopBarTestProps> = {}): TopBarTest
     isSyncing: false,
     onSync: vi.fn(),
     onDeleteRepo: vi.fn(),
-    isArtifactPanelOpen: true,
-    isArtifactPanelToggleEnabled: true,
-    onToggleArtifactPanel: vi.fn(),
     onRunAnalysis: vi.fn(),
     ...overrides,
   };
@@ -201,49 +198,3 @@ describe('TopBar jobs badge behavior', () => {
   });
 });
 
-describe('TopBar artifact shortcut behavior', () => {
-  test('toggles artifact panel on Cmd/Ctrl + . when shortcut is enabled', () => {
-    const onToggleArtifactPanel = vi.fn();
-    renderTopBar({ onToggleArtifactPanel });
-
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: '.', metaKey: true }));
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: '.', ctrlKey: true }));
-
-    expect(onToggleArtifactPanel).toHaveBeenCalledTimes(2);
-  });
-
-  test('ignores shortcut when focus is inside an input field', () => {
-    const onToggleArtifactPanel = vi.fn();
-    renderTopBar({ onToggleArtifactPanel });
-
-    const input = document.createElement('input');
-    document.body.append(input);
-    input.focus();
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: '.', metaKey: true, bubbles: true }));
-
-    expect(onToggleArtifactPanel).not.toHaveBeenCalled();
-  });
-
-  test('ignores shortcut when toggle is disabled (no-repo guard)', () => {
-    const onToggleArtifactPanel = vi.fn();
-    renderTopBar({
-      isArtifactPanelToggleEnabled: false,
-      onToggleArtifactPanel,
-    });
-
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: '.', metaKey: true }));
-    expect(onToggleArtifactPanel).not.toHaveBeenCalled();
-  });
-
-  test('ignores shortcut from contenteditable targets', () => {
-    const onToggleArtifactPanel = vi.fn();
-    renderTopBar({ onToggleArtifactPanel });
-
-    const editable = document.createElement('div');
-    editable.setAttribute('contenteditable', 'true');
-    document.body.append(editable);
-    editable.dispatchEvent(new KeyboardEvent('keydown', { key: '.', metaKey: true, bubbles: true }));
-
-    expect(onToggleArtifactPanel).not.toHaveBeenCalled();
-  });
-});

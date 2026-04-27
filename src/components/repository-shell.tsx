@@ -23,6 +23,7 @@ import type { RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/
 import { toUserErrorMessage } from '@/lib/errors';
 
 type RepositoryWorkspaceStatus = 'initializing' | 'no-repo' | 'ready';
+const DESKTOP_LAYOUT_QUERY = '(min-width: 1280px)';
 
 const DeepAnalysisDialog = lazy(() =>
   import('@/components/deep-analysis-dialog').then((module) => ({ default: module.DeepAnalysisDialog })),
@@ -111,13 +112,13 @@ export function RepositoryShell({
     if (typeof window === 'undefined') {
       return true;
     }
-    return window.matchMedia('(min-width: 1024px)').matches;
+    return window.matchMedia(DESKTOP_LAYOUT_QUERY).matches;
   });
 
   const isRepositoriesLoading = repositories === undefined;
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const mediaQuery = window.matchMedia(DESKTOP_LAYOUT_QUERY);
     const handleChange = (event: MediaQueryListEvent) => {
       setIsDesktopLayout(event.matches);
       if (event.matches) {
@@ -234,6 +235,36 @@ export function RepositoryShell({
     setIsArtifactSheetOpen((open) => !open);
   }, [isDesktopLayout, setIsArtifactPanelOpen, workspaceStatus]);
 
+  useEffect(() => {
+    if (workspaceStatus === 'no-repo') {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.isComposing || event.keyCode === 229) {
+        return;
+      }
+      if (event.key !== '.' || (!event.metaKey && !event.ctrlKey) || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (target instanceof HTMLElement) {
+        if (target.isContentEditable || target.closest('[contenteditable="true"], [role="textbox"], .monaco-editor')) {
+          return;
+        }
+      }
+
+      event.preventDefault();
+      handleToggleArtifactPanel();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleToggleArtifactPanel, workspaceStatus]);
+
   // Import success can produce either a fresh repo+thread (when the user
   // imports their first repository) or just a repo (subsequent imports).
   // We prefer the thread URL so the user lands directly in chatting context.
@@ -327,9 +358,6 @@ export function RepositoryShell({
             setAnalysisError(null);
             setShowAnalysisDialog(true);
           }}
-          isArtifactPanelOpen={isDesktopLayout ? isArtifactPanelOpen : isArtifactSheetOpen}
-          isArtifactPanelToggleEnabled={workspaceStatus !== 'no-repo'}
-          onToggleArtifactPanel={handleToggleArtifactPanel}
           threadId={effectiveSelectedThreadId}
           attachedRepository={capabilities.attachedRepository}
           availableRepositories={repositories ?? []}
@@ -341,54 +369,66 @@ export function RepositoryShell({
           </div>
         ) : null}
 
-        {workspaceStatus === 'no-repo' ? (
-          <EmptyState
-            onStartConversation={() => void handleStartConversation()}
-            onImported={handleImported}
-            isStartingConversation={isStartingConversation}
-          />
-        ) : (
-          // ChatPanel is the only main-pane content now — the workspace used to
-          // also surface Jobs and Artifacts as tabs alongside Chat, but Jobs
-          // moved into the TopBar's JobsPopoverButton (visual prominence only
-          // when something is running) and Artifacts is fully owned by the
-          // right-side ArtifactPanel. Removing the Tabs wrapper collapses one
-          // redundant horizontal row above the chat.
-          <ChatPanel
-            selectedThreadId={effectiveSelectedThreadId}
-            messages={messages}
-            activeMessageStream={activeMessageStream}
-            isChatLoading={isChatLoading}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            chatMode={chatMode}
-            setChatMode={setChatMode}
-            availableModes={capabilities.availableModes}
-            disabledModeReasons={capabilities.disabledReasons}
-            isSending={isSending}
-            onSendMessage={handleSendMessage}
-            sandboxModeStatus={effectiveSandboxModeStatus}
-            isSyncing={isSyncing}
-            onSync={() => void handleSync()}
-          />
-        )}
+        <div className="flex min-h-0 min-w-0 flex-1">
+          {workspaceStatus === 'no-repo' ? (
+            <EmptyState
+              onStartConversation={() => void handleStartConversation()}
+              onImported={handleImported}
+              isStartingConversation={isStartingConversation}
+            />
+          ) : (
+            <>
+              <ChatPanel
+                selectedThreadId={effectiveSelectedThreadId}
+                messages={messages}
+                activeMessageStream={activeMessageStream}
+                isChatLoading={isChatLoading}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                chatMode={chatMode}
+                setChatMode={setChatMode}
+                availableModes={capabilities.availableModes}
+                disabledModeReasons={capabilities.disabledReasons}
+                isSending={isSending}
+                onSendMessage={handleSendMessage}
+                sandboxModeStatus={effectiveSandboxModeStatus}
+                isSyncing={isSyncing}
+                onSync={() => void handleSync()}
+                isArtifactPanelOpen={isDesktopLayout ? isArtifactPanelOpen : isArtifactSheetOpen}
+                onToggleArtifactPanel={handleToggleArtifactPanel}
+                showArtifactToggle
+              />
+              {isDesktopLayout ? (
+                // Mirror left-sidebar behavior: animate container width while
+                // keeping inner panel width fixed, so the center area reflows
+                // responsively without an overlay.
+                <div
+                  aria-hidden={!(isArtifactPanelHydrated && isArtifactPanelOpen)}
+                  data-state={isArtifactPanelHydrated && isArtifactPanelOpen ? 'open' : 'closed'}
+                  className="shrink-0 overflow-hidden border-l border-border transition-[width] duration-300 ease-out data-[state=closed]:w-0 data-[state=closed]:border-l-0 data-[state=open]:w-80"
+                >
+                  <div className="h-full w-80">
+                    <ArtifactPanel
+                      threadId={effectiveSelectedThreadId}
+                      hasAttachedRepository={capabilities.attachedRepository !== null}
+                      sandboxModeStatus={capabilities.sandboxModeStatus}
+                      className="h-full w-80 border-l-0 lg:flex"
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
       </SidebarInset>
-
-      {workspaceStatus !== 'no-repo' &&
-      isDesktopLayout &&
-      isArtifactPanelHydrated &&
-      isArtifactPanelOpen ? (
-        <ArtifactPanel
-          threadId={effectiveSelectedThreadId}
-          hasAttachedRepository={capabilities.attachedRepository !== null}
-          sandboxModeStatus={capabilities.sandboxModeStatus}
-          className="hidden lg:flex"
-        />
-      ) : null}
 
       {workspaceStatus !== 'no-repo' && !isDesktopLayout ? (
         <Sheet open={isArtifactSheetOpen} onOpenChange={setIsArtifactSheetOpen}>
-          <SheetContent side="right" className="w-[min(100vw,22rem)] p-0" hideClose>
+          <SheetContent
+            side="bottom"
+            className="h-[min(75vh,34rem)] rounded-t-2xl border-x border-t p-0"
+            hideClose
+          >
             <SheetTitle className="sr-only">Artifacts</SheetTitle>
             <SheetDescription className="sr-only">
               Persistent outputs for the current conversation.

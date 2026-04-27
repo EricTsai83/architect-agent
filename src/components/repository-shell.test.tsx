@@ -28,25 +28,31 @@ vi.mock('@/components/app-sidebar', () => ({
 }));
 
 vi.mock('@/components/top-bar', () => ({
-  TopBar: ({
-    onToggleArtifactPanel,
-    isArtifactPanelToggleEnabled,
-  }: {
-    onToggleArtifactPanel: () => void;
-    isArtifactPanelToggleEnabled?: boolean;
-  }) => (
-    <button
-      data-testid="top-bar-toggle"
-      data-toggle-enabled={isArtifactPanelToggleEnabled ? 'true' : 'false'}
-      onClick={onToggleArtifactPanel}
-    >
-      Toggle artifacts
-    </button>
-  ),
+  TopBar: () => <div data-testid="top-bar" />,
 }));
 
 vi.mock('@/components/chat-panel', () => ({
-  ChatPanel: () => <div data-testid="chat-panel" />,
+  ChatPanel: ({
+    showArtifactToggle,
+    isArtifactPanelOpen,
+    onToggleArtifactPanel,
+  }: {
+    showArtifactToggle?: boolean;
+    isArtifactPanelOpen?: boolean;
+    onToggleArtifactPanel?: () => void;
+  }) => (
+    <div data-testid="chat-panel">
+      {showArtifactToggle ? (
+        <button
+          data-testid="artifact-panel-toggle"
+          data-open={isArtifactPanelOpen ? 'true' : 'false'}
+          onClick={onToggleArtifactPanel}
+        >
+          Toggle artifacts
+        </button>
+      ) : null}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/artifact-panel', () => ({
@@ -189,11 +195,16 @@ function makeRepository(overrides: Partial<Doc<'repositories'>> = {}): Doc<'repo
 }
 
 describe('RepositoryShell artifact toggle behavior', () => {
-  test('ignores toggle callbacks while workspace is in no-repo state', () => {
+  test('hides the artifact toggle while workspace is in no-repo state', () => {
+    // The no-repo guard is structural — the ChatPanel-level toggle does not
+    // render — instead of a disabled-but-present button. Assert the
+    // absence and confirm the sheet stays closed once the workspace
+    // transitions into ready, so the previous click intent (had there been
+    // one) cannot have leaked into shared state.
     const { rerender } = render(<RepositoryShell urlThreadId={null} urlRepositoryId={null} />);
 
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('top-bar-toggle'));
+    expect(screen.queryByTestId('artifact-panel-toggle')).not.toBeInTheDocument();
 
     repositoriesResult = [makeRepository()];
     rerender(<RepositoryShell urlThreadId={null} urlRepositoryId={repoId} />);
@@ -207,7 +218,7 @@ describe('RepositoryShell artifact toggle behavior', () => {
     render(<RepositoryShell urlThreadId={null} urlRepositoryId={repoId} />);
     expect(screen.getByTestId('artifact-sheet')).toHaveAttribute('data-open', 'false');
 
-    fireEvent.click(screen.getByTestId('top-bar-toggle'));
+    fireEvent.click(screen.getByTestId('artifact-panel-toggle'));
     expect(screen.getByTestId('artifact-sheet')).toHaveAttribute('data-open', 'true');
 
     act(() => {

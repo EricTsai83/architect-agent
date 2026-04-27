@@ -11,11 +11,13 @@ type SidebarContextValue = {
   setOpen: (open: boolean) => void;
   toggle: () => void;
   isMobile: boolean;
+  isSheetMode: boolean;
   openMobile: boolean;
   setOpenMobile: (open: boolean) => void;
 };
 
 const SidebarContext = React.createContext<SidebarContextValue | null>(null);
+const SIDEBAR_DOCKED_QUERY = '(min-width: 1280px)';
 
 export function useSidebar() {
   const ctx = React.useContext(SidebarContext);
@@ -31,17 +33,36 @@ export function SidebarProvider({
   children: React.ReactNode;
 }) {
   const isMobile = useIsMobile();
+  const [isDockedViewport, setIsDockedViewport] = React.useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+    return window.matchMedia(SIDEBAR_DOCKED_QUERY).matches;
+  });
+  const isSheetMode = isMobile || !isDockedViewport;
   const [open, setOpen] = React.useState(defaultOpen);
   const [openMobile, setOpenMobile] = React.useState(false);
 
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia(SIDEBAR_DOCKED_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsDockedViewport(event.matches);
+      if (event.matches) {
+        setOpenMobile(false);
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   const toggle = React.useCallback(() => {
-    if (isMobile) setOpenMobile((v) => !v);
+    if (isSheetMode) setOpenMobile((v) => !v);
     else setOpen((v) => !v);
-  }, [isMobile]);
+  }, [isSheetMode]);
 
   const value = React.useMemo<SidebarContextValue>(
-    () => ({ open, setOpen, toggle, isMobile, openMobile, setOpenMobile }),
-    [open, toggle, isMobile, openMobile],
+    () => ({ open, setOpen, toggle, isMobile, isSheetMode, openMobile, setOpenMobile }),
+    [open, toggle, isMobile, isSheetMode, openMobile],
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
@@ -54,14 +75,17 @@ export function Sidebar({
   children: React.ReactNode;
   className?: string;
 }) {
-  const { isMobile, open, openMobile, setOpenMobile } = useSidebar();
+  const { isSheetMode, open, openMobile, setOpenMobile } = useSidebar();
 
-  if (isMobile) {
+  if (isSheetMode) {
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile}>
         <SheetContent
           side="left"
-          className={cn('w-72 max-w-[85vw] p-0', className)}
+          className={cn(
+            'w-[min(18rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0 data-[state=closed]:duration-200 data-[state=open]:duration-200',
+            className,
+          )}
           hideClose
         >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
@@ -76,7 +100,7 @@ export function Sidebar({
     <aside
       data-state={open ? 'open' : 'closed'}
       className={cn(
-        'hidden shrink-0 flex-col overflow-hidden border-r border-border bg-background transition-[width] duration-200 ease-out md:flex',
+        'hidden shrink-0 flex-col overflow-hidden border-r border-border bg-background transition-[width] duration-200 ease-out xl:flex',
         open ? 'w-72' : 'w-0 border-r-0',
         className,
       )}
@@ -185,6 +209,6 @@ export function SidebarMenuButton({
 
 export function SidebarInset({ children }: { children: React.ReactNode }) {
   return (
-    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">{children}</main>
+    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
   );
 }

@@ -1,4 +1,4 @@
-import { useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { useMemo, useRef, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import {
   ChatCircleIcon,
   CubeIcon,
@@ -70,6 +70,9 @@ export function ChatPanel({
   sandboxModeStatus,
   isSyncing,
   onSync,
+  isArtifactPanelOpen = false,
+  onToggleArtifactPanel,
+  showArtifactToggle = false,
 }: {
   selectedThreadId: ThreadId | null;
   messages: Doc<'messages'>[] | undefined;
@@ -86,13 +89,16 @@ export function ChatPanel({
   sandboxModeStatus: SandboxModeStatus | null;
   isSyncing: boolean;
   onSync: () => void;
+  isArtifactPanelOpen?: boolean;
+  onToggleArtifactPanel?: () => void;
+  showArtifactToggle?: boolean;
 }) {
   const hasMessages = (messages?.length ?? 0) > 0;
-  const availableModeSet = new Set(availableModes);
+  const availableModeSet = useMemo(() => new Set(availableModes), [availableModes]);
   const sandboxModeAvailable = sandboxModeStatus?.reasonCode === 'available';
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-3 px-6 py-6">
           {!isChatLoading && chatMode === 'sandbox' && sandboxModeStatus && !sandboxModeAvailable ? (
@@ -133,18 +139,40 @@ export function ChatPanel({
             placeholder="Ask about architecture, module boundaries, data flow, risks…"
             className="min-h-20 resize-none border-border"
           />
-          <div className="flex items-center justify-between gap-3">
-            <ModePillBar
-              chatMode={chatMode}
-              setChatMode={setChatMode}
-              availableModeSet={availableModeSet}
-              disabledModeReasons={disabledModeReasons}
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              {showArtifactToggle && onToggleArtifactPanel ? (
+                <Button
+                  type="button"
+                  variant={isArtifactPanelOpen ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={onToggleArtifactPanel}
+                  aria-label="Toggle artifacts panel"
+                  aria-pressed={isArtifactPanelOpen}
+                  className="h-8 shrink-0 gap-1.5 px-2 text-xs"
+                >
+                  <FileTextIcon size={14} weight="bold" />
+                  <span className="hidden sm:inline">Artifacts</span>
+                </Button>
+              ) : null}
+              <ModeCompactSelect
+                chatMode={chatMode}
+                setChatMode={setChatMode}
+                availableModeSet={availableModeSet}
+              />
+              <ModePillBar
+                chatMode={chatMode}
+                setChatMode={setChatMode}
+                availableModeSet={availableModeSet}
+                disabledModeReasons={disabledModeReasons}
+                className="hidden md:flex"
+              />
+            </div>
             <Button
               type="submit"
               variant="default"
               size="sm"
-              className="min-w-24"
+              className="w-full sm:min-w-24 sm:w-auto"
               disabled={isSending || !selectedThreadId || !chatInput.trim()}
             >
               <PaperPlaneTiltIcon weight="bold" />
@@ -168,11 +196,13 @@ function ModePillBar({
   setChatMode,
   availableModeSet,
   disabledModeReasons,
+  className,
 }: {
   chatMode: ChatMode;
   setChatMode: (v: ChatMode) => void;
   availableModeSet: Set<ChatMode>;
   disabledModeReasons: Partial<Record<ChatMode, string>>;
+  className?: string;
 }) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
@@ -250,7 +280,11 @@ function ModePillBar({
 
   return (
     <TooltipProvider delayDuration={150}>
-      <div role="radiogroup" aria-label="Answer mode" className="flex items-center gap-1">
+      <div
+        role="radiogroup"
+        aria-label="Answer mode"
+        className={cn('items-center gap-1 overflow-x-auto', className)}
+      >
         {MODE_CATALOG.map((option, index) => {
           const isAvailable = availableModeSet.has(option.value);
           const isSelected = chatMode === option.value;
@@ -316,6 +350,44 @@ function ModePillBar({
         })}
       </div>
     </TooltipProvider>
+  );
+}
+
+function ModeCompactSelect({
+  chatMode,
+  setChatMode,
+  availableModeSet,
+}: {
+  chatMode: ChatMode;
+  setChatMode: (v: ChatMode) => void;
+  availableModeSet: Set<ChatMode>;
+}) {
+  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const mode = event.target.value as ChatMode;
+    if (!availableModeSet.has(mode)) {
+      return;
+    }
+    setChatMode(mode);
+  };
+
+  return (
+    <label className="md:hidden">
+      <span className="sr-only">Answer mode</span>
+      <select
+        value={chatMode}
+        onChange={handleChange}
+        className="h-8 max-w-44 border border-border bg-card px-2 text-xs text-foreground"
+      >
+        {MODE_CATALOG.map((option) => {
+          const isAvailable = availableModeSet.has(option.value);
+          return (
+            <option key={option.value} value={option.value} disabled={!isAvailable}>
+              {isAvailable ? option.label : `${option.label} (locked)`}
+            </option>
+          );
+        })}
+      </select>
+    </label>
   );
 }
 
