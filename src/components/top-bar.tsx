@@ -1,9 +1,10 @@
+import { useEffect } from 'react';
 import {
   DotsThreeVerticalIcon,
   SparkleIcon,
   TrashIcon,
   ArrowsClockwiseIcon,
-  GitBranchIcon,
+  SidebarSimpleIcon,
 } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRelativeTime } from '@/hooks/use-relative-time';
 import { RepoInfoPopover } from '@/components/repo-info-popover';
 import { RepoStatusIndicator } from '@/components/repo-status-indicator';
@@ -22,6 +24,7 @@ import { JobsPopoverButton } from '@/components/jobs-popover-button';
 import { AttachRepoMenu } from '@/components/attach-repo-menu';
 import type { AttachedRepositorySummary } from '@/hooks/use-thread-capabilities';
 import type { SandboxModeStatus, ThreadId } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export type TopBarRepoDetail = {
   repository: {
@@ -46,6 +49,9 @@ export function TopBar({
   threadId,
   attachedRepository,
   availableRepositories,
+  isArtifactPanelOpen,
+  isArtifactPanelToggleEnabled = true,
+  onToggleArtifactPanel,
   isSyncing,
   onSync,
   onDeleteRepo,
@@ -66,12 +72,42 @@ export function TopBar({
   attachedRepository: AttachedRepositorySummary | null;
   /** All repositories the viewer owns, used to populate the swap menu. */
   availableRepositories: ReadonlyArray<Doc<'repositories'>>;
+  isArtifactPanelOpen: boolean;
+  isArtifactPanelToggleEnabled?: boolean;
+  onToggleArtifactPanel: () => void;
   isSyncing: boolean;
   onSync: () => void;
   onDeleteRepo: () => void;
   onRunAnalysis: () => void;
 }) {
   const title = repoDetail?.repository.sourceRepoFullName ?? repoName;
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== '.' || (!event.metaKey && !event.ctrlKey) || event.shiftKey || event.altKey) {
+        return;
+      }
+      if (!isArtifactPanelToggleEnabled) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (target instanceof HTMLElement) {
+        if (target.isContentEditable || target.closest('[contenteditable="true"], [role="textbox"], .monaco-editor')) {
+          return;
+        }
+      }
+
+      event.preventDefault();
+      onToggleArtifactPanel();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isArtifactPanelToggleEnabled, onToggleArtifactPanel]);
 
   return (
     <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
@@ -91,12 +127,6 @@ export function TopBar({
               {title}
             </h1>
           )}
-          {repoDetail?.repository.defaultBranch ? (
-            <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex animate-in fade-in duration-300">
-              <GitBranchIcon size={13} weight="bold" className="shrink-0" />
-              <span className="max-w-[120px] truncate">{repoDetail.repository.defaultBranch}</span>
-            </span>
-          ) : null}
           {repoDetail ? (
             <RepoStatusIndicator
               importStatus={repoDetail.repository.importStatus}
@@ -129,36 +159,64 @@ export function TopBar({
           onSync={onSync}
         />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={!repoDetail}
-              aria-label="Repository actions"
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <DotsThreeVerticalIcon weight="bold" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onSelect={() => onRunAnalysis()}>
-              <SparkleIcon weight="bold" />
-              Run deep analysis
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onSelect={(e) => {
-                e.preventDefault();
-                onDeleteRepo();
-              }}
-            >
-              <TrashIcon weight="bold" />
-              Delete repository
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onToggleArtifactPanel}
+                disabled={!isArtifactPanelToggleEnabled}
+                aria-label="Toggle artifacts panel"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <SidebarSimpleIcon
+                  weight="bold"
+                  className={cn(
+                    'transition-transform duration-200',
+                    isArtifactPanelOpen ? '' : '-scale-x-100',
+                  )}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              {isArtifactPanelToggleEnabled
+                ? 'Toggle artifacts panel (Cmd/Ctrl + .)'
+                : 'Select or create a conversation to open artifacts'}
+            </TooltipContent>
+          </Tooltip>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={!repoDetail}
+                aria-label="Repository actions"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <DotsThreeVerticalIcon weight="bold" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => onRunAnalysis()}>
+                <SparkleIcon weight="bold" />
+                Run deep analysis
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onSelect={(e) => {
+                  e.preventDefault();
+                  onDeleteRepo();
+                }}
+              >
+                <TrashIcon weight="bold" />
+                Delete repository
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TooltipProvider>
       </div>
     </div>
   );
@@ -183,6 +241,7 @@ function SyncButton({
     repositoryImportStatus === 'queued' || repositoryImportStatus === 'running';
   const isBusy = isSyncing || isRepositorySyncing;
   const hasUpdates = repoDetail?.hasRemoteUpdates && !isBusy;
+  const isExpanded = isBusy || hasUpdates;
 
   // Derive the text shown inside the button
   let label: string | null = null;
@@ -196,46 +255,68 @@ function SyncButton({
     label = 'Sync';
   }
 
+  const syncedTooltipLabel = syncedLabel ? `Synced ${syncedLabel}` : 'Synced recently';
+  const updateTooltipLabel = 'New commits available on remote - click to sync';
+
   const buttonClassName = hasUpdates
-    ? 'relative min-w-35 justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
-    : 'min-w-35 justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
+    ? 'relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
+    : 'justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
 
   if (label === null && !repoDetail && !isBusy) {
     return (
-      <span
-        aria-hidden="true"
-        className="inline-flex h-8 min-w-35 items-center justify-start rounded-md border border-transparent bg-transparent px-3 text-xs text-muted-foreground"
-      />
+      <Button variant="ghost" size="icon" disabled aria-label="Sync unavailable">
+        <ArrowsClockwiseIcon weight="bold" />
+      </Button>
+    );
+  }
+
+  if (!isExpanded) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={!repoDetail}
+            onClick={onSync}
+            aria-label={label ?? 'Sync'}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowsClockwiseIcon weight="bold" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{label ?? syncedTooltipLabel}</TooltipContent>
+      </Tooltip>
     );
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={!repoDetail || isBusy}
-      onClick={onSync}
-      className={buttonClassName}
-      title={
-        hasUpdates
-          ? 'New commits available on remote — click to sync'
-          : repoDetail?.repository.lastImportedAt
-            ? new Date(repoDetail.repository.lastImportedAt).toLocaleString()
-            : undefined
-      }
-    >
-      {hasUpdates && (
-        <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
-        </span>
-      )}
-      {label ? (
-        <span className="inline-flex items-center gap-1.5 animate-in fade-in duration-300">
-          <ArrowsClockwiseIcon weight="bold" className={isBusy ? 'animate-spin' : ''} />
-          {label}
-        </span>
-      ) : null}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!repoDetail || isBusy}
+          onClick={onSync}
+          className={buttonClassName}
+        >
+          {hasUpdates && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+            </span>
+          )}
+          {label ? (
+            <span className="inline-flex items-center gap-1.5 animate-in fade-in duration-300">
+              <ArrowsClockwiseIcon weight="bold" className={isBusy ? 'animate-spin' : ''} />
+              {label}
+            </span>
+          ) : null}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">
+        {hasUpdates ? updateTooltipLabel : syncedTooltipLabel}
+      </TooltipContent>
+    </Tooltip>
   );
 }

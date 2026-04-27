@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'convex/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
 import { SidebarInset } from '@/components/ui/sidebar';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { AppSidebar } from '@/components/app-sidebar';
 import { ArtifactPanel } from '@/components/artifact-panel';
 import { TopBar } from '@/components/top-bar';
@@ -15,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
 import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
+import { useLocalStorageBoolean } from '@/hooks/use-persisted-state';
 import { useRepositoryActions } from '@/hooks/use-repository-actions';
 import { useThreadCapabilities } from '@/hooks/use-thread-capabilities';
 import type { RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/types';
@@ -100,8 +102,31 @@ export function RepositoryShell({
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [isArtifactPanelOpen, setIsArtifactPanelOpen] = useLocalStorageBoolean(
+    'systify.artifactPanel.open',
+    true,
+  );
+  const [isArtifactSheetOpen, setIsArtifactSheetOpen] = useState(false);
+  const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
 
   const isRepositoriesLoading = repositories === undefined;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsDesktopLayout(event.matches);
+      if (event.matches) {
+        setIsArtifactSheetOpen(false);
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   // /t/:threadId → use thread's repository (if any). /r/:repoId → use the
   // URL repo. /chat → null until the redirect-to-most-recent effect runs.
@@ -198,6 +223,17 @@ export function RepositoryShell({
     [navigate],
   );
 
+  const handleToggleArtifactPanel = useCallback(() => {
+    if (workspaceStatus === 'no-repo') {
+      return;
+    }
+    if (isDesktopLayout) {
+      setIsArtifactPanelOpen((open) => !open);
+      return;
+    }
+    setIsArtifactSheetOpen((open) => !open);
+  }, [isDesktopLayout, setIsArtifactPanelOpen, workspaceStatus]);
+
   // Import success can produce either a fresh repo+thread (when the user
   // imports their first repository) or just a repo (subsequent imports).
   // We prefer the thread URL so the user lands directly in chatting context.
@@ -291,6 +327,9 @@ export function RepositoryShell({
             setAnalysisError(null);
             setShowAnalysisDialog(true);
           }}
+          isArtifactPanelOpen={isDesktopLayout ? isArtifactPanelOpen : isArtifactSheetOpen}
+          isArtifactPanelToggleEnabled={workspaceStatus !== 'no-repo'}
+          onToggleArtifactPanel={handleToggleArtifactPanel}
           threadId={effectiveSelectedThreadId}
           attachedRepository={capabilities.attachedRepository}
           availableRepositories={repositories ?? []}
@@ -335,21 +374,30 @@ export function RepositoryShell({
         )}
       </SidebarInset>
 
-      {/*
-       * Right-side ArtifactPanel rail (PRD #19, "Modules to build (frontend)"
-       * + US 23). Sits alongside SidebarInset as a flex sibling so artifacts
-       * are visible while the user is mid-conversation. Hidden on the
-       * empty-state screen (no thread, no repo) where the sidebar's CTA is
-       * the primary affordance, and hidden below `lg` breakpoint where the
-       * main pane needs the full width.
-       */}
-      {workspaceStatus !== 'no-repo' ? (
+      {workspaceStatus !== 'no-repo' && isDesktopLayout && isArtifactPanelOpen ? (
         <ArtifactPanel
           threadId={effectiveSelectedThreadId}
           hasAttachedRepository={capabilities.attachedRepository !== null}
           sandboxModeStatus={capabilities.sandboxModeStatus}
           className="hidden lg:flex"
         />
+      ) : null}
+
+      {workspaceStatus !== 'no-repo' && !isDesktopLayout ? (
+        <Sheet open={isArtifactSheetOpen} onOpenChange={setIsArtifactSheetOpen}>
+          <SheetContent side="right" className="w-[min(100vw,22rem)] p-0" hideClose>
+            <SheetTitle className="sr-only">Artifacts</SheetTitle>
+            <SheetDescription className="sr-only">
+              Persistent outputs for the current conversation.
+            </SheetDescription>
+            <ArtifactPanel
+              threadId={effectiveSelectedThreadId}
+              hasAttachedRepository={capabilities.attachedRepository !== null}
+              sandboxModeStatus={capabilities.sandboxModeStatus}
+              className="flex h-full w-full border-l-0"
+            />
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       <ConfirmDialog
