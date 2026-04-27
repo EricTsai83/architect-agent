@@ -653,4 +653,68 @@ describe('chat reply context', () => {
     expect(context.artifacts.map((artifact) => artifact.title)).toContain('Architecture diagram');
     expect(context.chunks).toHaveLength(0);
   });
+
+  test('docs mode can fill the limit from a single artifact kind', async () => {
+    const ownerTokenIdentifier = 'user|docs-single-kind';
+    const t = convexTest(schema, modules);
+
+    const threadId = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert('repositories', {
+        ownerTokenIdentifier,
+        sourceHost: 'github',
+        sourceUrl: 'https://github.com/acme/docs-single-kind',
+        sourceRepoFullName: 'acme/docs-single-kind',
+        sourceRepoOwner: 'acme',
+        sourceRepoName: 'docs-single-kind',
+        defaultBranch: 'main',
+        visibility: 'private',
+        accessMode: 'private',
+        importStatus: 'completed',
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+        fileCount: 0,
+      });
+
+      const threadId = await ctx.db.insert('threads', {
+        repositoryId,
+        ownerTokenIdentifier,
+        title: 'Docs single kind thread',
+        mode: 'docs',
+        lastMessageAt: Date.now(),
+      });
+
+      for (let index = 0; index < 20; index += 1) {
+        await ctx.db.insert('artifacts', {
+          repositoryId,
+          threadId,
+          ownerTokenIdentifier,
+          kind: 'architecture_diagram',
+          title: `Architecture diagram ${index}`,
+          summary: `Diagram summary ${index}`,
+          contentMarkdown: `graph TD\nA${index}-->B${index}`,
+          source: 'heuristic',
+          version: 1,
+        });
+      }
+
+      await ctx.db.insert('messages', {
+        repositoryId,
+        threadId,
+        ownerTokenIdentifier,
+        role: 'user',
+        status: 'completed',
+        mode: 'docs',
+        content: 'Show the latest architecture artifacts.',
+      });
+
+      return threadId;
+    });
+
+    const context = await t.query(internal.chat.getReplyContext, { threadId });
+
+    expect(context.artifacts).toHaveLength(12);
+    expect(context.artifacts[0]?.title).toBe('Architecture diagram 19');
+    expect(context.artifacts[11]?.title).toBe('Architecture diagram 8');
+  });
 });

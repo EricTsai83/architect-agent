@@ -38,6 +38,9 @@ This folder contains the system design documentation for the current Systify cod
 - `architecture-diagram-artifact-system-design.md`
   - Why is architecture diagram generation an end-to-end system-design concern, not only frontend rendering?
   - How do deterministic generation, bounded output caps, and renderer recovery work together?
+- `github-callback-returnto-allowlist-system-design.md`
+  - Why is URL-format validation alone insufficient for callback redirect trust?
+  - How does origin allowlisting reduce open-redirect phishing-chain risk?
 
 ## Implementation Coverage
 
@@ -52,6 +55,7 @@ The current codebase keeps system-design documentation for all implemented high-
 - Chat streaming architecture: `streaming-reply-optimization-system-design.md`
 - Deep analysis TTL, installation conflict handling, and chat usage-cost writing: `deep-analysis-installation-cost-system-design.md`
 - Vercel + Convex deployment model: `vercel-convex-deployment-system-design.md`
+- GitHub callback returnTo allowlist boundary: `github-callback-returnto-allowlist-system-design.md`
 
 ## What Each Document Answers
 

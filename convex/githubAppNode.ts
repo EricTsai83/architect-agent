@@ -7,6 +7,7 @@ import { action, internalAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { requireViewerIdentity } from './lib/auth';
 import { parseGitHubUrl } from './lib/github';
+import { normalizeReturnToOrigin } from './lib/returnTo';
 
 // ---------------------------------------------------------------------------
 // GitHub App JWT helper
@@ -92,25 +93,6 @@ function normalizePem(value: string): string {
 
 function looksLikePemPrivateKey(value: string): boolean {
   return /^-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/.test(value);
-}
-
-function normalizeReturnToOrigin(returnTo: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(returnTo);
-  } catch {
-    throw new Error('returnTo must be an absolute URL.');
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error('returnTo must use http or https.');
-  }
-
-  if (parsed.username || parsed.password) {
-    throw new Error('returnTo must not include username or password.');
-  }
-
-  return parsed.origin;
 }
 
 // ---------------------------------------------------------------------------

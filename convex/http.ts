@@ -10,6 +10,7 @@ import {
   type DaytonaWebhookVerificationContext,
 } from './lib/daytonaWebhookVerification';
 import { createOpaqueErrorId, logErrorWithId, logInfo, logWarn } from './lib/observability';
+import { normalizeReturnToOrigin } from './lib/returnTo';
 
 const http = httpRouter();
 
@@ -115,7 +116,15 @@ function redirectOrReturnPage(
   fallbackResponse: Response,
 ): Response {
   if (redirectTarget) {
-    return Response.redirect(buildRedirectUrl(redirectTarget, params), 302);
+    try {
+      const normalizedRedirectTarget = normalizeReturnToOrigin(redirectTarget);
+      return Response.redirect(buildRedirectUrl(normalizedRedirectTarget, params), 302);
+    } catch (error) {
+      logWarn('http', 'github_callback_redirect_target_rejected', {
+        redirectTarget,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return fallbackResponse;

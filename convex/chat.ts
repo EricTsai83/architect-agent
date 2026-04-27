@@ -55,8 +55,14 @@ const DOCS_ARTIFACT_KINDS: Array<Doc<'artifacts'>['kind']> = [
   'trade_off_matrix',
   'capacity_estimate',
 ];
-const DOCS_ARTIFACTS_PER_KIND_LIMIT = 12;
 const DOCS_ARTIFACTS_TOTAL_LIMIT = 12;
+
+type DocsArtifactCursorState = {
+  kind: Doc<'artifacts'>['kind'];
+  cursor: string | null;
+  current: Doc<'artifacts'> | null;
+  isDone: boolean;
+};
 
 async function getActiveChatJobForThread(ctx: MutationCtx, threadId: Id<'threads'>, now: number) {
   const jobs = await ctx.db
@@ -144,6 +150,95 @@ async function loadAllStreamTailChunks(ctx: DbCtx, stream: Doc<'messageStreams'>
   }
 
   return tailChunks;
+}
+
+async function loadNextDocsArtifactForKind(
+  ctx: Pick<QueryCtx, 'db'>,
+  repositoryId: Id<'repositories'>,
+  kind: Doc<'artifacts'>['kind'],
+  cursor: string | null,
+) {
+  const page = await ctx.db
+    .query('artifacts')
+    .withIndex('by_repositoryId_and_kind', (q) =>
+      q.eq('repositoryId', repositoryId).eq('kind', kind),
+    )
+    .order('desc')
+    .paginate({
+      cursor,
+      numItems: 1,
+    });
+
+  return {
+    artifact: page.page[0] ?? null,
+    continueCursor: page.continueCursor,
+    isDone: page.isDone,
+  };
+}
+
+async function loadLatestDocsArtifacts(
+  ctx: Pick<QueryCtx, 'db'>,
+  repositoryId: Id<'repositories'>,
+) {
+  const states: DocsArtifactCursorState[] = await Promise.all(
+    DOCS_ARTIFACT_KINDS.map(async (kind) => {
+      const first = await loadNextDocsArtifactForKind(ctx, repositoryId, kind, null);
+      return {
+        kind,
+        cursor: first.continueCursor,
+        current: first.artifact,
+        isDone: first.isDone,
+      };
+    }),
+  );
+
+  const selected: Doc<'artifacts'>[] = [];
+  while (selected.length < DOCS_ARTIFACTS_TOTAL_LIMIT) {
+    let nextStateIndex = -1;
+    for (let index = 0; index < states.length; index += 1) {
+      const candidate = states[index]?.current;
+      if (!candidate) {
+        continue;
+      }
+
+      if (nextStateIndex === -1) {
+        nextStateIndex = index;
+        continue;
+      }
+
+      const best = states[nextStateIndex]?.current;
+      if (
+        best &&
+        (candidate._creationTime > best._creationTime ||
+          (candidate._creationTime === best._creationTime && candidate._id > best._id))
+      ) {
+        nextStateIndex = index;
+      }
+    }
+
+    if (nextStateIndex === -1) {
+      break;
+    }
+
+    const nextState = states[nextStateIndex]!;
+    selected.push(nextState.current!);
+    if (nextState.isDone) {
+      nextState.current = null;
+      continue;
+    }
+
+    const next = await loadNextDocsArtifactForKind(
+      ctx,
+      repositoryId,
+      nextState.kind,
+      nextState.cursor,
+    );
+    nextState.cursor = next.continueCursor;
+    nextState.current = next.artifact;
+    nextState.isDone = next.isDone;
+  }
+
+  return selected;
 }
 
 async function compactMessageStreamTail(ctx: MutationCtx, streamId: Id<'messageStreams'>) {
@@ -666,22 +761,7 @@ export const getReplyContext = internalQuery({
 
     const artifacts =
       effectiveMode === 'docs'
-        ? (
-            await Promise.all(
-              DOCS_ARTIFACT_KINDS.map((kind) =>
-                ctx.db
-                  .query('artifacts')
-                  .withIndex('by_repositoryId_and_kind', (q) =>
-                    q.eq('repositoryId', repository._id).eq('kind', kind),
-                  )
-                  .order('desc')
-                  .take(DOCS_ARTIFACTS_PER_KIND_LIMIT),
-              ),
-            )
-          )
-            .flat()
-            .sort((left, right) => right._creationTime - left._creationTime)
-            .slice(0, DOCS_ARTIFACTS_TOTAL_LIMIT)
+        ? await loadLatestDocsArtifacts(ctx, repository._id)
         : [
             ...(repository.latestImportJobId
               ? await ctx.db
