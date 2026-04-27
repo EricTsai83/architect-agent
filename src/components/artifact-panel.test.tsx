@@ -40,7 +40,9 @@ beforeEach(() => {
   useMutationMock.mockReset();
   useQueryMock.mockReset();
   useMutationMock.mockReturnValue(vi.fn());
-  useQueryMock.mockImplementation(() => artifactsResult);
+  useQueryMock.mockImplementation((_query: unknown, args: unknown) =>
+    args === 'skip' ? undefined : artifactsResult,
+  );
 });
 
 afterEach(() => {
@@ -48,6 +50,46 @@ afterEach(() => {
 });
 
 describe('ArtifactPanel action defaults', () => {
+  test('skips artifacts subscription when panel is hidden', () => {
+    render(
+      <ArtifactPanel
+        threadId={threadId}
+        hasAttachedRepository
+        sandboxModeStatus={{ reasonCode: 'available', message: null }}
+        isVisible={false}
+      />,
+    );
+
+    expect(useQueryMock).toHaveBeenCalledWith(expect.anything(), 'skip');
+  });
+
+  test('re-subscribes and renders latest artifacts when panel is reopened', () => {
+    const { rerender } = render(
+      <ArtifactPanel
+        threadId={threadId}
+        hasAttachedRepository
+        sandboxModeStatus={{ reasonCode: 'available', message: null }}
+        isVisible={false}
+      />,
+    );
+
+    expect(useQueryMock).toHaveBeenLastCalledWith(expect.anything(), 'skip');
+    expect(screen.queryByText('System overview')).not.toBeInTheDocument();
+
+    artifactsResult = [artifact];
+    rerender(
+      <ArtifactPanel
+        threadId={threadId}
+        hasAttachedRepository
+        sandboxModeStatus={{ reasonCode: 'available', message: null }}
+        isVisible
+      />,
+    );
+
+    expect(useQueryMock).toHaveBeenLastCalledWith(expect.anything(), { threadId });
+    expect(screen.getByText('System overview')).toBeInTheDocument();
+  });
+
   test('defaults open when no artifacts, then auto-collapses once artifacts exist', () => {
     const { rerender } = render(
       <ArtifactPanel

@@ -47,11 +47,13 @@ export function ArtifactPanel({
   threadId,
   hasAttachedRepository,
   sandboxModeStatus,
+  isVisible = true,
   className,
 }: {
   threadId: ThreadId | null;
   hasAttachedRepository: boolean;
   sandboxModeStatus: SandboxModeStatus | null;
+  isVisible?: boolean;
   className?: string;
 }) {
   // Query is scoped to thread-level artifacts. A diagram is double-parented
@@ -59,7 +61,7 @@ export function ArtifactPanel({
   // the same pattern in Phase 4.
   const artifacts = useQuery(
     api.artifacts.listByThread,
-    threadId ? { threadId } : 'skip',
+    threadId && isVisible ? { threadId } : 'skip',
   );
   const artifactCount = artifacts?.length ?? 0;
   const [actionsOpen, setActionsOpen] = useState<boolean | null>(null);

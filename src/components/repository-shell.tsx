@@ -412,6 +412,7 @@ export function RepositoryShell({
                       threadId={effectiveSelectedThreadId}
                       hasAttachedRepository={capabilities.attachedRepository !== null}
                       sandboxModeStatus={capabilities.sandboxModeStatus}
+                      isVisible={isArtifactPanelHydrated && isArtifactPanelOpen}
                       className="h-full w-80 border-l-0 lg:flex"
                     />
                   </div>
@@ -437,6 +438,7 @@ export function RepositoryShell({
               threadId={effectiveSelectedThreadId}
               hasAttachedRepository={capabilities.attachedRepository !== null}
               sandboxModeStatus={capabilities.sandboxModeStatus}
+              isVisible={isArtifactSheetOpen}
               className="flex h-full w-full border-l-0"
             />
           </SheetContent>
