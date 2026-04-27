@@ -1,4 +1,4 @@
-import { useMemo, useRef, type FormEvent, type KeyboardEvent } from 'react';
+import { useMemo, type FormEvent } from 'react';
 import {
   ChatCircleIcon,
   CubeIcon,
@@ -18,8 +18,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ActiveMessageStream, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/types';
 
@@ -158,7 +156,7 @@ export function ChatPanel({
                   onClick={onToggleArtifactPanel}
                   aria-label="Toggle artifacts panel"
                   aria-pressed={isArtifactPanelOpen}
-                  className="h-8 shrink-0 gap-1.5 px-2 text-xs"
+                  className="h-8 shrink-0 gap-1.5 px-2 text-xs md:hidden"
                 >
                   <FileTextIcon size={14} weight="bold" />
                   <span className="hidden sm:inline">Artifacts</span>
@@ -169,18 +167,32 @@ export function ChatPanel({
                 setChatMode={setChatMode}
                 availableModeSet={availableModeSet}
               />
-              <div className="hidden md:flex md:items-center md:gap-2">
+              <div className="hidden md:flex md:min-w-0 md:items-center">
                 {showArtifactToggle && onToggleArtifactPanel ? (
-                  <span aria-hidden="true" className="h-5 w-px bg-border" />
+                  <>
+                    <button
+                      type="button"
+                      onClick={onToggleArtifactPanel}
+                      aria-label="Toggle artifacts panel"
+                      aria-pressed={isArtifactPanelOpen}
+                      className={cn(
+                        'inline-flex h-7 items-center gap-1.5 rounded-sm bg-transparent px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                        isArtifactPanelOpen
+                          ? 'bg-muted text-foreground'
+                          : 'text-muted-foreground/80 hover:bg-muted hover:text-foreground',
+                      )}
+                    >
+                      <FileTextIcon size={14} weight="bold" />
+                      <span>Artifacts</span>
+                    </button>
+                    <span aria-hidden="true" className="mx-2 h-4 w-px bg-border/70" />
+                  </>
                 ) : null}
-                <div className="flex items-center rounded-md border border-border/70 bg-muted/30 px-1.5 py-1">
-                  <ModePillBar
-                    chatMode={chatMode}
-                    setChatMode={setChatMode}
-                    availableModeSet={availableModeSet}
-                    disabledModeReasons={disabledModeReasons}
-                  />
-                </div>
+                <ModeDesktopSelect
+                  chatMode={chatMode}
+                  setChatMode={setChatMode}
+                  availableModeSet={availableModeSet}
+                />
               </div>
             </div>
             <Button
@@ -200,103 +212,16 @@ export function ChatPanel({
   );
 }
 
-/**
- * Pill-bar mode selector. Shows all three modes side by side so the capability
- * ladder is visible at a glance (PRD US 11–14). Modes that the resolver
- * disabled render as `aria-disabled` pills wrapped in a Tooltip whose content
- * is the resolver-provided unlock hint.
- */
-function ModePillBar({
+function ModeDesktopSelect({
   chatMode,
   setChatMode,
   availableModeSet,
-  disabledModeReasons,
-  className,
 }: {
   chatMode: ChatMode;
   setChatMode: (v: ChatMode) => void;
   availableModeSet: Set<ChatMode>;
-  disabledModeReasons: Partial<Record<ChatMode, string>>;
-  className?: string;
 }) {
-  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  const focusAndSelect = (targetIndex: number) => {
-    const targetOption = MODE_CATALOG[targetIndex];
-    if (!targetOption || !availableModeSet.has(targetOption.value)) {
-      return;
-    }
-    setChatMode(targetOption.value);
-    buttonRefs.current[targetIndex]?.focus();
-  };
-
-  const getWrappedAvailableIndex = (currentIndex: number, step: -1 | 1) => {
-    for (let offset = 1; offset <= MODE_CATALOG.length; offset += 1) {
-      const nextIndex =
-        (currentIndex + offset * step + MODE_CATALOG.length) % MODE_CATALOG.length;
-      if (availableModeSet.has(MODE_CATALOG[nextIndex].value)) {
-        return nextIndex;
-      }
-    }
-    return currentIndex;
-  };
-
-  const getBoundaryAvailableIndex = (direction: 'first' | 'last') => {
-    const orderedIndexes =
-      direction === 'first'
-        ? MODE_CATALOG.map((_, index) => index)
-        : MODE_CATALOG.map((_, index) => MODE_CATALOG.length - 1 - index);
-    return orderedIndexes.find((index) => availableModeSet.has(MODE_CATALOG[index].value));
-  };
-
-  const handleOptionKeyDown = (
-    event: KeyboardEvent<HTMLButtonElement>,
-    currentIndex: number,
-  ) => {
-    switch (event.key) {
-      case 'ArrowLeft':
-      case 'ArrowUp': {
-        event.preventDefault();
-        focusAndSelect(getWrappedAvailableIndex(currentIndex, -1));
-        return;
-      }
-      case 'ArrowRight':
-      case 'ArrowDown': {
-        event.preventDefault();
-        focusAndSelect(getWrappedAvailableIndex(currentIndex, 1));
-        return;
-      }
-      case 'Home': {
-        const firstIndex = getBoundaryAvailableIndex('first');
-        if (firstIndex !== undefined) {
-          event.preventDefault();
-          focusAndSelect(firstIndex);
-        }
-        return;
-      }
-      case 'End': {
-        const lastIndex = getBoundaryAvailableIndex('last');
-        if (lastIndex !== undefined) {
-          event.preventDefault();
-          focusAndSelect(lastIndex);
-        }
-        return;
-      }
-      case ' ':
-      case 'Enter': {
-        event.preventDefault();
-        focusAndSelect(currentIndex);
-        return;
-      }
-      default:
-        return;
-    }
-  };
-
-  const handleModeChange = (value: string) => {
-    if (!value) {
-      return;
-    }
+  const handleChange = (value: string) => {
     const mode = value as ChatMode;
     if (!availableModeSet.has(mode)) {
       return;
@@ -305,87 +230,32 @@ function ModePillBar({
   };
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <ToggleGroup
-        type="single"
-        value={chatMode}
-        onValueChange={handleModeChange}
-        aria-label="Answer mode"
-        variant="outline"
-        size="sm"
-        spacing={1}
-        className={cn('items-center overflow-x-auto', className)}
+    <Select value={chatMode} onValueChange={handleChange}>
+      <SelectTrigger
+        id="mode-desktop-select"
+        aria-label="Answer mode selector"
+        className="h-7 w-auto gap-2 rounded-sm border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground/80 hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground focus-visible:border-0"
       >
-        {MODE_CATALOG.map((option, index) => {
-          const isAvailable = availableModeSet.has(option.value);
-          const isSelected = chatMode === option.value;
-          const reason = disabledModeReasons[option.value];
-
-          // Keep unavailable options focusable/hoverable so tooltip hints still
-          // work. Selection is gated in `onValueChange` and prevented on
-          // click/keyboard interactions for unavailable items.
-          const pill = (
-            <ToggleGroupItem
-              ref={(node) => {
-                buttonRefs.current[index] = node;
-              }}
-              value={option.value}
-              aria-label={option.label}
-              aria-disabled={!isAvailable}
-              onClick={(event) => {
-                if (!isAvailable) {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }
-              }}
-              onKeyDown={(event) => {
-                if (!isAvailable && (event.key === 'Enter' || event.key === ' ')) {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  return;
-                }
-                handleOptionKeyDown(event, index);
-              }}
-              className={cn(
-                'gap-1.5 rounded-sm border border-transparent px-2.5 text-xs transition-colors',
-                isAvailable
-                  ? 'cursor-pointer bg-background/80 text-foreground/85'
-                  : 'cursor-not-allowed text-muted-foreground/60 opacity-60',
-                isSelected
-                  ? 'border-border/80 bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground',
-              )}
-            >
-              <option.icon size={12} weight="bold" />
-              <span className="font-medium">{option.label}</span>
-              {isSelected ? (
-                <span className="hidden text-muted-foreground sm:inline">{option.caption}</span>
-              ) : null}
-            </ToggleGroupItem>
-          );
-
-          if (!isAvailable && reason) {
+        <SelectValue placeholder="Answer mode" />
+      </SelectTrigger>
+      <SelectContent
+        align="end"
+        sideOffset={6}
+        collisionPadding={12}
+        className="w-[min(15rem,calc(100vw-1.5rem))]"
+      >
+        <SelectGroup>
+          {MODE_CATALOG.map((option) => {
+            const isAvailable = availableModeSet.has(option.value);
             return (
-              <Tooltip key={option.value}>
-                <TooltipTrigger asChild>{pill}</TooltipTrigger>
-                <TooltipContent side="top">{reason}</TooltipContent>
-              </Tooltip>
+              <SelectItem key={option.value} value={option.value} disabled={!isAvailable}>
+                {isAvailable ? option.label : `${option.label} (locked)`}
+              </SelectItem>
             );
-          }
-
-          if (isAvailable && !isSelected) {
-            return (
-              <Tooltip key={option.value}>
-                <TooltipTrigger asChild>{pill}</TooltipTrigger>
-                <TooltipContent side="top">{option.caption}</TooltipContent>
-              </Tooltip>
-            );
-          }
-
-          return <span key={option.value}>{pill}</span>;
-        })}
-      </ToggleGroup>
-    </TooltipProvider>
+          })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -412,10 +282,19 @@ function ModeCompactSelect({
         Answer mode
       </label>
       <Select value={chatMode} onValueChange={handleChange}>
-        <SelectTrigger id="mode-compact-select" className="h-8 w-44 text-xs">
+        <SelectTrigger
+          id="mode-compact-select"
+          aria-label="Answer mode selector mobile"
+          className="h-7 w-auto gap-2 rounded-sm border-0 bg-transparent px-2 py-0 text-xs text-muted-foreground/80 hover:bg-muted hover:text-foreground data-[state=open]:bg-muted data-[state=open]:text-foreground focus-visible:border-0"
+        >
           <SelectValue placeholder="Answer mode" />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="w-[min(15rem,calc(100vw-1.5rem))]"
+        >
           <SelectGroup>
             {MODE_CATALOG.map((option) => {
               const isAvailable = availableModeSet.has(option.value);
