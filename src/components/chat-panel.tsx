@@ -166,6 +166,7 @@ export function ChatPanel({
                 chatMode={chatMode}
                 setChatMode={setChatMode}
                 availableModeSet={availableModeSet}
+                disabledModeReasons={disabledModeReasons}
               />
               <div className="hidden md:flex md:min-w-0 md:items-center">
                 {showArtifactToggle && onToggleArtifactPanel ? (
@@ -192,6 +193,7 @@ export function ChatPanel({
                   chatMode={chatMode}
                   setChatMode={setChatMode}
                   availableModeSet={availableModeSet}
+                  disabledModeReasons={disabledModeReasons}
                 />
               </div>
             </div>
@@ -216,10 +218,12 @@ function ModeDesktopSelect({
   chatMode,
   setChatMode,
   availableModeSet,
+  disabledModeReasons,
 }: {
   chatMode: ChatMode;
   setChatMode: (v: ChatMode) => void;
   availableModeSet: Set<ChatMode>;
+  disabledModeReasons: Partial<Record<ChatMode, string>>;
 }) {
   const handleChange = (value: string) => {
     const mode = value as ChatMode;
@@ -247,9 +251,14 @@ function ModeDesktopSelect({
         <SelectGroup>
           {MODE_CATALOG.map((option) => {
             const isAvailable = availableModeSet.has(option.value);
+            const disabledReason = disabledModeReasons[option.value];
             return (
               <SelectItem key={option.value} value={option.value} disabled={!isAvailable}>
-                {isAvailable ? option.label : `${option.label} (locked)`}
+                {isAvailable
+                  ? option.label
+                  : disabledReason
+                    ? `${option.label} (${disabledReason})`
+                    : `${option.label} (locked)`}
               </SelectItem>
             );
           })}
@@ -263,10 +272,12 @@ function ModeCompactSelect({
   chatMode,
   setChatMode,
   availableModeSet,
+  disabledModeReasons,
 }: {
   chatMode: ChatMode;
   setChatMode: (v: ChatMode) => void;
   availableModeSet: Set<ChatMode>;
+  disabledModeReasons: Partial<Record<ChatMode, string>>;
 }) {
   const handleChange = (value: string) => {
     const mode = value as ChatMode;
@@ -298,13 +309,18 @@ function ModeCompactSelect({
           <SelectGroup>
             {MODE_CATALOG.map((option) => {
               const isAvailable = availableModeSet.has(option.value);
+              const disabledReason = disabledModeReasons[option.value];
               return (
                 <SelectItem
                   key={option.value}
                   value={option.value}
                   disabled={!isAvailable}
                 >
-                  {isAvailable ? option.label : `${option.label} (locked)`}
+                  {isAvailable
+                    ? option.label
+                    : disabledReason
+                      ? `${option.label} (${disabledReason})`
+                      : `${option.label} (locked)`}
                 </SelectItem>
               );
             })}
