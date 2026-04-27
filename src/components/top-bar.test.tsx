@@ -203,10 +203,8 @@ describe('TopBar jobs popover badge', () => {
       />,
     );
 
-    // The literal "2" only appears as the count badge in the active branch —
-    // its absence here confirms the badge isn't wrongly counting finished jobs.
-    expect(screen.queryByText('2')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Jobs' })).toBeInTheDocument();
+    expect(screen.queryByTestId('jobs-active-count')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Jobs/ })).toBeInTheDocument();
   });
 
   test('renders an enabled jobs button and empty-state message when no jobs exist yet', () => {

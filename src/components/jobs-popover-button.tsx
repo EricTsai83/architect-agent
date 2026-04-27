@@ -9,9 +9,6 @@ import {
 import { JobRow } from '@/components/job-row';
 
 export function JobsPopoverButton({ jobs }: { jobs?: Doc<'jobs'>[] }) {
-  const hasActiveJobs = jobs?.some(
-    (job) => job.status === 'running' || job.status === 'queued',
-  );
   const activeJobCount = jobs?.filter(
     (job) => job.status === 'running' || job.status === 'queued',
   ).length ?? 0;
@@ -22,20 +19,21 @@ export function JobsPopoverButton({ jobs }: { jobs?: Doc<'jobs'>[] }) {
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Jobs"
+          aria-label={activeJobCount > 0 ? `Jobs (${activeJobCount} active)` : 'Jobs'}
           className="relative text-muted-foreground hover:text-foreground"
         >
-          {hasActiveJobs && (
+          {activeJobCount > 0 && (
             <>
               <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
               </span>
-              {activeJobCount > 0 && (
-                <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 py-px text-[10px] font-semibold text-white">
-                  {activeJobCount}
-                </span>
-              )}
+              <span
+                data-testid="jobs-active-count"
+                className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 py-px text-[10px] font-semibold text-white"
+              >
+                {activeJobCount}
+              </span>
             </>
           )}
           <ListChecksIcon weight="bold" />
