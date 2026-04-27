@@ -1,4 +1,4 @@
-import { useMemo, useRef, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
+import { useMemo, useRef, type FormEvent, type KeyboardEvent } from 'react';
 import {
   ChatCircleIcon,
   CubeIcon,
@@ -9,7 +9,16 @@ import type { Doc } from '../../convex/_generated/dataModel';
 import { AppNotice } from '@/components/app-notice';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ActiveMessageStream, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/types';
@@ -160,13 +169,19 @@ export function ChatPanel({
                 setChatMode={setChatMode}
                 availableModeSet={availableModeSet}
               />
-              <ModePillBar
-                chatMode={chatMode}
-                setChatMode={setChatMode}
-                availableModeSet={availableModeSet}
-                disabledModeReasons={disabledModeReasons}
-                className="hidden md:flex"
-              />
+              <div className="hidden md:flex md:items-center md:gap-2">
+                {showArtifactToggle && onToggleArtifactPanel ? (
+                  <span aria-hidden="true" className="h-5 w-px bg-border" />
+                ) : null}
+                <div className="flex items-center rounded-md border border-border/70 bg-muted/30 px-1.5 py-1">
+                  <ModePillBar
+                    chatMode={chatMode}
+                    setChatMode={setChatMode}
+                    availableModeSet={availableModeSet}
+                    disabledModeReasons={disabledModeReasons}
+                  />
+                </div>
+              </div>
             </div>
             <Button
               type="submit"
@@ -278,46 +293,67 @@ function ModePillBar({
     }
   };
 
+  const handleModeChange = (value: string) => {
+    if (!value) {
+      return;
+    }
+    const mode = value as ChatMode;
+    if (!availableModeSet.has(mode)) {
+      return;
+    }
+    setChatMode(mode);
+  };
+
   return (
     <TooltipProvider delayDuration={150}>
-      <div
-        role="radiogroup"
+      <ToggleGroup
+        type="single"
+        value={chatMode}
+        onValueChange={handleModeChange}
         aria-label="Answer mode"
-        className={cn('items-center gap-1 overflow-x-auto', className)}
+        variant="outline"
+        size="sm"
+        spacing={1}
+        className={cn('items-center overflow-x-auto', className)}
       >
         {MODE_CATALOG.map((option, index) => {
           const isAvailable = availableModeSet.has(option.value);
           const isSelected = chatMode === option.value;
           const reason = disabledModeReasons[option.value];
 
-          // We use `aria-disabled` rather than the native `disabled` attribute
-          // so the element still receives pointer/focus events — Radix
-          // Tooltip needs that to fire its hover/focus reveal on disabled
-          // pills (US 14: "tooltip explaining how to unlock them").
+          // Keep unavailable options focusable/hoverable so tooltip hints still
+          // work. Selection is gated in `onValueChange` and prevented on
+          // click/keyboard interactions for unavailable items.
           const pill = (
-            <button
+            <ToggleGroupItem
               ref={(node) => {
                 buttonRefs.current[index] = node;
               }}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
+              value={option.value}
+              aria-label={option.label}
               aria-disabled={!isAvailable}
-              tabIndex={isSelected ? 0 : -1}
-              onKeyDown={(event) => handleOptionKeyDown(event, index)}
-              onClick={() => {
-                if (!isAvailable) return;
-                setChatMode(option.value);
+              onClick={(event) => {
+                if (!isAvailable) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }
+              }}
+              onKeyDown={(event) => {
+                if (!isAvailable && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  return;
+                }
+                handleOptionKeyDown(event, index);
               }}
               className={cn(
-                'inline-flex items-center gap-1.5 px-2.5 py-1 text-xs transition-colors',
-                'border border-transparent',
+                'gap-1.5 rounded-sm border border-transparent px-2.5 text-xs transition-colors',
                 isAvailable
-                  ? 'cursor-pointer hover:bg-muted'
+                  ? 'cursor-pointer bg-background/80 text-foreground/85'
                   : 'cursor-not-allowed text-muted-foreground/60 opacity-60',
-                isSelected && isAvailable
-                  ? 'border-border bg-muted text-foreground'
-                  : 'text-muted-foreground hover:text-foreground',
+                isSelected
+                  ? 'border-border/80 bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground',
               )}
             >
               <option.icon size={12} weight="bold" />
@@ -325,7 +361,7 @@ function ModePillBar({
               {isSelected ? (
                 <span className="hidden text-muted-foreground sm:inline">{option.caption}</span>
               ) : null}
-            </button>
+            </ToggleGroupItem>
           );
 
           if (!isAvailable && reason) {
@@ -348,7 +384,7 @@ function ModePillBar({
 
           return <span key={option.value}>{pill}</span>;
         })}
-      </div>
+      </ToggleGroup>
     </TooltipProvider>
   );
 }
@@ -362,8 +398,8 @@ function ModeCompactSelect({
   setChatMode: (v: ChatMode) => void;
   availableModeSet: Set<ChatMode>;
 }) {
-  const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const mode = event.target.value as ChatMode;
+  const handleChange = (value: string) => {
+    const mode = value as ChatMode;
     if (!availableModeSet.has(mode)) {
       return;
     }
@@ -371,23 +407,32 @@ function ModeCompactSelect({
   };
 
   return (
-    <label className="md:hidden">
-      <span className="sr-only">Answer mode</span>
-      <select
-        value={chatMode}
-        onChange={handleChange}
-        className="h-8 max-w-44 border border-border bg-card px-2 text-xs text-foreground"
-      >
-        {MODE_CATALOG.map((option) => {
-          const isAvailable = availableModeSet.has(option.value);
-          return (
-            <option key={option.value} value={option.value} disabled={!isAvailable}>
-              {isAvailable ? option.label : `${option.label} (locked)`}
-            </option>
-          );
-        })}
-      </select>
-    </label>
+    <div className="md:hidden">
+      <label htmlFor="mode-compact-select" className="sr-only">
+        Answer mode
+      </label>
+      <Select value={chatMode} onValueChange={handleChange}>
+        <SelectTrigger id="mode-compact-select" className="h-8 w-44 text-xs">
+          <SelectValue placeholder="Answer mode" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {MODE_CATALOG.map((option) => {
+              const isAvailable = availableModeSet.has(option.value);
+              return (
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  disabled={!isAvailable}
+                >
+                  {isAvailable ? option.label : `${option.label} (locked)`}
+                </SelectItem>
+              );
+            })}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 

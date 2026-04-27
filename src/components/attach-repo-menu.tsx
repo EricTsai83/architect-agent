@@ -13,6 +13,7 @@ import {
 import type { Doc } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -170,11 +171,13 @@ export function AttachRepoMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       {error ? (
-        <span role="alert" className="inline-flex items-center gap-1 text-xs text-destructive">
-          <span>{error}</span>
-          <button
+        <Alert variant="destructive" className="w-full grid-cols-[1fr_auto] p-1.5 text-xs md:w-auto">
+          <AlertDescription className="text-xs text-destructive">{error}</AlertDescription>
+          <Button
             type="button"
-            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-destructive/80 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            variant="ghost"
+            size="icon"
+            className="size-4 text-destructive/80 hover:text-destructive"
             onClick={() =>
               setErrorState((current) =>
                 current?.threadId === threadId ? null : current,
@@ -183,8 +186,8 @@ export function AttachRepoMenu({
             aria-label="Dismiss repository update error"
           >
             <XIcon size={10} weight="bold" />
-          </button>
-        </span>
+          </Button>
+        </Alert>
       ) : null}
     </div>
   );

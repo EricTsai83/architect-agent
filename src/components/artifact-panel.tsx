@@ -13,6 +13,7 @@ import { api } from '../../convex/_generated/api';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -332,21 +333,23 @@ function InlineError({ error, onClear }: { error: string | null; onClear: () => 
     return null;
   }
   return (
-    <div
-      role="alert"
-      className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 text-[11px] text-destructive"
+    <Alert
+      variant="destructive"
+      className="grid-cols-[auto_1fr_auto] items-start gap-2 rounded-md border-destructive/40 bg-destructive/5 p-2 text-[11px]"
     >
       <WarningCircleIcon size={12} weight="bold" className="mt-0.5 shrink-0" />
-      <p className="flex-1">{error}</p>
-      <button
+      <AlertDescription className="text-[11px] text-destructive">{error}</AlertDescription>
+      <Button
         type="button"
         onClick={onClear}
-        className="text-destructive/70 hover:text-destructive"
+        variant="ghost"
+        size="icon"
+        className="size-4 text-destructive/70 hover:text-destructive"
         aria-label="Dismiss error"
       >
         <XIcon size={10} weight="bold" />
-      </button>
-    </div>
+      </Button>
+    </Alert>
   );
 }
 

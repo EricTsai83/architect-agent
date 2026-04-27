@@ -319,9 +319,11 @@ function RepositoriesSection({
       <Collapsible open={open} onOpenChange={setOpen}>
         <div className="flex items-center justify-between px-3 py-2">
           <CollapsibleTrigger asChild>
-            <button
+            <Button
               type="button"
-              className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+              variant="ghost"
+              size="sm"
+              className="h-auto flex-1 justify-start gap-1.5 px-0 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
             >
               <CaretDownIcon
                 size={11}
@@ -335,7 +337,7 @@ function RepositoriesSection({
                   {count}
                 </span>
               ) : null}
-            </button>
+            </Button>
           </CollapsibleTrigger>
           <ImportRepoDialog onImported={onImported} />
         </div>

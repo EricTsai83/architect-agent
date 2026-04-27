@@ -1,6 +1,8 @@
 import { useAuth } from '@workos-inc/authkit-react';
 import { CaretUpDown, Moon, Sun, SignOut, UserCircle, Stack, ChartLineUp } from '@phosphor-icons/react';
 import { useTheme } from '@/providers/theme-provider';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,16 +20,20 @@ export function ProfileCard() {
 
   if (!user) {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => void signIn()}
-        className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted"
+        className="h-auto w-full justify-start gap-3 px-2 py-2 text-left hover:bg-muted"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
-          <UserCircle size={20} weight="bold" className="text-muted-foreground" />
-        </span>
+        <Avatar className="shrink-0 rounded-md">
+          <AvatarFallback className="rounded-md">
+            <UserCircle size={20} weight="bold" className="text-muted-foreground" />
+          </AvatarFallback>
+        </Avatar>
         <span className="min-w-0 flex-1 text-sm font-medium">Sign in</span>
-      </button>
+      </Button>
     );
   }
 
@@ -40,21 +46,18 @@ export function ProfileCard() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          variant="ghost"
+          size="sm"
+          className="h-auto w-full justify-start gap-3 px-2 py-2 text-left hover:bg-muted"
         >
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={displayName}
-              className="h-8 w-8 shrink-0 rounded-md object-cover"
-            />
-          ) : (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold uppercase text-muted-foreground">
+          <Avatar className="shrink-0 rounded-md">
+            <AvatarImage src={avatarUrl ?? undefined} alt={displayName} className="rounded-md" />
+            <AvatarFallback className="rounded-md text-xs font-semibold uppercase">
               {displayName.charAt(0)}
-            </span>
-          )}
+            </AvatarFallback>
+          </Avatar>
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-sm font-semibold">{displayName}</p>
             <p className="truncate text-[11px] text-muted-foreground">
@@ -62,7 +65,7 @@ export function ProfileCard() {
             </p>
           </div>
           <CaretUpDown size={14} weight="bold" className="shrink-0 text-muted-foreground" />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent side="top" align="start" className="w-56">

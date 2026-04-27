@@ -190,10 +190,12 @@ export function SidebarMenuButton({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       className={cn(
-        'flex w-full cursor-pointer items-center gap-2 border px-3 py-2 text-left transition-colors',
+        'h-auto w-full cursor-pointer justify-start gap-2 rounded-none border px-3 py-2 text-left transition-colors',
         selected
           ? 'border-transparent border-l-2 border-l-primary bg-muted text-foreground'
           : 'border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground',
@@ -203,7 +205,7 @@ export function SidebarMenuButton({
       {...props}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 

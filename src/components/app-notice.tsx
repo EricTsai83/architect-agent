@@ -1,5 +1,6 @@
 import { WarningCircleIcon, InfoIcon } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 type NoticeTone = 'info' | 'warning' | 'error';
@@ -28,31 +29,43 @@ export function AppNotice({
   className?: string;
 }) {
   const Icon = tone === 'error' || tone === 'warning' ? WarningCircleIcon : InfoIcon;
+  const isError = tone === 'error';
 
   return (
-    <div className={cn('flex items-start gap-3 border px-4 py-3', toneClasses[tone], className)}>
+    <Alert
+      variant={isError ? 'destructive' : 'default'}
+      className={cn(
+        'grid-cols-[auto_1fr]',
+        toneClasses[tone],
+        className,
+      )}
+    >
       <Icon
         size={18}
         weight="fill"
-        className={cn('mt-0.5 shrink-0', tone === 'error' ? 'text-destructive' : 'text-muted-foreground')}
+        className={cn('mt-0.5 shrink-0', isError ? 'text-destructive' : 'text-muted-foreground')}
       />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className={cn('mt-0.5 text-xs leading-5', tone === 'error' ? 'text-destructive' : 'text-muted-foreground')}>
+      <div className="min-w-0">
+        <AlertTitle className="text-sm">{title}</AlertTitle>
+        <AlertDescription
+          className={cn('mt-0.5 text-xs leading-5', isError ? 'text-destructive' : 'text-muted-foreground')}
+        >
           {message}
-        </p>
-        {actionLabel && onAction ? (
+        </AlertDescription>
+      </div>
+      {actionLabel && onAction ? (
+        <AlertAction>
           <Button
             variant="outline"
             size="sm"
-            className="mt-2 w-fit gap-1.5 text-xs"
+            className="gap-1.5 text-xs"
             disabled={actionDisabled}
             onClick={onAction}
           >
             {actionLabel}
           </Button>
-        ) : null}
-      </div>
-    </div>
+        </AlertAction>
+      ) : null}
+    </Alert>
   );
 }
