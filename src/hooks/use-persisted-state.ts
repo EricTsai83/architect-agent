@@ -22,7 +22,8 @@ export function useLocalStorageBoolean(
 ): readonly [boolean, (next: boolean | ((prev: boolean) => boolean)) => void, boolean] {
   const [value, setValue] = useState(defaultValue);
   const [isHydrated, setIsHydrated] = useState(false);
-  const hasStoredValueRef = useRef(false);
+  const followsDefaultRef = useRef(true);
+  const hydratedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -30,17 +31,25 @@ export function useLocalStorageBoolean(
       return;
     }
 
+    const isKeyChange = hydratedKeyRef.current !== key;
+    hydratedKeyRef.current = key;
+
     try {
       const parsed = parseStoredBoolean(window.localStorage.getItem(key));
       if (parsed === null) {
-        hasStoredValueRef.current = false;
+        followsDefaultRef.current = true;
+        setValue(defaultValue);
+      } else if (isKeyChange) {
+        followsDefaultRef.current = false;
+        setValue(parsed);
+      } else if (followsDefaultRef.current) {
+        // Keep following defaultValue across rerenders if the value has only been mirrored by this hook.
         setValue(defaultValue);
       } else {
-        hasStoredValueRef.current = true;
         setValue(parsed);
       }
     } catch {
-      hasStoredValueRef.current = false;
+      followsDefaultRef.current = true;
       setValue(defaultValue);
     } finally {
       setIsHydrated(true);
@@ -48,7 +57,7 @@ export function useLocalStorageBoolean(
   }, [defaultValue, key]);
 
   useEffect(() => {
-    if (!isHydrated || hasStoredValueRef.current) {
+    if (!isHydrated || !followsDefaultRef.current) {
       return;
     }
     setValue(defaultValue);
@@ -84,11 +93,11 @@ export function useLocalStorageBoolean(
       }
       const parsed = parseStoredBoolean(event.newValue);
       if (parsed === null) {
-        hasStoredValueRef.current = false;
+        followsDefaultRef.current = true;
         setValue(defaultValue);
         return;
       }
-      hasStoredValueRef.current = true;
+      followsDefaultRef.current = false;
       setValue(parsed);
     };
     window.addEventListener('storage', onStorage);
@@ -97,7 +106,7 @@ export function useLocalStorageBoolean(
 
   const setPersistedValue = useCallback(
     (next: boolean | ((prev: boolean) => boolean)) => {
-      hasStoredValueRef.current = true;
+      followsDefaultRef.current = false;
       setValue((prev) => (typeof next === 'function' ? next(prev) : next));
     },
     [],
