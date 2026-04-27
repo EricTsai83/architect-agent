@@ -137,6 +137,10 @@
   kbd {
     font-family: var(--font-mono);
   }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
   body,
   #root {
     min-height: 100vh;

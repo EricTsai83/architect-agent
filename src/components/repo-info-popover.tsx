@@ -1,4 +1,5 @@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
 import { shortSha } from '@/lib/format';
 import { useRelativeTime } from '@/hooks/use-relative-time';
 import type { TopBarRepoDetail } from '@/components/top-bar';
@@ -20,8 +21,8 @@ function InfoRow({
   let valueClass = 'truncate text-foreground';
   if (truncate) valueClass = 'max-w-[60%] truncate text-right text-foreground';
   if (mono) valueClass += ' font-mono';
-  if (highlight === 'positive') valueClass += ' text-emerald-600 dark:text-emerald-400';
-  if (highlight === 'negative') valueClass += ' text-orange-600 dark:text-orange-400';
+  if (highlight === 'positive') valueClass += ' text-primary';
+  if (highlight === 'negative') valueClass += ' text-destructive';
 
   return (
     <div className="flex justify-between gap-4">
@@ -69,12 +70,14 @@ export function RepoInfoPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
-          className="min-w-0 truncate text-sm font-semibold tracking-tight hover:underline md:text-base"
+          variant="ghost"
+          size="sm"
+          className="h-auto min-w-0 truncate px-0 text-left text-sm font-semibold tracking-tight hover:underline md:text-base"
         >
           {title}
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">

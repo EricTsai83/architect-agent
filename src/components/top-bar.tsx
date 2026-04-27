@@ -1,10 +1,8 @@
-import { useEffect } from 'react';
 import {
   DotsThreeVerticalIcon,
   SparkleIcon,
   TrashIcon,
   ArrowsClockwiseIcon,
-  SidebarSimpleIcon,
 } from '@phosphor-icons/react';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { Button } from '@/components/ui/button';
@@ -24,7 +22,6 @@ import { JobsPopoverButton } from '@/components/jobs-popover-button';
 import { AttachRepoMenu } from '@/components/attach-repo-menu';
 import type { AttachedRepositorySummary } from '@/hooks/use-thread-capabilities';
 import type { SandboxModeStatus, ThreadId } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
 export type TopBarRepoDetail = {
   repository: {
@@ -49,9 +46,6 @@ export function TopBar({
   threadId,
   attachedRepository,
   availableRepositories,
-  isArtifactPanelOpen,
-  isArtifactPanelToggleEnabled = true,
-  onToggleArtifactPanel,
   isSyncing,
   onSync,
   onDeleteRepo,
@@ -72,45 +66,12 @@ export function TopBar({
   attachedRepository: AttachedRepositorySummary | null;
   /** All repositories the viewer owns, used to populate the swap menu. */
   availableRepositories: ReadonlyArray<Doc<'repositories'>>;
-  isArtifactPanelOpen: boolean;
-  isArtifactPanelToggleEnabled?: boolean;
-  onToggleArtifactPanel: () => void;
   isSyncing: boolean;
   onSync: () => void;
   onDeleteRepo: () => void;
   onRunAnalysis: () => void;
 }) {
   const title = repoDetail?.repository.sourceRepoFullName ?? repoName;
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.isComposing || event.keyCode === 229) {
-        return;
-      }
-      if (event.key !== '.' || (!event.metaKey && !event.ctrlKey) || event.shiftKey || event.altKey) {
-        return;
-      }
-      if (!isArtifactPanelToggleEnabled) {
-        return;
-      }
-
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      if (target instanceof HTMLElement) {
-        if (target.isContentEditable || target.closest('[contenteditable="true"], [role="textbox"], .monaco-editor')) {
-          return;
-        }
-      }
-
-      event.preventDefault();
-      onToggleArtifactPanel();
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isArtifactPanelToggleEnabled, onToggleArtifactPanel]);
 
   return (
     <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-3 md:px-4">
@@ -162,40 +123,6 @@ export function TopBar({
             isSyncing={isSyncing}
             onSync={onSync}
           />
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  if (!isArtifactPanelToggleEnabled) {
-                    return;
-                  }
-                  onToggleArtifactPanel();
-                }}
-                aria-disabled={!isArtifactPanelToggleEnabled}
-                aria-label="Toggle artifacts panel"
-                className={cn(
-                  'text-muted-foreground hover:text-foreground',
-                  !isArtifactPanelToggleEnabled && 'cursor-not-allowed opacity-50 hover:text-muted-foreground',
-                )}
-              >
-                <SidebarSimpleIcon
-                  weight="bold"
-                  className={cn(
-                    'transition-transform duration-200',
-                    isArtifactPanelOpen ? '' : '-scale-x-100',
-                  )}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {isArtifactPanelToggleEnabled
-                ? 'Toggle artifacts panel (Cmd/Ctrl + .)'
-                : 'Select or create a conversation to open artifacts'}
-            </TooltipContent>
-          </Tooltip>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

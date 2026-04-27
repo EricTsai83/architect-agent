@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { Doc } from '../../convex/_generated/dataModel';
 import { ChatPanel } from './chat-panel';
@@ -155,9 +155,7 @@ describe('ChatPanel streaming rendering', () => {
     expect(screen.getAllByText('final streamed reply')).toHaveLength(1);
   });
 
-  test('supports arrow-key navigation across enabled modes', () => {
-    const setChatMode = vi.fn();
-
+  test('renders mode selector trigger for desktop controls', () => {
     render(
       <ChatPanel
         selectedThreadId={threadId}
@@ -167,7 +165,7 @@ describe('ChatPanel streaming rendering', () => {
         chatInput=""
         setChatInput={vi.fn()}
         chatMode="discuss"
-        setChatMode={setChatMode}
+        setChatMode={vi.fn()}
         availableModes={['discuss', 'docs', 'sandbox']}
         disabledModeReasons={{}}
         isSending={false}
@@ -177,14 +175,6 @@ describe('ChatPanel streaming rendering', () => {
         onSync={vi.fn()}
       />,
     );
-
-    const discussButton = screen.getByRole('radio', { name: /discuss/i });
-    const docsButton = screen.getByRole('radio', { name: /docs/i });
-
-    discussButton.focus();
-    fireEvent.keyDown(discussButton, { key: 'ArrowRight' });
-
-    expect(setChatMode).toHaveBeenCalledWith('docs');
-    expect(docsButton).toHaveFocus();
+    expect(screen.getByRole('combobox', { name: /^answer mode selector$/i })).toBeInTheDocument();
   });
 });
