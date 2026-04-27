@@ -118,7 +118,6 @@ export function RepositoryShell({
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(min-width: 1024px)');
-    setIsDesktopLayout(mediaQuery.matches);
     const handleChange = (event: MediaQueryListEvent) => {
       setIsDesktopLayout(event.matches);
       if (event.matches) {

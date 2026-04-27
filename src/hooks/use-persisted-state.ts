@@ -45,7 +45,7 @@ export function useLocalStorageBoolean(
     } finally {
       setIsHydrated(true);
     }
-  }, [key]);
+  }, [defaultValue, key]);
 
   useEffect(() => {
     if (!isHydrated || hasStoredValueRef.current) {
