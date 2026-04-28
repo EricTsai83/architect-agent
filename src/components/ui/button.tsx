@@ -10,7 +10,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-primary text-primary-foreground border border-primary hover:bg-[color-mix(in_oklab,hsl(var(--bc-accent))_90%,black)]',
+          'bg-primary text-primary-foreground border border-primary hover:bg-[color-mix(in_oklab,hsl(var(--bc-accent))_90%,black)] hover:text-foreground dark:hover:text-primary-foreground',
         secondary:
           'bg-card text-foreground border border-border hover:bg-muted hover:border-foreground/30',
         outline:

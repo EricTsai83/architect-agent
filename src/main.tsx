@@ -4,12 +4,14 @@ import { AuthKitProvider, useAuth } from '@workos-inc/authkit-react';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithAuthKit } from '@/providers/convex-provider-with-auth-kit';
 import './index.css';
-import App from './App.tsx';
 import { ErrorBoundary } from '@/providers/error-boundary';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { AppRouter } from '@/app-router';
+import { createAppRouter } from '@/router';
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 const workosRedirectUri = new URL('/callback', window.location.origin).toString();
+const router = createAppRouter();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -20,7 +22,7 @@ createRoot(document.getElementById('root')!).render(
           redirectUri={workosRedirectUri}
         >
           <ConvexProviderWithAuthKit client={convex} useAuth={useAuth}>
-            <App />
+            <AppRouter router={router} />
           </ConvexProviderWithAuthKit>
         </AuthKitProvider>
       </ThemeProvider>

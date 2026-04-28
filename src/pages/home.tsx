@@ -1,4 +1,4 @@
-import { SignedOutShell } from '@/components/signed-out-shell';
+import { SignedOutShell } from '@/components/home/signed-out-shell';
 
 export function HomePage() {
   return <SignedOutShell />;
