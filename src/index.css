@@ -118,6 +118,19 @@
     --sidebar-ring: oklch(0.574 0.162 262.482);
 }
 
+/*
+ * Suppress all CSS transitions while the theme is being swapped.
+ * `theme-provider.tsx` toggles this class on <html> for one frame so that
+ * `transition-colors` (used by buttons, cards, etc. for hover) doesn't
+ * animate the bulk recolour caused by the light/dark variable change.
+ */
+.disable-transitions,
+.disable-transitions *,
+.disable-transitions *::before,
+.disable-transitions *::after {
+    transition: none !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -168,14 +181,137 @@
   }
 }
 
+/* ──────────────────────────────────────────────────────────────
+ * Homepage / tech-style motion
+ * Each utility below has a `prefers-reduced-motion` override.
+ * ────────────────────────────────────────────────────────────── */
+
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scan-y {
+  0% {
+    transform: translate3d(0, -120%, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.7;
+  }
+  90% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(0, 120%, 0);
+    opacity: 0;
+  }
+}
+
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes line-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--type-width, 100%);
+  }
+}
+
 @layer utilities {
   .animate-terminal-owl-double-blink {
     animation: terminal-owl-double-blink 7s steps(1, end) infinite;
   }
 
+  .animate-marquee-x {
+    animation: marquee-x var(--marquee-duration, 38s) linear infinite;
+  }
+
+  .animate-scan-y {
+    animation: scan-y 7s linear infinite;
+  }
+
+  .animate-caret {
+    animation: caret 1.05s steps(1, end) infinite;
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.7s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2.4s ease-in-out infinite;
+  }
+
+  .animate-line-draw-y {
+    animation: line-draw-y 0.8s cubic-bezier(0.32, 0.72, 0, 1) both;
+    transform-origin: top;
+  }
+
+  .animate-typing {
+    overflow: hidden;
+    white-space: nowrap;
+    animation: typing 1.6s steps(36, end) both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .animate-terminal-owl-double-blink {
+    .animate-terminal-owl-double-blink,
+    .animate-marquee-x,
+    .animate-scan-y,
+    .animate-caret,
+    .animate-fade-up,
+    .animate-pulse-soft,
+    .animate-line-draw-y,
+    .animate-typing {
       animation: none;
+    }
+
+    .animate-typing {
+      width: var(--type-width, 100%);
     }
   }
 }

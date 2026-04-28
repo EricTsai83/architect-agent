@@ -48,13 +48,30 @@ export function ThemeProvider({
       root.classList.add(theme);
     }
 
-    // Force a reflow so the browser applies the theme colours with transitions
-    // disabled, then re-enable transitions on the next frame.
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    root.offsetHeight;
-    requestAnimationFrame(() => {
-      root.classList.remove('disable-transitions');
+    // Force a synchronous style/layout recompute so the new theme variables
+    // are committed while transitions are still suppressed.
+    void root.offsetHeight;
+
+    // We need the browser to actually *paint* one frame with `transition: none`
+    // before we re-enable transitions, otherwise removing the class in the
+    // same frame as the recolour re-arms the transition right before paint
+    // and we still see the bulk recolour animate.
+    //
+    // A single rAF fires *before* the next paint, so the class is gone again
+    // by the time the paint happens — we need two: the first lets the recolour
+    // paint with transitions off, the second is the earliest safe point to
+    // drop the override.
+    let innerId = 0;
+    const outerId = requestAnimationFrame(() => {
+      innerId = requestAnimationFrame(() => {
+        root.classList.remove('disable-transitions');
+      });
     });
+
+    return () => {
+      cancelAnimationFrame(outerId);
+      cancelAnimationFrame(innerId);
+    };
   }, [theme]);
 
   const value = {
