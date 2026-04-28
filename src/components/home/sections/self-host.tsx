@@ -17,14 +17,11 @@ export function SelfHost() {
         className="relative grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-14"
       >
         <div className="flex flex-col gap-6">
-          <h2
-            id={HEADING_ID}
-            className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl"
-          >
+          <h2 id={HEADING_ID} className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             Run it on{' '}
             <span className="relative">
               <span className="relative z-10">your</span>
-              <span aria-hidden className="absolute inset-x-0 bottom-0.5 -z-0 h-3 bg-primary/60 sm:h-3.5" />
+              <span aria-hidden className="absolute inset-x-0 bottom-0.5 z-0 h-3 bg-primary/60 sm:h-3.5" />
             </span>{' '}
             machine.
           </h2>
