@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
-import { Check, Copy } from '@phosphor-icons/react';
+import {
+  ArrowsClockwiseIcon,
+  Check,
+  Copy,
+  DotsThreeVerticalIcon,
+  FileTextIcon,
+  List,
+  PaperPlaneTiltIcon,
+} from '@phosphor-icons/react';
 
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/mode-toggle';
@@ -55,15 +63,14 @@ const LAYERS = ['model', 'indexed docs', 'live fs'] as const;
 
 /**
  * Each mode owns a tone (emerald → sky → amber). The tone shows up in
- * three load-bearing places — title, sources fill, scenario bullet — and
- * one boundary marker (the panel border). Nothing decorative.
+ * two load-bearing places — title and sources fill. The panel border and
+ * scenario bullets stay neutral so the tone reads as content, not chrome.
  *
  * Every Tailwind utility below is a full class literal so JIT picks it
  * up — do not template them.
  */
 type Mode = {
   name: string;
-  blurb: string;
   pitch: string;
   /** 1..3 — number of layers from `LAYERS` (in order) that this mode reads. */
   depth: 1 | 2 | 3;
@@ -71,56 +78,45 @@ type Mode = {
   scenarios: ReadonlyArray<string>;
   /** Tailwind class literals (do not template). */
   title: string;
-  border: string;
   fill: string;
-  fillSoft: string;
 };
 
 const MODES: ReadonlyArray<Mode> = [
   {
     name: 'Discuss',
-    blurb: 'Open-ended thinking — no codebase context attached.',
     pitch: 'cheapest · seconds',
     depth: 1,
     scenarios: [
-      'Open-ended design or pattern discussions, no repo context required',
-      'Shape and refine a question before committing to a grounded mode',
-      'Cheapest by a wide margin — best CP for high-volume iteration',
+      'Open-ended discussions, no repo required',
+      'Shaping a question before grounding',
+      'Best CP for high-volume iteration',
     ],
     title: 'text-emerald-500',
-    border: 'border-emerald-500/30',
     fill: 'bg-emerald-500',
-    fillSoft: 'bg-emerald-500/70',
   },
   {
     name: 'Docs',
-    blurb: 'Grounded narrative answers cited back to the README, ADRs, and indexed files.',
     pitch: 'grounded · always sourced',
     depth: 2,
     scenarios: [
-      'Architecture and onboarding questions answered from README and ADRs',
-      'Concept-level traces across the codebase, with file citations',
-      'Best CP for grounded answers — sourced without live-filesystem cost',
+      'Architecture & onboarding from README / ADRs',
+      'Concept traces with file citations',
+      'Best CP for grounded answers — no live-fs cost',
     ],
     title: 'text-sky-500',
-    border: 'border-sky-500/30',
     fill: 'bg-sky-500',
-    fillSoft: 'bg-sky-500/70',
   },
   {
     name: 'Sandbox',
-    blurb: 'Reach into the live filesystem — exact paths, exact lines, current state.',
     pitch: 'current state · line precise',
     depth: 3,
     scenarios: [
-      'Line-precise references — exact paths, line numbers, config values',
-      'Verifying current state when the indexed snapshot may be stale',
-      'Premium cost — reserve for cases where a stale answer would be wrong',
+      'Exact paths, line numbers, config values',
+      'Verifying state when the index is stale',
+      'Premium cost — when a stale answer would be wrong',
     ],
     title: 'text-amber-500',
-    border: 'border-amber-500/30',
     fill: 'bg-amber-500',
-    fillSoft: 'bg-amber-500/70',
   },
 ];
 
@@ -278,7 +274,7 @@ function Hero() {
         <Stat />
       </div>
 
-      <HeroTerminal />
+      <HeroChat />
     </section>
   );
 }
@@ -319,7 +315,27 @@ function Stat() {
   );
 }
 
-function HeroTerminal() {
+/**
+ * HeroChat — a faithful preview of the real `<ChatPanel />` the user lands on
+ * after signing in. Marketing surfaces should not lie about what the product
+ * looks like, so this hero reproduces, in miniature, the actual chrome the
+ * authed app renders:
+ *
+ *   - top bar  → src/components/top-bar.tsx     (sidebar trigger glyph, repo
+ *                                                 title, status pill, sync)
+ *   - body     → src/components/chat-panel.tsx  (user `bg-muted` Card,
+ *                                                 transparent assistant
+ *                                                 bubble with role+status
+ *                                                 header and file citations)
+ *   - composer → chat-panel.tsx form            (textarea, mode pill, Send)
+ *
+ * Streaming choreography stands in for the real Convex stream: the user
+ * message slides in first, the assistant header appears in `Generating`
+ * state, and body chunks fade in sequentially as if tokens were arriving.
+ * Every keyframe respects `prefers-reduced-motion` via the existing utility
+ * classes (`animate-fade-up`, `animate-pulse-soft`, `animate-scan-y`).
+ */
+function HeroChat() {
   return (
     <div className="relative animate-fade-up" style={{ animationDelay: '180ms' }}>
       <div
@@ -331,66 +347,152 @@ function HeroTerminal() {
       />
 
       <div className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_30px_80px_-30px_rgba(56,189,248,0.35)] backdrop-blur">
-        {/* scan line */}
+        {/* scan line — keeps the existing tech-style motion vocabulary */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px animate-scan-y bg-linear-to-r from-transparent via-primary/70 to-transparent"
         />
 
-        {/* corner marks */}
         <CornerMarks />
 
-        {/* title bar */}
-        <div className="flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-4 py-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="size-2.5 rounded-full bg-foreground/20" />
-            <span className="size-2.5 rounded-full bg-foreground/20" />
-            <span className="size-2.5 rounded-full bg-foreground/20" />
-          </div>
-          <div className="flex items-center gap-1.5 font-mono text-[10.5px] tracking-tight text-muted-foreground">
-            <GitHubIcon className="size-3.5" />
-            <span>{REPO_LABEL}</span>
-          </div>
-          <span className="inline-flex h-5 items-center gap-1 border border-border bg-background/60 px-1.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span className="size-1 rounded-full bg-emerald-500 animate-pulse-soft" />
-            live
+        <ChatTopBar />
+
+        {/* Chat body — same layout vocabulary as <ChatPanel /> */}
+        <div className="flex flex-col gap-3 px-5 py-5">
+          <UserMessage delay={500}>Where does middleware live in this codebase?</UserMessage>
+          <AssistantMessage delay={1000} />
+        </div>
+
+        <ChatComposer />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Top-bar mock. The real {@link TopBar} renders the sidebar trigger, repo
+ * title with the {@link RepoStatusIndicator} dot, an attach-repo chip and a
+ * right-side cluster (jobs, sync, more). We reproduce only the read-only
+ * shape — clickable affordances would mislead a signed-out visitor.
+ */
+function ChatTopBar() {
+  return (
+    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3">
+      <span aria-hidden className="flex size-7 items-center justify-center text-muted-foreground/70">
+        <List weight="bold" className="size-4" />
+      </span>
+
+      <div className="flex min-w-0 items-center gap-2">
+        <GitHubIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate text-[12.5px] font-semibold tracking-tight">vercel/next.js</span>
+        <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
+          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+          ready
+        </span>
+      </div>
+
+      <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+        <span className="hidden items-center gap-1 sm:inline-flex">
+          <ArrowsClockwiseIcon weight="bold" className="size-3" />
+          synced 14s ago
+        </span>
+        <DotsThreeVerticalIcon weight="bold" className="size-3.5 text-muted-foreground/60" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * User bubble. Mirrors `MessageBubble` for role=user: muted Card with the
+ * `[10px] uppercase` role label and a status label aligned to the right.
+ */
+function UserMessage({ children, delay }: { children: React.ReactNode; delay: number }) {
+  return (
+    <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
+        <p className="text-[10px] text-muted-foreground">Ready</p>
+      </div>
+      <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
+    </div>
+  );
+}
+
+/**
+ * Assistant message. Mirrors `MessageBubble` for role=assistant (transparent
+ * background, no border, same role+status header). Body chunks are staggered
+ * with `animate-fade-up` to evoke streaming, and citations land as inline
+ * `<code>` chips matching how grounded answers reference real files.
+ */
+function AssistantMessage({ delay }: { delay: number }) {
+  return (
+    <div className="animate-fade-up px-0 py-1" style={{ animationDelay: `${delay}ms` }}>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">assistant</p>
+        <p className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+          <span className="size-1 rounded-full bg-primary animate-pulse-soft" />
+          Generating
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
+        <p className="animate-fade-up" style={{ animationDelay: `${delay + 250}ms` }}>
+          Middleware in Next.js is wired across three layers — runtime sandbox, build pipeline, and dev bundler:
+        </p>
+
+        <ul className="flex flex-col gap-1.5">
+          <CitationItem delay={delay + 600}>packages/next/src/server/web/sandbox/sandbox.ts</CitationItem>
+          <CitationItem delay={delay + 800}>packages/next/src/build/webpack/loaders/next-middleware-loader.ts</CitationItem>
+          <CitationItem delay={delay + 1000}>packages/next/src/server/lib/router-utils/setup-dev-bundler.ts</CitationItem>
+        </ul>
+
+        <div
+          className="flex animate-fade-up items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+          style={{ animationDelay: `${delay + 1200}ms` }}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-1 rounded-full bg-primary" />
+            grounded · 3 files cited
           </span>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* body */}
-        <div className="space-y-3 p-5 font-mono text-[12.5px] leading-relaxed">
-          <TerminalLine prompt="$" delay={0}>
-            <span className="text-foreground">systify import vercel/next.js</span>
-          </TerminalLine>
-          <TerminalLog delay={300}>
-            cloning into <span className="text-primary">sandbox</span>…
-          </TerminalLog>
-          <TerminalLog delay={500}>indexed 14,328 files in 1.4s</TerminalLog>
-          <div className="my-1 h-px w-full bg-border/60" />
+function CitationItem({ children, delay }: { children: React.ReactNode; delay: number }) {
+  return (
+    <li className="flex animate-fade-up items-start gap-2" style={{ animationDelay: `${delay}ms` }}>
+      <span aria-hidden className="leading-6 text-primary">
+        →
+      </span>
+      <code className="rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">{children}</code>
+    </li>
+  );
+}
 
-          <TerminalLine prompt="❯" delay={700}>
-            <span className="text-foreground">where does middleware live?</span>
-          </TerminalLine>
-
-          <div className="space-y-1.5 border-l border-primary/60 pl-3 text-[12px] text-foreground/90">
-            <CitedLine delay={900}>packages/next/src/server/web/sandbox/sandbox.ts</CitedLine>
-            <CitedLine delay={1050}>packages/next/src/build/webpack/loaders/…</CitedLine>
-            <CitedLine delay={1200}>packages/next/src/server/lib/router-utils/…</CitedLine>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border/60 pt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span>cited 4 files</span>
-            <span className="inline-flex items-center gap-1">
-              <span className="size-1 rounded-full bg-primary" />
-              grounded
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 pt-2 font-mono text-[12px] text-muted-foreground" aria-hidden>
-            <span className="text-primary">$</span>
-            <span className="inline-block h-3 w-2 animate-caret bg-foreground/80" />
-          </div>
-        </div>
+/**
+ * Composer mock. Mirrors the `<form>` at the bottom of {@link ChatPanel}: a
+ * textarea-shaped placeholder, an inline mode pill (Docs is the default that
+ * fits this Hero's narrative — grounded, sourced answers), and a Send
+ * button. Decorative only — no event handlers.
+ */
+function ChatComposer() {
+  return (
+    <div className="border-t border-border bg-background/60 px-3 py-3">
+      <div className="flex min-h-16 items-start rounded-sm border border-border bg-background/80 px-3 py-2.5 text-[12.5px] leading-6 text-muted-foreground/70">
+        Ask about architecture, module boundaries, data flow, risks…
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1 text-[11px] text-foreground">
+          <FileTextIcon size={12} weight="bold" />
+          <span className="font-medium">Docs</span>
+          <span className="hidden text-muted-foreground/70 sm:inline">searches your design docs</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-sm bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground">
+          <PaperPlaneTiltIcon size={12} weight="bold" />
+          Send
+        </span>
       </div>
     </div>
   );
@@ -416,36 +518,6 @@ function CornerMarks() {
         className="pointer-events-none absolute bottom-0 right-0 size-2.5 border-b border-r border-foreground/30"
       />
     </>
-  );
-}
-
-function TerminalLine({ prompt, delay, children }: { prompt: string; delay: number; children: React.ReactNode }) {
-  return (
-    <div className="flex animate-fade-up items-start gap-2.5" style={{ animationDelay: `${delay}ms` }}>
-      <span className="select-none text-primary">{prompt}</span>
-      <span className="min-w-0 flex-1 text-foreground/95">{children}</span>
-    </div>
-  );
-}
-
-function TerminalLog({ delay, children }: { delay: number; children: React.ReactNode }) {
-  return (
-    <div
-      className="flex animate-fade-up items-center gap-2 text-[11.5px] text-muted-foreground"
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <span className="select-none text-emerald-500">✓</span>
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function CitedLine({ delay, children }: { delay: number; children: React.ReactNode }) {
-  return (
-    <div className="animate-fade-up" style={{ animationDelay: `${delay}ms` }}>
-      <span className="text-primary">→ </span>
-      <code className="rounded bg-muted/60 px-1 py-0.5 text-[11px]">{children}</code>
-    </div>
   );
 }
 
@@ -585,14 +657,13 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
   return (
     <li className="animate-fade-up list-none" style={{ animationDelay: `${index * 90}ms` }}>
       <article
-        className={`relative isolate flex h-full flex-col overflow-hidden border ${mode.border} bg-card/70 backdrop-blur`}
+        className="relative isolate flex h-full flex-col overflow-hidden border border-border bg-card/70 backdrop-blur"
       >
         <CornerMarks />
 
-        {/* Title + blurb */}
-        <div className="flex flex-col gap-3 px-5 pt-7">
+        {/* Title */}
+        <div className="px-5 pt-7">
           <h3 className={`text-3xl font-semibold tracking-tight ${mode.title}`}>{mode.name}</h3>
-          <p className="text-[14.5px] leading-relaxed text-muted-foreground">{mode.blurb}</p>
         </div>
 
         {/* Sources — what the mode reads from. The literal definition of "depth" for this mode.
@@ -625,7 +696,7 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
           <ul className="flex flex-col gap-2">
             {mode.scenarios.map((scenario) => (
               <li key={scenario} className="flex items-start gap-2.5 text-[13.5px] text-foreground/90">
-                <span aria-hidden className={`mt-[7px] size-1 shrink-0 ${mode.fillSoft}`} />
+                <span aria-hidden className="mt-[7px] size-1 shrink-0 bg-muted-foreground/60" />
                 <span className="leading-relaxed">{scenario}</span>
               </li>
             ))}
@@ -665,7 +736,7 @@ function SelfHost() {
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button asChild size="lg" variant="ghost">
+            <Button asChild size="lg" variant="secondary">
               <a href={`${REPO_URL}#readme`} rel="noreferrer" target="_blank" className="text-[15px]">
                 Read the README →
               </a>

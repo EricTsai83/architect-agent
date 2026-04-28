@@ -211,7 +211,7 @@ export function RouteErrorBoundary() {
 
 export function NotFoundRoute() {
   return (
-    <div className="flex h-full w-full items-center justify-center px-6">
+    <div className="flex min-h-dvh w-full items-center justify-center px-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center">
         <h1 className="text-lg font-semibold text-foreground">This page does not exist.</h1>
         <p className="mt-2 text-sm text-muted-foreground">The link may be outdated, or the page was moved.</p>

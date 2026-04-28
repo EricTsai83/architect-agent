@@ -1,4 +1,4 @@
-import { CircleNotchIcon } from '@phosphor-icons/react';
+import { Logo } from '@/components/logo';
 
 export function ScreenState({
   title,
@@ -10,18 +10,10 @@ export function ScreenState({
   const isLoading = title.endsWith('…') || title.endsWith('...');
 
   return (
-    <div className="flex h-full w-full items-center justify-center px-6">
+    <div className="flex min-h-dvh w-full items-center justify-center px-6">
       <div className="w-full max-w-md rounded-xl border border-border/60 bg-card p-8 text-center shadow-sm">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-          {isLoading ? (
-            <CircleNotchIcon
-              size={22}
-              weight="bold"
-              className="animate-spin text-muted-foreground"
-            />
-          ) : (
-            <span className="h-2 w-2 rounded-full bg-muted-foreground/50" />
-          )}
+        <div className="mx-auto mb-5 flex justify-center">
+          <Logo size={56} hero={isLoading} />
         </div>
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           {title}
