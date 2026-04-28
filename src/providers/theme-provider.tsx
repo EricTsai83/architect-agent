@@ -69,8 +69,11 @@ export function ThemeProvider({
     });
 
     return () => {
-      cancelAnimationFrame(outerId);
-      cancelAnimationFrame(innerId);
+      if (outerId) cancelAnimationFrame(outerId);
+      if (innerId) cancelAnimationFrame(innerId);
+      // Always drop the override on unmount so transitions aren't left
+      // permanently disabled if we tear down before the inner rAF runs.
+      root.classList.remove('disable-transitions');
     };
   }, [theme]);
 

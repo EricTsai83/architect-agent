@@ -66,6 +66,10 @@ export default function App() {
 
 function AuthLoadingScreen() {
   return (
-    <ScreenState title="Authenticating…" description="Reconnecting your session and loading your workspace." />
+    <ScreenState
+      title="Authenticating…"
+      description="Reconnecting your session and loading your workspace."
+      isLoading
+    />
   );
 }

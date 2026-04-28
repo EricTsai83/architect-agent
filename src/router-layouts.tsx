@@ -230,7 +230,7 @@ function AuthLoadingScreen() {
 }
 
 function RouteLoadingScreen({ description }: { description: string }) {
-  return <ScreenState title="Loading…" description={description} />;
+  return <ScreenState title="Loading…" description={description} isLoading />;
 }
 
 function getStoredReturnTo() {

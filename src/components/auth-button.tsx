@@ -1,14 +1,15 @@
+import { type ComponentProps } from 'react';
 import { useAuth } from '@workos-inc/authkit-react';
 import { Button } from '@/components/ui/button';
 
-type AuthButtonVariant = 'default' | 'secondary' | 'outline' | 'ghost';
+type ButtonVariant = ComponentProps<typeof Button>['variant'];
 
 export function AuthButton({
   size = 'default',
   variant,
 }: {
   size?: 'default' | 'sm';
-  variant?: AuthButtonVariant;
+  variant?: ButtonVariant;
 }) {
   const { user, signIn, signOut } = useAuth();
   return user ? (

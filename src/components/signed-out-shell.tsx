@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
+import { useEffect, useId, useRef, useState, type ComponentType, type SVGProps } from 'react';
 import {
   ArrowsClockwiseIcon,
   Check,
@@ -823,7 +823,12 @@ function CopyAllButton() {
 
   const handleCopy = () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return;
-    void navigator.clipboard.writeText(CLONE_COMMAND).then(() => setCopied(true));
+    navigator.clipboard
+      .writeText(CLONE_COMMAND)
+      .then(() => setCopied(true))
+      .catch((err) => {
+        console.error('Failed to copy clone command:', err);
+      });
   };
 
   return (
@@ -873,11 +878,16 @@ function Faq() {
 
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [isOpen, setIsOpen] = useState(false);
+  const baseId = useId();
+  const buttonId = `${baseId}-button`;
+  const regionId = `${baseId}-region`;
   return (
     <li>
       <button
         type="button"
+        id={buttonId}
         aria-expanded={isOpen}
+        aria-controls={regionId}
         onClick={() => setIsOpen((prev) => !prev)}
         className={`group flex w-full cursor-pointer items-center justify-between gap-6 py-5 text-left transition-colors hover:text-foreground ${
           isOpen ? 'text-foreground' : ''
@@ -899,6 +909,9 @@ function FaqItem({ q, a }: { q: string; a: string }) {
         </span>
       </button>
       <div
+        id={regionId}
+        role="region"
+        aria-labelledby={buttonId}
         className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
         }`}
