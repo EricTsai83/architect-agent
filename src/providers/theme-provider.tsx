@@ -33,6 +33,9 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
 
+    // Temporarily disable all CSS transitions so the theme switch is instant.
+    root.classList.add('disable-transitions');
+
     root.classList.remove('light', 'dark');
 
     if (theme === 'system') {
@@ -41,10 +44,17 @@ export function ThemeProvider({
         : 'light';
 
       root.classList.add(systemTheme);
-      return;
+    } else {
+      root.classList.add(theme);
     }
 
-    root.classList.add(theme);
+    // Force a reflow so the browser applies the theme colours with transitions
+    // disabled, then re-enable transitions on the next frame.
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    root.offsetHeight;
+    requestAnimationFrame(() => {
+      root.classList.remove('disable-transitions');
+    });
   }, [theme]);
 
   const value = {

@@ -1,6 +1,6 @@
 # Systify
 
-Ask the repo, not the internet.
+Every answer points to its source.
 
 Systify is an open source repository analysis app for understanding unfamiliar codebases through grounded, repository-specific context. A user signs in with WorkOS, connects a GitHub App installation, imports a repository into a Daytona sandbox, indexes the codebase into Convex, and then explores it in two modes:
 
