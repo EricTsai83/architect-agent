@@ -8,9 +8,10 @@ import { ErrorBoundary } from '@/providers/error-boundary';
 import { ThemeProvider } from '@/providers/theme-provider';
 import { AppRouter } from '@/app-router';
 import { createAppRouter } from '@/router';
+import { AUTH_CALLBACK_PATH } from '@/route-paths';
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
-const workosRedirectUri = new URL('/callback', window.location.origin).toString();
+const workosRedirectUri = new URL(AUTH_CALLBACK_PATH, window.location.origin).toString();
 const router = createAppRouter();
 
 createRoot(document.getElementById('root')!).render(

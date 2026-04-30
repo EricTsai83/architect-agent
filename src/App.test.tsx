@@ -162,6 +162,7 @@ describe('App auth token failures', () => {
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/r/repo_123');
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull();
   });
 
   test('ignores unsafe callback return destination and falls back to /chat', async () => {
@@ -179,6 +180,25 @@ describe('App auth token failures', () => {
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull();
+  });
+
+  test('ignores callback return destination to avoid redirect loops', async () => {
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, '/callback?code=stale-code');
+
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull();
   });
 
   test('shows a clear callback error message for cancelled sign-in', async () => {
