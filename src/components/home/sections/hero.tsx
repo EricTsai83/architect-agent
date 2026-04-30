@@ -68,9 +68,7 @@ export function Hero() {
         <Stat />
       </div>
 
-      <div ref={chatRef}>
-        <HeroChat />
-      </div>
+      <HeroChat ref={chatRef} />
 
       <button
         onClick={handleReplay}

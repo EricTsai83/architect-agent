@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { forwardRef, type CSSProperties, type ReactNode } from 'react';
 import {
   ArrowsClockwiseIcon,
   DotsThreeVerticalIcon,
@@ -53,10 +53,13 @@ const BODY_TEXT =
 const BODY_WORDS = BODY_TEXT.split(/\s+/);
 const STREAM_END = STREAM_START + BODY_WORDS.length * STREAM_WORD_STEP + 300;
 
-export function HeroChat() {
+export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref) {
   return (
     <div className="relative animate-fade-in" style={{ animationDelay: '600ms' }}>
-      <div className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur">
+      <div
+        ref={ref}
+        className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur"
+      >
         <CornerMarks />
 
         <ChatTopBar />
@@ -71,7 +74,7 @@ export function HeroChat() {
       </div>
     </div>
   );
-}
+});
 
 /**
  * Top-bar mock. The real `<TopBar />` renders the sidebar trigger, repo
@@ -149,12 +152,12 @@ function AssistantMessage({ delay }: { delay: number }) {
 
       <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
         {/* ── Group 1: Tool call ────────────────────────────────── */}
-        <div className="relative animate-fade-up" style={{ animationDelay: `${TOOL_CALL}ms` }}>
+        <div className="relative">
           <GuideAccent delay={TOOL_CALL + 100} />
           <div className="rounded-sm border border-border/60 bg-muted/40 px-3 py-2.5">
             <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               <MagnifyingGlass weight="bold" className="size-3 text-primary" />
-              <span>search_codebase</span>
+              <span>Search Codebase</span>
             </div>
             <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
               query: &quot;App Router nested layouts&quot;
@@ -244,13 +247,13 @@ function ChatComposer() {
 
         {/* Typed text — typewriter effect, wrapped in a container
             that fades out after Send so the composer "clears" */}
-        <span className="absolute inset-x-3 top-2.5 animate-fade-out" style={{ animationDelay: `${COMPOSE_CLEAR}ms` }}>
+        <span className="absolute inset-x-3 top-2.5 animate-fade-out" style={{ animationDelay: `${COMPOSE_CLEAR}ms`, animationDuration: '0s' }}>
           <span
             className="animate-hero-typing text-foreground"
             style={
               {
-                animationDelay: `${TYPING_START}ms`,
-                animationDuration: `${TYPING_DURATION}ms`,
+                animationDelay: `${TYPING_START}ms, ${TYPING_START}ms`,
+                animationDuration: `${TYPING_DURATION}ms, 1.05s`,
                 '--type-width': '100%',
               } as CSSProperties
             }
