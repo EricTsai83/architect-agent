@@ -12,6 +12,16 @@ export const REPO_URL = 'https://github.com/EricTsai83/systify';
 export const REPO_LABEL = 'EricTsai83/systify';
 
 /**
+ * Author's public X (Twitter) profile. Surfaced from the homepage's
+ * "Quick answers" panel as a softer, more direct line of contact than
+ * GitHub issues — useful for non-bug feedback or just saying hi. The
+ * handle itself isn't surfaced in the UI; we let the link go to the
+ * profile and call it a day so the row stays visually symmetrical
+ * with the GitHub CTA above it.
+ */
+export const X_URL = 'https://x.com/ericts718';
+
+/**
  * Single source of truth for the self-host quickstart commands. Each row
  * is rendered by `<CommandRow>` and the joined form is what `<CopyAllButton>`
  * writes to the clipboard — keeping them derived prevents drift between the
@@ -100,8 +110,12 @@ export const FAQS: ReadonlyArray<FaqEntry> = [
     a: 'Yes. The full source is on GitHub under EricTsai83/systify. Clone it, plug in your own Convex and WorkOS keys, and run.',
   },
   {
-    q: 'Is my code private?',
-    a: 'Today only public repositories are imported. Cloned code lives in a per-session Daytona sandbox and is never added to a shared training set.',
+    q: 'Is my code secure?',
+    a: 'Yes. Your cloned code lives in an isolated, per-session Daytona sandbox. Each session is ephemeral and fully isolated from other users. Your code is never added to a shared training set.',
+  },
+  {
+    q: 'Can I import private repositories?',
+    a: 'Yes! Both public and private repositories are supported. To import a private repository, simply authorize access through our GitHub App during the import process.',
   },
   {
     q: 'When should I pick which mode?',

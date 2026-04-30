@@ -1,9 +1,33 @@
+import { useCallback, useRef } from 'react';
+
+import { ArrowCounterClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { GitHubIcon } from '@/components/icons';
 import { REPO_URL } from '../data';
 import { HeroChat } from './hero-chat';
 
+/** Restart every CSS animation inside a container without unmounting it. */
+function restartAnimations(container: HTMLElement) {
+  const animated = container.querySelectorAll<HTMLElement>(
+    '.animate-fade-up, .animate-fade-in, .animate-guide-accent',
+  );
+  animated.forEach((el) => {
+    el.style.animation = 'none';
+  });
+  // Force a reflow so the browser registers the reset
+  void container.offsetHeight;
+  animated.forEach((el) => {
+    el.style.animation = '';
+  });
+}
+
 export function Hero() {
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  const handleReplay = useCallback(() => {
+    if (chatRef.current) restartAnimations(chatRef.current);
+  }, []);
+
   return (
     <section id="top" className="relative grid items-center gap-14 pt-6 lg:grid-cols-[1.25fr_1fr] lg:gap-12">
       <div className="flex flex-col gap-7">
@@ -40,7 +64,18 @@ export function Hero() {
         <Stat />
       </div>
 
-      <HeroChat />
+      <div ref={chatRef}>
+        <HeroChat />
+      </div>
+
+      <button
+        onClick={handleReplay}
+        className="absolute right-0 top-0 z-10 inline-flex items-center gap-1.5 border border-border bg-card/60 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur transition-colors hover:bg-card hover:text-foreground"
+        aria-label="Replay hero animation"
+      >
+        <ArrowCounterClockwise weight="bold" className="size-3" />
+        Replay
+      </button>
     </section>
   );
 }

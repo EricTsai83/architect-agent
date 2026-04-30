@@ -16,7 +16,7 @@ export function SiteHeader() {
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
         <a href="#top" className="group flex items-center gap-2.5">
           <Logo size={28} />
-          <span className="font-mono text-[15px] font-semibold tracking-tight">systify</span>
+          <span className="font-mono text-[15px] font-semibold tracking-tight">Systify</span>
         </a>
         <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
           <a href="#how" className="transition-colors hover:text-foreground">

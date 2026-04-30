@@ -29,30 +29,16 @@ import { CornerMarks } from '../primitives/corner-marks';
  */
 export function HeroChat() {
   return (
-    <div className="relative animate-fade-up" style={{ animationDelay: '180ms' }}>
-      <div
-        aria-hidden
-        className="absolute -inset-8 -z-10 opacity-70 blur-3xl"
-        style={{
-          backgroundImage: 'radial-gradient(50% 50% at 50% 50%, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 70%)',
-        }}
-      />
-
-      <div className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_30px_80px_-30px_rgba(56,189,248,0.35)] backdrop-blur">
-        {/* scan line — keeps the existing tech-style motion vocabulary */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px animate-scan-y bg-linear-to-r from-transparent via-primary/70 to-transparent"
-        />
-
+    <div className="relative animate-fade-in" style={{ animationDelay: '600ms' }}>
+      <div className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur">
         <CornerMarks />
 
         <ChatTopBar />
 
         {/* Chat body — same layout vocabulary as <ChatPanel /> */}
         <div className="flex flex-col gap-3 px-5 py-5">
-          <UserMessage delay={500}>Where does middleware live in this codebase?</UserMessage>
-          <AssistantMessage delay={1000} />
+          <UserMessage delay={1500}>How does the App Router resolve nested layouts?</UserMessage>
+          <AssistantMessage delay={2800} />
         </div>
 
         <ChatComposer />
@@ -102,7 +88,8 @@ function ChatTopBar() {
  */
 function UserMessage({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+    <div className="relative animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+      <GuideAccent delay={delay + 100} />
       <div className="mb-1 flex items-center justify-between gap-3">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
         <p className="text-[10px] text-muted-foreground">Ready</p>
@@ -115,10 +102,10 @@ function UserMessage({ children, delay }: { children: ReactNode; delay: number }
 // Citation streaming choreography. Each row enters a fixed step after the
 // assistant header; numbers are kept at module scope so they're easy to
 // retune in one place rather than scattered across JSX.
-const CITATION_STEP_MS = 200;
-const ASSISTANT_BODY_DELAY_MS = 250;
-const CITATION_BASE_DELAY_MS = 600;
-const GROUNDED_FOOTER_DELAY_MS = 1200;
+const CITATION_STEP_MS = 350;
+const ASSISTANT_BODY_DELAY_MS = 400;
+const CITATION_BASE_DELAY_MS = 900;
+const GROUNDED_FOOTER_DELAY_MS = 2000;
 
 /**
  * Assistant message. Mirrors `MessageBubble` for role=assistant
@@ -129,9 +116,9 @@ const GROUNDED_FOOTER_DELAY_MS = 1200;
  */
 function AssistantMessage({ delay }: { delay: number }) {
   const citations = [
-    'packages/next/src/server/web/sandbox/sandbox.ts',
-    'packages/next/src/build/webpack/loaders/next-middleware-loader.ts',
-    'packages/next/src/server/lib/router-utils/setup-dev-bundler.ts',
+    'packages/next/src/server/app-render/app-render.tsx',
+    'packages/next/src/server/app-render/create-component-tree.tsx',
+    'packages/next/src/build/webpack/loaders/next-app-loader.ts',
   ];
 
   return (
@@ -145,9 +132,10 @@ function AssistantMessage({ delay }: { delay: number }) {
       </div>
 
       <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
-        <p className="animate-fade-up" style={{ animationDelay: `${delay + ASSISTANT_BODY_DELAY_MS}ms` }}>
-          Middleware in Next.js is wired across three layers — runtime sandbox, build pipeline, and dev bundler:
-        </p>
+        <div className="relative animate-fade-up" style={{ animationDelay: `${delay + ASSISTANT_BODY_DELAY_MS}ms` }}>
+          <GuideAccent delay={delay + ASSISTANT_BODY_DELAY_MS + 100} />
+          <p>Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:</p>
+        </div>
 
         <ul className="flex flex-col gap-1.5">
           {citations.map((path, idx) => (
@@ -158,9 +146,10 @@ function AssistantMessage({ delay }: { delay: number }) {
         </ul>
 
         <div
-          className="flex animate-fade-up items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+          className="relative flex animate-fade-up items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
           style={{ animationDelay: `${delay + GROUNDED_FOOTER_DELAY_MS}ms` }}
         >
+          <GuideAccent delay={delay + GROUNDED_FOOTER_DELAY_MS + 100} />
           <span className="inline-flex items-center gap-1.5">
             <span className="size-1 rounded-full bg-primary" />
             grounded · {citations.length} files cited
@@ -173,12 +162,29 @@ function AssistantMessage({ delay }: { delay: number }) {
 
 function CitationItem({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <li className="flex animate-fade-up items-start gap-2" style={{ animationDelay: `${delay}ms` }}>
+    <li className="relative flex animate-fade-up items-start gap-2" style={{ animationDelay: `${delay}ms` }}>
+      <GuideAccent delay={delay + 100} />
       <span aria-hidden className="leading-6 text-primary">
         →
       </span>
       <code className="rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">{children}</code>
     </li>
+  );
+}
+
+/**
+ * Guide accent — a thin vertical bar that draws in from the top edge
+ * of each sequentially appearing element, then fades out. Creates a
+ * "spotlight" effect that leads the viewer's eye through the streaming
+ * animation sequence: user message → body text → each citation → footer.
+ */
+function GuideAccent({ delay }: { delay: number }) {
+  return (
+    <span
+      className="absolute left-0 top-0 block h-full w-[3px] animate-guide-accent bg-primary"
+      style={{ animationDelay: `${delay}ms` }}
+      aria-hidden
+    />
   );
 }
 

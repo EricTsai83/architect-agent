@@ -14,8 +14,7 @@ import { ScreenState } from '@/components/screen-state';
 import { Button } from '@/components/ui/button';
 import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
 import { isProtectedReturnTo } from '@/router';
-
-const HomePage = lazy(() => import('@/pages/home').then((module) => ({ default: module.HomePage })));
+import { HomePage } from '@/pages/home';
 /**
  * sessionStorage key used to remember the protected URL an unauthenticated
  * user attempted to visit, so AuthCallbackRoute can return them there after
@@ -48,19 +47,15 @@ export function AppLayout() {
 export function LandingRoute() {
   const { isAuthenticated, isLoading } = useConvexAuth();
 
-  if (isLoading) {
-    return <AuthLoadingScreen />;
-  }
-
-  if (isAuthenticated) {
+  // Auth confirmed — redirect logged-in users to the app.
+  if (!isLoading && isAuthenticated) {
     return <Navigate to="/chat" replace />;
   }
 
-  return (
-    <Suspense fallback={<RouteLoadingScreen description="Loading the home experience." />}>
-      <HomePage />
-    </Suspense>
-  );
+  // Render the static home page immediately, even while auth is still
+  // loading. The home page is fully static (no auth, no data fetching),
+  // so there's no reason to block rendering behind an auth check.
+  return <HomePage />;
 }
 
 export function ProtectedLayout() {
