@@ -23,8 +23,7 @@ export function Modes() {
               id={HEADING_ID}
               className="max-w-3xl text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-4xl"
             >
-              Three depths of grounding.{' '}
-              <span className="text-muted-foreground">Match the mode to the question.</span>
+              Three depths of grounding. <span className="text-muted-foreground">Match the mode to the question.</span>
             </h2>
             <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-muted-foreground sm:text-[11px]">
               shallow → deep · rough → precise
@@ -59,7 +58,10 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
             Each row is a knowledge layer: lit row = consulted, dim row = not consulted. */}
         <div className="mt-5 flex flex-col gap-2 border-t border-border/60 px-4 pt-4 sm:px-5">
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">
-            sources <span className="text-muted-foreground/50">— {mode.depth} of {LAYERS.length}</span>
+            sources{' '}
+            <span className="text-muted-foreground/50">
+              — {mode.depth} of {LAYERS.length}
+            </span>
           </span>
           <ul className="flex flex-col gap-1.5">
             {LAYERS.map((layer, i) => {
@@ -72,7 +74,7 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
                   }`}
                 >
                   <span aria-hidden className={`size-2 shrink-0 ${lit ? tone.fill : 'bg-foreground/12'}`} />
-                  <span className="min-w-0 break-words">{layer}</span>
+                  <span className="min-w-0 wrap-break-word">{layer}</span>
                 </li>
               );
             })}
@@ -81,7 +83,7 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
 
         {/* Use-when scenarios — professional copy that includes the cost-performance angle */}
         <div className="mt-5 flex flex-col gap-2 border-t border-border/60 px-4 pt-4 sm:px-5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">use when —</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">use when</span>
           <ul className="flex flex-col gap-2">
             {mode.scenarios.map((scenario) => (
               <li key={scenario} className="flex items-start gap-2.5 text-[13.5px] text-foreground/90">
