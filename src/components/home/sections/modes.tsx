@@ -27,7 +27,7 @@ export function Modes() {
               <span className="text-muted-foreground">Match the mode to the question.</span>
             </h2>
             <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-muted-foreground sm:text-[11px]">
-              shallow → deep · cheap → precise
+              shallow → deep · rough → precise
             </p>
           </div>
 
