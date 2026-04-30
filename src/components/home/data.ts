@@ -6,10 +6,48 @@ import {
   OpenAIIcon,
   WorkOSIcon,
 } from '@/components/icons';
-import type { CommandStep, FaqEntry, Mode, NarrativeEntry, StackItem } from './types';
+import type {
+  CommandStep,
+  FaqEntry,
+  HeaderNavLink,
+  Mode,
+  NarrativeEntry,
+  SelfHostFeature,
+  StackItem,
+} from './types';
 
 export const REPO_URL = 'https://github.com/EricTsai83/systify';
 export const REPO_LABEL = 'EricTsai83/systify';
+
+/**
+ * In-page nav links for the sticky `<SiteHeader />`. Each `href` is a
+ * fragment (`#…`) that maps to a `<section id>` further down the page.
+ *
+ * Adding a new section is a two-step rule:
+ *   1. Give the section element an `id` matching the href here.
+ *   2. Add an entry to this list.
+ *
+ * Order is the visual order. Labels are intentionally short — the nav is
+ * a single horizontal row on `md+`.
+ */
+export const HEADER_NAV_LINKS: ReadonlyArray<HeaderNavLink> = [
+  { href: '#how', label: 'How it works' },
+  { href: '#stack', label: 'Stack' },
+  { href: '#modes', label: 'Modes' },
+  { href: '#self-host', label: 'Self-host' },
+  { href: '#faq', label: 'FAQ' },
+];
+
+/**
+ * Bullet list under the `<SelfHost />` headline. Editing copy here keeps
+ * the bullets in sync without hunting through the JSX.
+ */
+export const SELF_HOST_FEATURES: ReadonlyArray<SelfHostFeature> = [
+  { label: 'MIT licensed' },
+  { label: 'No vendor lock-in' },
+  { label: 'Bring your own keys' },
+  { label: 'Public-repo first' },
+];
 
 /**
  * Author's public X (Twitter) profile. Surfaced from the homepage's

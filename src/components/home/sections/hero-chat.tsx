@@ -10,6 +10,7 @@ import {
 
 import { GitHubIcon } from '@/components/icons';
 import { CornerMarks } from '../primitives/corner-marks';
+import { REPLAY_ON_MOUNT_ATTR } from '../primitives/replay-animations';
 
 /**
  * HeroChat — a faithful preview of the real `<ChatPanel />` the user
@@ -36,26 +37,64 @@ import { CornerMarks } from '../primitives/corner-marks';
  */
 
 /* ── timing (ms from mount) ─────────────────────────────────────── */
+/**
+ * Single source of truth for the streaming choreography. Read top-to-bottom
+ * to follow the visitor's eye through the scene; keys derive from earlier
+ * keys so adjusting an upstream beat shifts everything downstream by the
+ * same amount.
+ *
+ * `wordStep` is the per-word delay used to fake LLM token streaming —
+ * shorter feels jittery, longer feels artificially slow.
+ */
 const TYPING_START = 800;
 const TYPING_DURATION = 1500;
-const SEND_PRESS = TYPING_START + TYPING_DURATION + 200; // 2500
-const COMPOSE_CLEAR = SEND_PRESS + 300; // 2800
-const USER_MSG = COMPOSE_CLEAR + 200; // 3000
-const ASST_HEADER = USER_MSG + 1000; // 4000
-const TOOL_CALL = ASST_HEADER + 400; // 4400
-const STREAM_START = TOOL_CALL + 1200; // 5600
-const STREAM_WORD_STEP = 60; // ms between each word
+const TIMELINE = {
+  typingStart: TYPING_START,
+  typingDuration: TYPING_DURATION,
+  // SEND_PRESS happens shortly after typing finishes (200 ms breath) — it
+  // is the visual "click" of the Send button.
+  sendPress: TYPING_START + TYPING_DURATION + 200,
+  // 300 ms after Send so the press animation reads before the field clears.
+  composeClear: TYPING_START + TYPING_DURATION + 200 + 300,
+  // 200 ms after clear so the message appears to slot in *because of* the send.
+  userMessage: TYPING_START + TYPING_DURATION + 200 + 300 + 200,
+  // 1 s gap mimics network latency before the assistant starts responding.
+  assistantHeader: TYPING_START + TYPING_DURATION + 200 + 300 + 200 + 1000,
+  // Tool-call card enters 400 ms after the header so they read as a unit.
+  toolCall: TYPING_START + TYPING_DURATION + 200 + 300 + 200 + 1000 + 400,
+  // Body streaming starts 1.2 s after tool-call so the retrieval phase has
+  // time to be perceived as "thinking", not just decoration.
+  streamStart: TYPING_START + TYPING_DURATION + 200 + 300 + 200 + 1000 + 400 + 1200,
+  /** ms between each streamed word — fake LLM token cadence. */
+  wordStep: 60,
+} as const;
 
 const TYPED_TEXT = 'How does the App Router resolve nested layouts?';
 
 const BODY_TEXT =
   'Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:';
 const BODY_WORDS = BODY_TEXT.split(/\s+/);
-const STREAM_END = STREAM_START + BODY_WORDS.length * STREAM_WORD_STEP + 300;
+
+/** Wall-clock time (ms from mount) when the streamed body finishes. */
+const STREAM_END = TIMELINE.streamStart + BODY_WORDS.length * TIMELINE.wordStep + 300;
+
+/**
+ * Citations rendered after the streamed body. Hoisted to module scope so
+ * the array (and its identity) is stable across renders — `<AssistantMessage />`
+ * does not need to recreate it every time.
+ */
+const CITATIONS: ReadonlyArray<string> = [
+  'packages/next/src/server/app-render/app-render.tsx',
+  'packages/next/src/server/app-render/create-component-tree.tsx',
+  'packages/next/src/build/webpack/loaders/next-app-loader.ts',
+];
+
+/** Marks any element whose entry animation should be replayed by the hero "Replay" button. */
+const replayAttr = { [REPLAY_ON_MOUNT_ATTR]: '' } as const;
 
 export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref) {
   return (
-    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: '600ms' }}>
+    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: '600ms' }} {...replayAttr}>
       <div
         ref={ref}
         className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur"
@@ -66,8 +105,8 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
 
         {/* Chat body — same layout vocabulary as <ChatPanel /> */}
         <div className="flex flex-col gap-3 px-3 py-4 sm:px-5 sm:py-5">
-          <UserMessage delay={USER_MSG}>{TYPED_TEXT}</UserMessage>
-          <AssistantMessage delay={ASST_HEADER} />
+          <UserMessage delay={TIMELINE.userMessage}>{TYPED_TEXT}</UserMessage>
+          <AssistantMessage delay={TIMELINE.assistantHeader} />
         </div>
 
         <ChatComposer />
@@ -119,7 +158,7 @@ function UserMessage({ children, delay }: { children: ReactNode; delay: number }
   return (
     <div className="relative pl-2">
       <GuideAccent delay={delay + 100} />
-      <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+      <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }} {...replayAttr}>
         <div className="mb-1 flex items-center justify-between gap-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
           <p className="text-[10px] text-muted-foreground">Ready</p>
@@ -139,12 +178,6 @@ function UserMessage({ children, delay }: { children: ReactNode; delay: number }
  *      completes.
  */
 function AssistantMessage({ delay }: { delay: number }) {
-  const citations = [
-    'packages/next/src/server/app-render/app-render.tsx',
-    'packages/next/src/server/app-render/create-component-tree.tsx',
-    'packages/next/src/build/webpack/loaders/next-app-loader.ts',
-  ];
-
   return (
     // No animation on the container — children control their own
     // visibility. If the container also faded in, its opacity would
@@ -159,6 +192,7 @@ function AssistantMessage({ delay }: { delay: number }) {
       <div
         className="animate-fade-up mb-1 flex items-center justify-between gap-3"
         style={{ animationDelay: `${delay}ms` }}
+        {...replayAttr}
       >
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">assistant</p>
       </div>
@@ -177,7 +211,7 @@ function AssistantMessage({ delay }: { delay: number }) {
             draw rate stays constant across messages of different
             heights. */}
         <div className="relative pl-2">
-          <GuideAccent delay={TOOL_CALL + 100} />
+          <GuideAccent delay={TIMELINE.toolCall + 100} />
           {/* `will-change: transform` pins this bubble to its own GPU
               compositor layer for the lifetime of the scene. Without it,
               the browser only auto-promotes the bubble while
@@ -190,7 +224,8 @@ function AssistantMessage({ delay }: { delay: number }) {
               sub-pixel rounding read as a faint background flicker. */}
           <div
             className="animate-fade-up bg-muted/40 px-4 py-3"
-            style={{ animationDelay: `${TOOL_CALL}ms`, willChange: 'transform' }}
+            style={{ animationDelay: `${TIMELINE.toolCall}ms`, willChange: 'transform' }}
+            {...replayAttr}
           >
             <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
@@ -201,7 +236,7 @@ function AssistantMessage({ delay }: { delay: number }) {
             </p>
             <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
               <span className="size-1 rounded-full bg-emerald-500" />
-              3 files found
+              {CITATIONS.length} files found
             </p>
           </div>
         </div>
@@ -213,7 +248,8 @@ function AssistantMessage({ delay }: { delay: number }) {
               <span
                 key={i}
                 className="animate-fade-in"
-                style={{ animationDelay: `${STREAM_START + i * STREAM_WORD_STEP}ms`, animationDuration: '0.12s' }}
+                style={{ animationDelay: `${TIMELINE.streamStart + i * TIMELINE.wordStep}ms`, animationDuration: '0.12s' }}
+                {...replayAttr}
               >
                 {word}
                 {i < BODY_WORDS.length - 1 ? ' ' : ''}
@@ -223,9 +259,9 @@ function AssistantMessage({ delay }: { delay: number }) {
         </div>
 
         {/* ── Citations + footer — appear after streaming ───────── */}
-        <div className="animate-fade-in flex flex-col gap-2.5" style={{ animationDelay: `${STREAM_END}ms` }}>
+        <div className="animate-fade-in flex flex-col gap-2.5" style={{ animationDelay: `${STREAM_END}ms` }} {...replayAttr}>
           <ul className="flex flex-col gap-1.5">
-            {citations.map((path) => (
+            {CITATIONS.map((path) => (
               <li key={path} className="relative flex min-w-0 items-start gap-2">
                 <span aria-hidden className="shrink-0 leading-6 text-primary">
                   →
@@ -240,7 +276,7 @@ function AssistantMessage({ delay }: { delay: number }) {
           <div className="relative flex items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <span className="size-1 rounded-full bg-primary" />
-              grounded · {citations.length} files cited
+              grounded · {CITATIONS.length} files cited
             </span>
           </div>
         </div>
@@ -270,6 +306,14 @@ function AssistantMessage({ delay }: { delay: number }) {
  *      of the `scaleY` / `opacity` animation would force a repaint
  *      of whatever sits behind the line.
  */
+/** Pixel/second draw rate so taller bubbles take proportionally longer rather than speeding up. */
+const GUIDE_PX_PER_MS_DRAW = 0.15;
+/** Fraction of the keyframe spent on `scaleY: 0 → 1`; the rest is hold/fade. */
+const GUIDE_DRAW_FRACTION = 0.4;
+/** Clamp so very short or very tall bubbles still feel like the same scene. */
+const GUIDE_MIN_MS = 900;
+const GUIDE_MAX_MS = 2000;
+
 function GuideAccent({ delay }: { delay: number }) {
   const ref = useRef<HTMLSpanElement>(null);
 
@@ -278,13 +322,8 @@ function GuideAccent({ delay }: { delay: number }) {
     const parent = el?.parentElement;
     if (!el || !parent) return;
 
-    // 150 px/s during the draw phase keeps a typical 60–110 px bubble
-    // close to the original ~1.5 s feel while letting taller bubbles
-    // take proportionally longer instead of speeding up.
-    const PX_PER_MS_DRAW = 0.15;
-    const DRAW_FRACTION = 0.4;
-    const drawMs = parent.offsetHeight / PX_PER_MS_DRAW;
-    const totalMs = Math.min(2000, Math.max(900, drawMs / DRAW_FRACTION));
+    const drawMs = parent.offsetHeight / GUIDE_PX_PER_MS_DRAW;
+    const totalMs = Math.min(GUIDE_MAX_MS, Math.max(GUIDE_MIN_MS, drawMs / GUIDE_DRAW_FRACTION));
     el.style.animationDuration = `${totalMs}ms`;
   }, []);
 
@@ -294,6 +333,7 @@ function GuideAccent({ delay }: { delay: number }) {
       className="absolute left-0 top-0 block h-full w-[3px] animate-guide-accent bg-primary"
       style={{ animationDelay: `${delay}ms`, willChange: 'transform, opacity' }}
       aria-hidden
+      {...replayAttr}
     />
   );
 }
@@ -311,23 +351,29 @@ function ChatComposer() {
         {/* Placeholder — disappears quickly right before typing begins */}
         <span
           className="animate-fade-out text-muted-foreground/70"
-          style={{ animationDelay: `${TYPING_START - 50}ms`, animationDuration: '0.1s' }}
+          style={{ animationDelay: `${TIMELINE.typingStart - 50}ms`, animationDuration: '0.1s' }}
+          {...replayAttr}
         >
           Ask about architecture, module boundaries, data flow, risks…
         </span>
 
         {/* Typed text — typewriter effect, wrapped in a container
             that fades out after Send so the composer "clears" */}
-        <span className="absolute inset-x-3 top-2.5 animate-fade-out" style={{ animationDelay: `${COMPOSE_CLEAR}ms`, animationDuration: '0s' }}>
+        <span
+          className="absolute inset-x-3 top-2.5 animate-fade-out"
+          style={{ animationDelay: `${TIMELINE.composeClear}ms`, animationDuration: '0s' }}
+          {...replayAttr}
+        >
           <span
             className="animate-hero-typing text-foreground"
             style={
               {
-                animationDelay: `${TYPING_START}ms, ${TYPING_START}ms`,
-                animationDuration: `${TYPING_DURATION}ms, 1.05s`,
+                animationDelay: `${TIMELINE.typingStart}ms, ${TIMELINE.typingStart}ms`,
+                animationDuration: `${TIMELINE.typingDuration}ms, 1.05s`,
                 '--type-width': '100%',
               } as CSSProperties
             }
+            {...replayAttr}
           >
             {TYPED_TEXT}
           </span>
@@ -339,10 +385,11 @@ function ChatComposer() {
           <span className="font-medium">Docs</span>
           <span className="hidden text-muted-foreground/70 sm:inline">searches your design docs</span>
         </span>
-        {/* Send button — press animation at SEND_PRESS */}
+        {/* Send button — press animation at TIMELINE.sendPress */}
         <span
           className="inline-flex animate-send-press items-center gap-1.5 rounded-sm bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground"
-          style={{ animationDelay: `${SEND_PRESS}ms` }}
+          style={{ animationDelay: `${TIMELINE.sendPress}ms` }}
+          {...replayAttr}
         >
           <PaperPlaneTiltIcon size={12} weight="bold" />
           Send
