@@ -4,32 +4,29 @@ import { ArrowCounterClockwise } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { GitHubIcon } from '@/components/icons';
 import { REPO_URL } from '../data';
+import { replayAnimationsIn } from '../primitives/replay-animations';
 import { HeroChat } from './hero-chat';
 
 /**
- * Restart every CSS animation inside a container without unmounting it.
- * Uses `animationName` (longhand) instead of the `animation` shorthand
- * so that inline `animationDelay` values set by React are preserved.
+ * Stagger schedule for the headline → tagline → buttons → stats column.
+ * Pulled to module scope so the entry beat is at-a-glance editable in one
+ * place rather than scattered across `style={{ animationDelay }}` literals.
+ *
+ * Numbers are in milliseconds.
  */
-function restartAnimations(container: HTMLElement) {
-  const animated = container.querySelectorAll<HTMLElement>(
-    '.animate-fade-up, .animate-fade-in, .animate-guide-accent, .animate-fade-out, .animate-send-press, .animate-hero-typing',
-  );
-  animated.forEach((el) => {
-    el.style.animationName = 'none';
-  });
-  // Force a reflow so the browser registers the reset
-  void container.offsetHeight;
-  animated.forEach((el) => {
-    el.style.animationName = '';
-  });
-}
+const HERO_STAGGER = {
+  headlineLine1: 0,
+  headlineLine2: 120,
+  tagline: 220,
+  ctas: 320,
+  stat: 420,
+} as const;
 
 export function Hero() {
   const chatRef = useRef<HTMLDivElement>(null);
 
   const handleReplay = useCallback(() => {
-    if (chatRef.current) restartAnimations(chatRef.current);
+    if (chatRef.current) replayAnimationsIn(chatRef.current);
   }, []);
 
   return (
@@ -37,21 +34,29 @@ export function Hero() {
       <div className="flex min-w-0 flex-col gap-7">
         <StatusPill />
         <h1 className="text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl sm:leading-[1.02] lg:text-[clamp(3rem,5vw,3.75rem)]">
-          <span className="block animate-fade-up sm:whitespace-nowrap">Your codebase,</span>
-          <span className="block animate-fade-up text-primary sm:whitespace-nowrap" style={{ animationDelay: '120ms' }}>
+          <span
+            className="block animate-fade-up sm:whitespace-nowrap"
+            style={{ animationDelay: `${HERO_STAGGER.headlineLine1}ms` }}
+          >
+            Your codebase,
+          </span>
+          <span
+            className="block animate-fade-up text-primary sm:whitespace-nowrap"
+            style={{ animationDelay: `${HERO_STAGGER.headlineLine2}ms` }}
+          >
             explained in place.
           </span>
         </h1>
         <p
           className="max-w-xl animate-fade-up text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
-          style={{ animationDelay: '220ms' }}
+          style={{ animationDelay: `${HERO_STAGGER.tagline}ms` }}
         >
           An open-source, self-hostable Q&amp;A surface for any public repo. Every answer is cited back to a file you
           can open. Run it on your own machine, with your own keys.
         </p>
         <div
           className="flex animate-fade-up flex-col gap-3 sm:flex-row sm:items-center"
-          style={{ animationDelay: '320ms' }}
+          style={{ animationDelay: `${HERO_STAGGER.ctas}ms` }}
         >
           <Button asChild size="lg" className="w-full sm:w-auto">
             <a href={REPO_URL} rel="noreferrer" target="_blank" aria-label="View Systify on GitHub">
@@ -71,6 +76,7 @@ export function Hero() {
       <div>
         <div className="flex justify-end">
           <button
+            type="button"
             onClick={handleReplay}
             className="inline-flex items-center gap-1.5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Replay hero animation"
@@ -97,26 +103,47 @@ function StatusPill() {
   );
 }
 
+/**
+ * Single source of truth for the bottom-of-hero stats row. Editing a row
+ * (label or value) only requires changing this array — the markup loop
+ * stays untouched. Vertical dividers between rows are inserted by the
+ * renderer.
+ */
+const HERO_STATS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: 'Answers', value: 'file-cited' },
+  { label: 'License', value: 'MIT' },
+  { label: 'Run', value: 'your machine' },
+];
+
 function Stat() {
   return (
     <dl
       className="mt-2 flex animate-fade-up items-center justify-between gap-3 border-t border-border/60 pt-5 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground sm:justify-start sm:gap-10 sm:text-[12px]"
-      style={{ animationDelay: '420ms' }}
+      style={{ animationDelay: `${HERO_STAGGER.stat}ms` }}
     >
-      <div className="flex min-w-0 flex-col gap-1">
-        <dt className="opacity-70">Answers</dt>
-        <dd className="truncate text-[13px] tracking-tight text-foreground sm:text-[14px]">file-cited</dd>
-      </div>
-      <div className="h-8 w-px shrink-0 bg-border" aria-hidden />
-      <div className="flex min-w-0 flex-col gap-1">
-        <dt className="opacity-70">License</dt>
-        <dd className="truncate text-[13px] tracking-tight text-foreground sm:text-[14px]">MIT</dd>
-      </div>
-      <div className="h-8 w-px shrink-0 bg-border" aria-hidden />
-      <div className="flex min-w-0 flex-col gap-1">
-        <dt className="opacity-70">Run</dt>
-        <dd className="truncate text-[13px] tracking-tight text-foreground sm:text-[14px]">your machine</dd>
-      </div>
+      {HERO_STATS.map(({ label, value }, idx) => (
+        <StatRow key={label} label={label} value={value} withDividerBefore={idx > 0} />
+      ))}
     </dl>
+  );
+}
+
+function StatRow({
+  label,
+  value,
+  withDividerBefore,
+}: {
+  label: string;
+  value: string;
+  withDividerBefore: boolean;
+}) {
+  return (
+    <>
+      {withDividerBefore && <div className="h-8 w-px shrink-0 bg-border" aria-hidden />}
+      <div className="flex min-w-0 flex-col gap-1">
+        <dt className="opacity-70">{label}</dt>
+        <dd className="truncate text-[13px] tracking-tight text-foreground sm:text-[14px]">{value}</dd>
+      </div>
+    </>
   );
 }

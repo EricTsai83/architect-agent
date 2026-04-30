@@ -49,3 +49,21 @@ export type FaqEntry = {
 };
 
 export type CommandStep = string;
+
+/**
+ * Anchor entry for the sticky `<SiteHeader />` nav. The `href` is always a
+ * fragment (`#…`) — external links don't belong in the in-page nav.
+ */
+export type HeaderNavLink = {
+  href: `#${string}`;
+  label: string;
+};
+
+/**
+ * One bullet under the `<SelfHost />` headline. Modeled as an object (not
+ * a bare string) so the data layer can grow new fields — e.g. an icon or
+ * a tooltip — without breaking call sites.
+ */
+export type SelfHostFeature = {
+  label: string;
+};

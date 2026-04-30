@@ -2,7 +2,7 @@ import { Check, Copy } from '@phosphor-icons/react';
 
 import { Button } from '@/components/ui/button';
 import { useClipboard } from '@/hooks/use-clipboard';
-import { CLONE_COMMAND_TEXT, CLONE_STEPS, REPO_URL } from '../data';
+import { CLONE_COMMAND_TEXT, CLONE_STEPS, REPO_URL, SELF_HOST_FEATURES } from '../data';
 import { Reveal } from '../primitives/reveal';
 import { CornerMarks } from '../primitives/corner-marks';
 
@@ -39,24 +39,29 @@ export function SelfHost() {
           </div>
 
           <ul className="mt-2 grid grid-cols-1 gap-2.5 font-mono text-[12.5px] text-muted-foreground sm:grid-cols-2 sm:text-[13px]">
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">MIT licensed</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">No vendor lock-in</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">Bring your own keys</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">Public-repo first</span>
-            </li>
+            {SELF_HOST_FEATURES.map(({ label }) => (
+              <FeatureBullet key={label} label={label} />
+            ))}
           </ul>
         </div>
 
         <CloneTerminal />
       </section>
     </Reveal>
+  );
+}
+
+/**
+ * Single bullet row for the self-host feature list. Visual: a small filled
+ * primary square + the label, with `min-w-0`+`shrink-0` to keep long labels
+ * from blowing past the grid column on narrow screens.
+ */
+function FeatureBullet({ label }: { label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span aria-hidden className="size-1.5 shrink-0 bg-primary" />
+      <span className="min-w-0">{label}</span>
+    </li>
   );
 }
 
