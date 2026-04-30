@@ -1,7 +1,6 @@
 import {
   createBrowserRouter,
   createMemoryRouter,
-  matchRoutes,
   type RouteObject,
 } from 'react-router-dom';
 import {
@@ -12,6 +11,7 @@ import {
   ProtectedLayout,
   RouteErrorBoundary,
 } from '@/router-layouts';
+import { AUTH_CALLBACK_ROUTE_SEGMENT, PROTECTED_ROUTE_SEGMENTS } from '@/route-paths';
 
 async function loadChatRoute() {
   const module = await import('@/pages/chat');
@@ -30,12 +30,12 @@ const protectedRoutes: RouteObject[] = [
   // it to the most recent thread (`/t/:threadId`) when one exists, or
   // renders the dual-CTA empty state when none does. Per PRD #19 user
   // story 27 ("most recent thread loads on landing").
-  { path: 'chat', lazy: loadChatRoute },
+  { path: PROTECTED_ROUTE_SEGMENTS.chat, lazy: loadChatRoute },
   // PRD #19 user story 25: stable, shareable URLs for design threads.
-  { path: 't/:threadId', lazy: loadChatRoute },
+  { path: PROTECTED_ROUTE_SEGMENTS.thread, lazy: loadChatRoute },
   // PRD #19 user story 26: stable, shareable URLs for repository overviews
   // (artifacts + threads grounded in that repo).
-  { path: 'r/:repoId', lazy: loadChatRoute },
+  { path: PROTECTED_ROUTE_SEGMENTS.repository, lazy: loadChatRoute },
 ];
 
 export const appRoutes: RouteObject[] = [
@@ -45,31 +45,12 @@ export const appRoutes: RouteObject[] = [
     ErrorBoundary: RouteErrorBoundary,
     children: [
       { index: true, Component: LandingRoute },
-      { path: 'callback', Component: AuthCallbackRoute },
+      { path: AUTH_CALLBACK_ROUTE_SEGMENT, Component: AuthCallbackRoute },
       { Component: ProtectedLayout, children: protectedRoutes },
       { path: '*', Component: NotFoundRoute },
     ],
   },
 ];
-
-/**
- * True when `pathname` matches one of the routes mounted under
- * {@link ProtectedLayout}. Used by `normalizeReturnTo` (in router-layouts) to
- * gate which destinations are valid post-login targets.
- *
- * Derived from {@link protectedRoutes} via `matchRoutes`, so:
- *  - Adding a protected route automatically extends the allowlist.
- *  - Matching is exact (e.g. `/t/abc/extra` is rejected because `t/:threadId`
- *    has no trailing wildcard), which is stricter — and more correct — than
- *    `pathname.startsWith('/t/')`.
- *
- * Callers should pass the URL's parsed `pathname` (no query/hash).
- */
-export function isProtectedReturnTo(pathname: string): boolean {
-  return (
-    matchRoutes([{ path: '/', children: protectedRoutes }], pathname) !== null
-  );
-}
 
 export function createAppRouter() {
   return createBrowserRouter(appRoutes);

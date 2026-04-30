@@ -1,75 +1,45 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { useConvexAuth } from 'convex/react';
-import { HomePage } from '@/pages/home';
-import { AppNotice } from '@/components/app-notice';
-import { ScreenState } from '@/components/screen-state';
-import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
+import type { ComponentProps } from 'react';
+import { AuthKitProvider, useAuth } from '@workos-inc/authkit-react';
+import { ConvexReactClient } from 'convex/react';
+import { RouterProvider } from 'react-router-dom';
+import { ConvexProviderWithAuthKit } from '@/providers/convex-provider-with-auth-kit';
+import { ErrorBoundary } from '@/providers/error-boundary';
+import { ThemeProvider } from '@/providers/theme-provider';
+import { createAppRouter } from '@/router';
+import { AUTH_CALLBACK_PATH } from '@/route-paths';
 
-const ChatPage = lazy(async () => {
-  const module = await import('@/pages/chat');
-  return { default: module.ChatPage };
-});
+type AppRouter = ComponentProps<typeof RouterProvider>['router'];
+type ConvexClient = ComponentProps<typeof ConvexProviderWithAuthKit>['client'];
+type AuthHook = ComponentProps<typeof ConvexProviderWithAuthKit>['useAuth'];
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useConvexAuth();
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
+const router = createAppRouter();
+const workosRedirectUri = new URL(AUTH_CALLBACK_PATH, window.location.origin).toString();
 
-  if (isLoading) {
-    return <AuthLoadingScreen />;
-  }
+type AppProps = {
+  router?: AppRouter;
+  convexClient?: ConvexClient;
+  useAuthHook?: AuthHook;
+  workosClientId?: string;
+  redirectUri?: string;
+};
 
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-}
-
-export default function App() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const { authError } = useConvexAuthStatus();
-
+export function App({
+  router: appRouter = router,
+  convexClient = convex,
+  useAuthHook = useAuth,
+  workosClientId = import.meta.env.VITE_WORKOS_CLIENT_ID,
+  redirectUri = workosRedirectUri,
+}: AppProps = {}) {
   return (
-    <div className="relative flex h-dvh overflow-hidden bg-background">
-      {authError ? (
-        <div className="absolute inset-x-0 top-0 z-10 border-b border-border px-4 py-3">
-          <AppNotice
-            title="Authentication error"
-            message={authError}
-            tone="error"
-            actionLabel="Refresh"
-            onAction={() => window.location.reload()}
-          />
-        </div>
-      ) : null}
-      <Routes>
-        <Route
-          path="/"
-          element={
-            isLoading ? <AuthLoadingScreen /> : isAuthenticated ? <Navigate to="/chat" replace /> : <HomePage />
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <Suspense fallback={<AuthLoadingScreen />}>
-                <ChatPage />
-              </Suspense>
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </div>
-  );
-}
-
-function AuthLoadingScreen() {
-  return (
-    <ScreenState
-      title="Authenticating…"
-      description="Reconnecting your session and loading your workspace."
-      isLoading
-    />
+    <ErrorBoundary>
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <AuthKitProvider clientId={workosClientId} redirectUri={redirectUri}>
+          <ConvexProviderWithAuthKit client={convexClient} useAuth={useAuthHook}>
+            <RouterProvider router={appRouter} />
+          </ConvexProviderWithAuthKit>
+        </AuthKitProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

@@ -13,8 +13,16 @@ import { AppNotice } from '@/components/app-notice';
 import { ScreenState } from '@/components/screen-state';
 import { Button } from '@/components/ui/button';
 import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
-import { isProtectedReturnTo } from '@/router';
+import {
+  AUTH_CALLBACK_PATH,
+  DEFAULT_AUTHENTICATED_PATH,
+  LANDING_PATH,
+  isProtectedReturnTo,
+} from '@/route-paths';
 import { HomePage } from '@/pages/home';
+
+const MAX_CALLBACK_ERROR_DESCRIPTION_LENGTH = 240;
+
 /**
  * sessionStorage key used to remember the protected URL an unauthenticated
  * user attempted to visit, so AuthCallbackRoute can return them there after
@@ -49,7 +57,7 @@ export function LandingRoute() {
 
   // Auth confirmed — redirect logged-in users to the app.
   if (!isLoading && isAuthenticated) {
-    return <Navigate to="/chat" replace />;
+    return <Navigate to={DEFAULT_AUTHENTICATED_PATH} replace />;
   }
 
   // Render the static home page immediately, even while auth is still
@@ -73,7 +81,7 @@ export function ProtectedLayout() {
   //      we'd stash a "return-to" entry for a user who is actually already
   //      authenticated (initial `isAuthenticated` is `false` simply because
   //      the auth check hasn't completed yet) and never clean it up — the
-  //      callback-side cleanup only runs on `/callback`.
+  //      callback-side cleanup only runs on the auth callback route.
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       persistAuthReturnTo(attemptedPath);
@@ -85,7 +93,7 @@ export function ProtectedLayout() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={LANDING_PATH} replace />;
   }
 
   return (
@@ -120,7 +128,7 @@ export function AuthCallbackRoute() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      window.sessionStorage.removeItem(AUTH_RETURN_TO_KEY);
+      removeStoredReturnTo();
     }
   }, [isAuthenticated]);
 
@@ -141,7 +149,7 @@ export function AuthCallbackRoute() {
           {isSlow ? (
             <div className="mt-5 flex items-center justify-center gap-3">
               <Button asChild variant="secondary">
-                <Link to="/" replace>
+                <Link to={LANDING_PATH} replace>
                   Back to home
                 </Link>
               </Button>
@@ -154,7 +162,7 @@ export function AuthCallbackRoute() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={returnTo ?? '/chat'} replace />;
+    return <Navigate to={returnTo ?? DEFAULT_AUTHENTICATED_PATH} replace />;
   }
 
   const { title, description } = mapCallbackErrorToCopy({
@@ -169,7 +177,7 @@ export function AuthCallbackRoute() {
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
         <div className="mt-5 flex items-center justify-center gap-3">
           <Button asChild variant="secondary">
-            <Link to="/" replace>
+            <Link to={LANDING_PATH} replace>
               Back to home
             </Link>
           </Button>
@@ -212,7 +220,7 @@ export function NotFoundRoute() {
         <p className="mt-2 text-sm text-muted-foreground">The link may be outdated, or the page was moved.</p>
         <div className="mt-5 flex justify-center">
           <Button asChild>
-            <Link to="/">Go to home</Link>
+            <Link to={LANDING_PATH}>Go to home</Link>
           </Button>
         </div>
       </div>
@@ -229,13 +237,13 @@ function RouteLoadingScreen({ description }: { description: string }) {
 }
 
 function getStoredReturnTo() {
-  const value = window.sessionStorage.getItem(AUTH_RETURN_TO_KEY);
+  const value = readStoredReturnTo();
   if (!value) {
     return null;
   }
   const normalized = normalizeReturnTo(value);
   if (normalized === null) {
-    window.sessionStorage.removeItem(AUTH_RETURN_TO_KEY);
+    removeStoredReturnTo();
     return null;
   }
   return normalized;
@@ -248,6 +256,8 @@ function mapCallbackErrorToCopy({
   callbackError: string | null;
   callbackErrorDescription: string | null;
 }) {
+  const safeCallbackErrorDescription = normalizeCallbackErrorDescription(callbackErrorDescription);
+
   if (callbackError === 'access_denied') {
     return {
       title: 'Sign-in was cancelled',
@@ -262,10 +272,10 @@ function mapCallbackErrorToCopy({
     };
   }
 
-  if (callbackErrorDescription) {
+  if (safeCallbackErrorDescription) {
     return {
       title: 'We could not complete your sign-in',
-      description: callbackErrorDescription,
+      description: safeCallbackErrorDescription,
     };
   }
 
@@ -287,7 +297,7 @@ function persistAuthReturnTo(path: string) {
   if (normalized === null) {
     return;
   }
-  window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, normalized);
+  writeStoredReturnTo(normalized);
 }
 
 function normalizeReturnTo(path: string) {
@@ -302,12 +312,12 @@ function normalizeReturnTo(path: string) {
     if (parsed.origin !== window.location.origin) {
       return null;
     }
-    // Defense-in-depth: never return the user to `/callback`, which would
+    // Defense-in-depth: never return the user to the callback route, which would
     // create a redirect loop. Use an exact pathname match so we don't
     // overbroadly reject siblings like `/callback-help` if such routes are
     // ever added (and we still rely on `isProtectedReturnTo` as the
     // single-source allowlist below).
-    if (parsed.pathname === '/callback') {
+    if (parsed.pathname === AUTH_CALLBACK_PATH) {
       return null;
     }
     if (!isProtectedReturnTo(parsed.pathname)) {
@@ -316,5 +326,43 @@ function normalizeReturnTo(path: string) {
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return null;
+  }
+}
+
+function normalizeCallbackErrorDescription(description: string | null) {
+  if (!description) {
+    return null;
+  }
+  const trimmed = description.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.length <= MAX_CALLBACK_ERROR_DESCRIPTION_LENGTH) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, MAX_CALLBACK_ERROR_DESCRIPTION_LENGTH)}...`;
+}
+
+function readStoredReturnTo() {
+  try {
+    return window.sessionStorage.getItem(AUTH_RETURN_TO_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredReturnTo(path: string) {
+  try {
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, path);
+  } catch {
+    // Browsers can deny storage in privacy modes; auth should still continue.
+  }
+}
+
+function removeStoredReturnTo() {
+  try {
+    window.sessionStorage.removeItem(AUTH_RETURN_TO_KEY);
+  } catch {
+    // Ignore unavailable storage; the in-memory auth flow can still complete.
   }
 }

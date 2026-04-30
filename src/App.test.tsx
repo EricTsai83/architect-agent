@@ -3,12 +3,30 @@
 import type React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { AppRouter } from './app-router';
-import { ConvexProviderWithAuthKit } from './providers/convex-provider-with-auth-kit';
+import { App } from './App';
 import { createAppMemoryRouter } from './router';
 import { AUTH_RETURN_TO_KEY } from './router-layouts';
 
 const getAccessTokenMock = vi.fn<() => Promise<string | null>>();
+
+vi.mock('@workos-inc/authkit-react', async () => {
+  const React = await import('react');
+
+  return {
+    AuthKitProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+    useAuth: vi.fn(),
+  };
+});
+
+vi.mock('@/providers/theme-provider', async () => {
+  const React = await import('react');
+
+  return {
+    ThemeProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+  };
+});
 
 vi.mock('@/pages/home', () => ({
   HomePage: () => <div>home page</div>,
@@ -162,6 +180,7 @@ describe('App auth token failures', () => {
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/r/repo_123');
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull();
   });
 
   test('ignores unsafe callback return destination and falls back to /chat', async () => {
@@ -179,6 +198,25 @@ describe('App auth token failures', () => {
 
     expect(await screen.findByText('chat page')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/chat');
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull();
+  });
+
+  test('ignores callback return destination to avoid redirect loops', async () => {
+    window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, '/callback?code=stale-code');
+
+    function useAuth() {
+      return {
+        isLoading: false,
+        user: { id: 'user_1' },
+        getAccessToken: getAccessTokenMock,
+      };
+    }
+
+    const router = renderWithAuth(useAuth, ['/callback?code=test-code']);
+
+    expect(await screen.findByText('chat page')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/chat');
+    expect(window.sessionStorage.getItem(AUTH_RETURN_TO_KEY)).toBeNull();
   });
 
   test('shows a clear callback error message for cancelled sign-in', async () => {
@@ -223,9 +261,13 @@ function renderWithAuth(
   const router = createAppMemoryRouter(initialEntries);
 
   render(
-    <ConvexProviderWithAuthKit client={{} as never} useAuth={useAuth}>
-      <AppRouter router={router} />
-    </ConvexProviderWithAuthKit>,
+    <App
+      router={router}
+      convexClient={{} as never}
+      useAuthHook={useAuth}
+      workosClientId="client_test"
+      redirectUri="http://localhost/callback"
+    />,
   );
 
   return router;
