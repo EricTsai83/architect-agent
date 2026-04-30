@@ -3,12 +3,30 @@
 import type React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { AppRouter } from './app-router';
-import { ConvexProviderWithAuthKit } from './providers/convex-provider-with-auth-kit';
+import { App } from './App';
 import { createAppMemoryRouter } from './router';
 import { AUTH_RETURN_TO_KEY } from './router-layouts';
 
 const getAccessTokenMock = vi.fn<() => Promise<string | null>>();
+
+vi.mock('@workos-inc/authkit-react', async () => {
+  const React = await import('react');
+
+  return {
+    AuthKitProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+    useAuth: vi.fn(),
+  };
+});
+
+vi.mock('@/providers/theme-provider', async () => {
+  const React = await import('react');
+
+  return {
+    ThemeProvider: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
+  };
+});
 
 vi.mock('@/pages/home', () => ({
   HomePage: () => <div>home page</div>,
@@ -243,9 +261,13 @@ function renderWithAuth(
   const router = createAppMemoryRouter(initialEntries);
 
   render(
-    <ConvexProviderWithAuthKit client={{} as never} useAuth={useAuth}>
-      <AppRouter router={router} />
-    </ConvexProviderWithAuthKit>,
+    <App
+      router={router}
+      convexClient={{} as never}
+      useAuthHook={useAuth}
+      workosClientId="client_test"
+      redirectUri="http://localhost/callback"
+    />,
   );
 
   return router;
