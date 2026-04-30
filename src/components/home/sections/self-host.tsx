@@ -14,10 +14,10 @@ export function SelfHost() {
       <section
         id="self-host"
         aria-labelledby={HEADING_ID}
-        className="relative grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-14"
+        className="relative grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-start lg:gap-14"
       >
-        <div className="flex flex-col gap-6">
-          <h2 id={HEADING_ID} className="text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+        <div className="flex min-w-0 flex-col gap-6">
+          <h2 id={HEADING_ID} className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">
             Run it on{' '}
             <span className="relative">
               <span className="relative z-10">your</span>
@@ -31,25 +31,25 @@ export function SelfHost() {
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button asChild size="lg" variant="secondary">
+            <Button asChild size="lg" variant="secondary" className="w-full sm:w-auto">
               <a href={`${REPO_URL}#readme`} rel="noreferrer" target="_blank" className="text-[15px]">
                 Read the README <span aria-hidden>→</span>
               </a>
             </Button>
           </div>
 
-          <ul className="mt-2 grid grid-cols-1 gap-2.5 font-mono text-[13px] text-muted-foreground sm:grid-cols-2">
+          <ul className="mt-2 grid grid-cols-1 gap-2.5 font-mono text-[12.5px] text-muted-foreground sm:grid-cols-2 sm:text-[13px]">
             <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 bg-primary" /> MIT licensed
+              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">MIT licensed</span>
             </li>
             <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 bg-primary" /> No vendor lock-in
+              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">No vendor lock-in</span>
             </li>
             <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 bg-primary" /> Bring your own keys
+              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">Bring your own keys</span>
             </li>
             <li className="flex items-center gap-2">
-              <span aria-hidden className="size-1.5 bg-primary" /> Public-repo first
+              <span aria-hidden className="size-1.5 shrink-0 bg-primary" /> <span className="min-w-0">Public-repo first</span>
             </li>
           </ul>
         </div>
@@ -62,7 +62,7 @@ export function SelfHost() {
 
 function CloneTerminal() {
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <div
         aria-hidden
         className="absolute -inset-6 -z-10 opacity-60 blur-3xl"
@@ -74,21 +74,21 @@ function CloneTerminal() {
       <div className="relative overflow-hidden border border-border bg-card/85 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.4)] backdrop-blur">
         <CornerMarks />
 
-        <div className="flex items-center justify-between border-b border-border bg-muted/40 px-4 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
-          <span>~/projects</span>
-          <span className="inline-flex items-center gap-1.5 normal-case">
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2.5 font-mono text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground sm:px-4">
+          <span className="min-w-0 truncate">~/projects</span>
+          <span className="inline-flex shrink-0 items-center gap-1.5 normal-case">
             <span aria-hidden className="size-1 rounded-full bg-emerald-500 animate-pulse-soft" />
             <span className="tracking-tight">bash</span>
           </span>
         </div>
 
-        <div className="space-y-3.5 p-5 font-mono text-[12.5px] leading-relaxed">
+        <div className="space-y-3.5 p-3 font-mono text-[12px] leading-relaxed sm:p-5 sm:text-[12.5px]">
           {CLONE_STEPS.map((step) => (
             <CommandRow key={step} value={step} />
           ))}
 
-          <div className="flex items-center justify-between border-t border-border/60 pt-3 text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span>local · :5173</span>
+          <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="min-w-0 truncate">local · :5173</span>
             <CopyAllButton />
           </div>
         </div>

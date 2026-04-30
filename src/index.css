@@ -223,6 +223,17 @@
   }
 }
 
+@keyframes caret-border {
+  0%,
+  49% {
+    border-color: currentColor;
+  }
+  50%,
+  100% {
+    border-color: transparent;
+  }
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -244,12 +255,51 @@
   }
 }
 
-@keyframes line-draw-y {
+@keyframes fade-in {
   from {
-    transform: scaleY(0);
+    opacity: 0;
   }
   to {
+    opacity: 1;
+  }
+}
+
+@keyframes guide-accent {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.7;
+  }
+  40% {
     transform: scaleY(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes send-press {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(0.88);
+    filter: brightness(1.15);
   }
 }
 
@@ -259,6 +309,106 @@
   }
   to {
     width: var(--type-width, 100%);
+  }
+}
+
+/*
+ * Beckoning cat scene on the Quick answers panel. Two keyframes drive
+ * the illustration: an ASCII wink (the cat's `o.o` eyes flip to a
+ * happy `^.^` for a beat) and a gentle trail of rising hearts.
+ * Together they read as "invitation" rather than "welcome" — the cat
+ * is sending affection, not just greeting.
+ */
+
+/* Blink — squashes the eye group via scaleY so the eyes close
+ * naturally. Double-blink pattern on a 4.5s cycle: eyes are wide
+ * open most of the time, then squeeze shut twice in quick succession
+ * around the 78-88% mark. */
+@keyframes cat-blink {
+  0%,
+  76%,
+  82%,
+  88%,
+  100% {
+    transform: scaleY(1);
+  }
+  78%,
+  80% {
+    transform: scaleY(0.05);
+  }
+  84%,
+  86% {
+    transform: scaleY(0.05);
+  }
+}
+
+/* Tail wag — gentle pendulum swing anchored at the tail base.
+ * Asymmetric so it reads organic, not mechanical. */
+@keyframes cat-tail-wag {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(10deg);
+  }
+  70% {
+    transform: rotate(-7deg);
+  }
+}
+
+/* Head tilt — very subtle side-to-side lean. Slow cycle so it
+ * reads as idle curiosity, not agitation. */
+@keyframes cat-head-tilt {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(2.5deg);
+  }
+  65% {
+    transform: rotate(-2deg);
+  }
+}
+
+/* Ear twitch — one quick two-part flick near the end of the cycle,
+ * then settle back. Fires roughly every 7s. */
+@keyframes cat-ear-twitch {
+  0%,
+  82%,
+  96%,
+  100% {
+    transform: rotate(0deg);
+  }
+  86% {
+    transform: rotate(-12deg);
+  }
+  91% {
+    transform: rotate(3deg);
+  }
+}
+
+/* Heart rise — a heart fades in just above the cat's head, drifts
+   upward, and fades out at the top. `--heart-delay` per instance
+   staggers the trio so at any moment one heart is starting, one is
+   mid-rise, and one is fading. */
+@keyframes cat-heart-rise {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  18% {
+    transform: translateY(-6px) scale(1);
+    opacity: 0.95;
+  }
+  78% {
+    transform: translateY(-34px) scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-48px) scale(0.85);
+    opacity: 0;
   }
 }
 
@@ -287,15 +437,70 @@
     animation: pulse-soft 2.4s ease-in-out infinite;
   }
 
-  .animate-line-draw-y {
-    animation: line-draw-y 0.8s cubic-bezier(0.32, 0.72, 0, 1) both;
+  .animate-fade-in {
+    animation: fade-in 0.8s ease both;
+  }
+
+  .animate-guide-accent {
+    animation: guide-accent 1.5s cubic-bezier(0.32, 0.72, 0, 1) both;
     transform-origin: top;
+  }
+
+  .animate-fade-out {
+    animation: fade-out 0.3s ease both;
+  }
+
+  .animate-send-press {
+    animation: send-press 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  .animate-hero-typing {
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+    max-width: max-content;
+    line-height: 1.3;
+    border-right: 2px solid transparent;
+    animation: typing 1.4s steps(40, end) both, caret-border 1.05s steps(1, end) infinite;
   }
 
   .animate-typing {
     overflow: hidden;
     white-space: nowrap;
     animation: typing 1.6s steps(36, end) both;
+  }
+
+  .animate-cat-blink {
+    animation: cat-blink 4.5s ease infinite;
+    transform-box: view-box;
+    transform-origin: 60px 48px;
+  }
+
+  .animate-cat-tail-wag {
+    animation: cat-tail-wag 2.8s ease-in-out infinite;
+    transform-box: view-box;
+    transform-origin: 82px 88px;
+    will-change: transform;
+  }
+
+  .animate-cat-head-tilt {
+    animation: cat-head-tilt 6s ease-in-out infinite;
+    transform-box: view-box;
+    transform-origin: 60px 68px;
+    will-change: transform;
+  }
+
+  .animate-cat-ear-twitch {
+    animation: cat-ear-twitch 7s ease-out infinite;
+    transform-box: view-box;
+    transform-origin: 38px 36px;
+    will-change: transform;
+  }
+
+  .animate-cat-heart-rise {
+    animation: cat-heart-rise 4.5s ease-out infinite;
+    animation-delay: var(--heart-delay, 0s);
+    will-change: transform, opacity;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -305,13 +510,38 @@
     .animate-caret,
     .animate-fade-up,
     .animate-pulse-soft,
-    .animate-line-draw-y,
-    .animate-typing {
+    .animate-fade-in,
+    .animate-guide-accent,
+    .animate-typing,
+    .animate-cat-blink,
+    .animate-cat-tail-wag,
+    .animate-cat-head-tilt,
+    .animate-cat-ear-twitch,
+    .animate-cat-heart-rise,
+    .animate-fade-out,
+    .animate-send-press,
+    .animate-hero-typing {
       animation: none;
+    }
+
+    .animate-hero-typing {
+      overflow: visible;
+      white-space: normal;
+      border-right: none;
+      width: auto;
+      max-width: none;
     }
 
     .animate-typing {
       width: var(--type-width, 100%);
+    }
+
+    /* With motion off, hearts would otherwise sit at their `0%` state
+       (scaled down + invisible). Pin them to a calm resting position
+       so the scene still reads as alive instead of empty. */
+    .animate-cat-heart-rise {
+      opacity: 0.7;
+      transform: translateY(-6px) scale(1);
     }
   }
 }

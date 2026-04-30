@@ -8,23 +8,6 @@ type LogoProps = {
 const VB = 256;
 const RADIUS = 56;
 
-// Cursor: tip at upper-right, shape is perfectly symmetric along the 45° diagonal (upper-right ↔ lower-left).
-// Symmetry means: any point (x, y) mirrors to (256-y, 256-x) (diagonal is y = 256-x).
-// Tip: (216, 40) → mirrors to (216, 40) ✓ (on the diagonal)
-// Outer left: (40, 112) ↔ outer bottom: (144, 216)   [256-112=144, 256-40=216]
-// Inner left: (40, 128) ↔ inner bottom: (128, 216)   [256-128=128, 256-40=216]
-// Concave point: (p, q) must lie on the diagonal → q = 256-p, picked (112, 144)
-const CURSOR_PATH = [
-  'M 216 40',
-  'L 40 112',
-  'Q 24 120 40 128',
-  'L 112 144',
-  'L 128 216',
-  'Q 136 232 144 216',
-  'L 216 40',
-  'Z',
-].join(' ');
-
 export function Logo({ size = 36, className, hero = false }: LogoProps) {
   return (
     <svg
@@ -40,12 +23,26 @@ export function Logo({ size = 36, className, hero = false }: LogoProps) {
       {hero ? <circle cx={VB / 2} cy={VB / 2} r={VB / 2 - 4} fill="url(#aaLogoHalo)" /> : null}
 
       <g clipPath="url(#aaLogoClip)">
-        {/* Pink lower-left / blue upper-right, split along the top-left→bottom-right diagonal */}
+        {/* Pink lower-left / blue upper-right, split along the diagonal */}
         <path d={`M0 0 L0 ${VB} L${VB} ${VB} Z`} fill="url(#aaLogoPink)" />
         <path d={`M0 0 L${VB} ${VB} L${VB} 0 Z`} fill="url(#aaLogoBlue)" />
 
-        {/* Cursor arrow: tip pointing upper-right, drawn directly in the target coordinate system */}
-        <path d={CURSOR_PATH} fill="currentColor" />
+        {/* Four modular blocks — one large primary + three smaller, arranged in
+            a 2×2-ish grid with gap channels between them that read as interface
+            boundaries. The asymmetry conveys hierarchy (core → service → modules)
+            while staying abstract enough to work as a brand mark. Fill is
+            hard-coded white so the blocks stay high-contrast regardless of the
+            parent's text color. */}
+        <rect x="40" y="40" width="96" height="96" rx="16" fill="#FFFFFF" />
+        <rect x="148" y="40" width="68" height="68" rx="12" fill="#FFFFFF" opacity="0.8" />
+        <rect x="148" y="120" width="68" height="96" rx="12" fill="#FFFFFF" opacity="0.6" />
+        <rect x="40" y="148" width="96" height="68" rx="12" fill="#FFFFFF" opacity="0.7" />
+
+        {/* Small connector dots in the gap channels hint at data flow between modules */}
+        <circle cx="140" cy="88" r="4" fill="#FFFFFF" opacity="0.5" />
+        <circle cx="140" cy="182" r="4" fill="#FFFFFF" opacity="0.5" />
+        <circle cx="88" cy="140" r="4" fill="#FFFFFF" opacity="0.5" />
+        <circle cx="182" cy="112" r="4" fill="#FFFFFF" opacity="0.5" />
       </g>
 
       {hero ? <HeroShimmer /> : null}

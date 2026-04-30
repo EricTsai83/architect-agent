@@ -1,5 +1,12 @@
-import type { ReactNode } from 'react';
-import { ArrowsClockwiseIcon, DotsThreeVerticalIcon, FileTextIcon, List, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { forwardRef, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import {
+  ArrowsClockwiseIcon,
+  DotsThreeVerticalIcon,
+  FileTextIcon,
+  ListIcon,
+  MagnifyingGlassIcon,
+  PaperPlaneTiltIcon,
+} from '@phosphor-icons/react';
 
 import { GitHubIcon } from '@/components/icons';
 import { CornerMarks } from '../primitives/corner-marks';
@@ -21,45 +28,53 @@ import { CornerMarks } from '../primitives/corner-marks';
  *   - composer → chat-panel.tsx form            (textarea, mode pill, Send)
  *
  * Streaming choreography stands in for the real Convex stream: the user
- * message slides in first, the assistant header appears in `Generating`
- * state, and body chunks fade in sequentially as if tokens were arriving.
- * Every keyframe respects `prefers-reduced-motion` via the existing
- * utility classes (`animate-fade-up`, `animate-pulse-soft`,
- * `animate-scan-y`) — see `src/index.css` for the override block.
+ * types a question in the composer, presses Send, the user message slides
+ * in, the assistant header appears in `Generating` state, a tool-call
+ * card enters, and body chunks stream in word-by-word as if tokens were
+ * arriving. Every keyframe respects `prefers-reduced-motion` via the
+ * existing utility classes — see `src/index.css` for the override block.
  */
-export function HeroChat() {
+
+/* ── timing (ms from mount) ─────────────────────────────────────── */
+const TYPING_START = 800;
+const TYPING_DURATION = 1500;
+const SEND_PRESS = TYPING_START + TYPING_DURATION + 200; // 2500
+const COMPOSE_CLEAR = SEND_PRESS + 300; // 2800
+const USER_MSG = COMPOSE_CLEAR + 200; // 3000
+const ASST_HEADER = USER_MSG + 1000; // 4000
+const TOOL_CALL = ASST_HEADER + 400; // 4400
+const STREAM_START = TOOL_CALL + 1200; // 5600
+const STREAM_WORD_STEP = 60; // ms between each word
+
+const TYPED_TEXT = 'How does the App Router resolve nested layouts?';
+
+const BODY_TEXT =
+  'Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:';
+const BODY_WORDS = BODY_TEXT.split(/\s+/);
+const STREAM_END = STREAM_START + BODY_WORDS.length * STREAM_WORD_STEP + 300;
+
+export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref) {
   return (
-    <div className="relative animate-fade-up" style={{ animationDelay: '180ms' }}>
+    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: '600ms' }}>
       <div
-        aria-hidden
-        className="absolute -inset-8 -z-10 opacity-70 blur-3xl"
-        style={{
-          backgroundImage: 'radial-gradient(50% 50% at 50% 50%, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 70%)',
-        }}
-      />
-
-      <div className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_30px_80px_-30px_rgba(56,189,248,0.35)] backdrop-blur">
-        {/* scan line — keeps the existing tech-style motion vocabulary */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px animate-scan-y bg-linear-to-r from-transparent via-primary/70 to-transparent"
-        />
-
+        ref={ref}
+        className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur"
+      >
         <CornerMarks />
 
         <ChatTopBar />
 
         {/* Chat body — same layout vocabulary as <ChatPanel /> */}
-        <div className="flex flex-col gap-3 px-5 py-5">
-          <UserMessage delay={500}>Where does middleware live in this codebase?</UserMessage>
-          <AssistantMessage delay={1000} />
+        <div className="flex flex-col gap-3 px-3 py-4 sm:px-5 sm:py-5">
+          <UserMessage delay={USER_MSG}>{TYPED_TEXT}</UserMessage>
+          <AssistantMessage delay={ASST_HEADER} />
         </div>
 
         <ChatComposer />
       </div>
     </div>
   );
-}
+});
 
 /**
  * Top-bar mock. The real `<TopBar />` renders the sidebar trigger, repo
@@ -71,20 +86,20 @@ export function HeroChat() {
 function ChatTopBar() {
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3">
-      <span aria-hidden className="flex size-7 items-center justify-center text-muted-foreground/70">
-        <List weight="bold" className="size-4" />
+      <span aria-hidden className="flex size-7 shrink-0 items-center justify-center text-muted-foreground/70">
+        <ListIcon weight="bold" className="size-4" />
       </span>
 
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <GitHubIcon className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate text-[12.5px] font-semibold tracking-tight">vercel/next.js</span>
-        <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
           <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
           ready
         </span>
       </div>
 
-      <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         <span className="hidden items-center gap-1 sm:inline-flex">
           <ArrowsClockwiseIcon weight="bold" className="size-3" />
           synced 14s ago
@@ -102,97 +117,221 @@ function ChatTopBar() {
  */
 function UserMessage({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
-        <p className="text-[10px] text-muted-foreground">Ready</p>
+    <div className="relative pl-2">
+      <GuideAccent delay={delay + 100} />
+      <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
+          <p className="text-[10px] text-muted-foreground">Ready</p>
+        </div>
+        <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
       </div>
-      <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
     </div>
   );
 }
 
-// Citation streaming choreography. Each row enters a fixed step after the
-// assistant header; numbers are kept at module scope so they're easy to
-// retune in one place rather than scattered across JSX.
-const CITATION_STEP_MS = 200;
-const ASSISTANT_BODY_DELAY_MS = 250;
-const CITATION_BASE_DELAY_MS = 600;
-const GROUNDED_FOOTER_DELAY_MS = 1200;
-
 /**
- * Assistant message. Mirrors `MessageBubble` for role=assistant
- * (transparent background, no border, same role+status header). Body
- * chunks are staggered with `animate-fade-up` to evoke streaming, and
- * citations land as inline `<code>` chips matching how grounded answers
- * reference real files.
+ * Assistant message. The response sequence is:
+ *   1. **Tool call** card — framed retrieval phase (guide accent).
+ *   2. **Body text** — streams word-by-word to evoke LLM token
+ *      streaming (guide accent on the paragraph).
+ *   3. **Citations + footer** — fade in as a group once streaming
+ *      completes.
  */
 function AssistantMessage({ delay }: { delay: number }) {
   const citations = [
-    'packages/next/src/server/web/sandbox/sandbox.ts',
-    'packages/next/src/build/webpack/loaders/next-middleware-loader.ts',
-    'packages/next/src/server/lib/router-utils/setup-dev-bundler.ts',
+    'packages/next/src/server/app-render/app-render.tsx',
+    'packages/next/src/server/app-render/create-component-tree.tsx',
+    'packages/next/src/build/webpack/loaders/next-app-loader.ts',
   ];
 
   return (
-    <div className="animate-fade-up px-0 py-1" style={{ animationDelay: `${delay}ms` }}>
-      <div className="mb-1 flex items-center justify-between gap-3">
+    // No animation on the container — children control their own
+    // visibility. If the container also faded in, its opacity would
+    // *multiply* with each child's fade-in (e.g. the Tool Call bubble
+    // below), and the moment the container's curve completes you'd
+    // see a perceptible brightness pulse on the child's bg as the
+    // multiplier snaps to 1.
+    <div className="px-0 py-1">
+      {/* Header — fades in on its own so it can ride the parent's
+          original entry beat without dragging the rest of the block
+          into a nested animation. */}
+      <div
+        className="animate-fade-up mb-1 flex items-center justify-between gap-3"
+        style={{ animationDelay: `${delay}ms` }}
+      >
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">assistant</p>
-        <p className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
-          <span className="size-1 rounded-full bg-primary animate-pulse-soft" />
-          Generating
-        </p>
       </div>
 
       <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
-        <p className="animate-fade-up" style={{ animationDelay: `${delay + ASSISTANT_BODY_DELAY_MS}ms` }}>
-          Middleware in Next.js is wired across three layers — runtime sandbox, build pipeline, and dev bundler:
-        </p>
+        {/* ── Group 1: Tool call ──────────────────────────────────
+            Mirrors `<UserMessage />` exactly — same `pl-2` outer
+            wrapper, same bubble padding. Only the background tint
+            and the inner content differ.
 
-        <ul className="flex flex-col gap-1.5">
-          {citations.map((path, idx) => (
-            <CitationItem key={path} delay={delay + CITATION_BASE_DELAY_MS + idx * CITATION_STEP_MS}>
-              {path}
-            </CitationItem>
-          ))}
-        </ul>
+            The guide-accent line lives in the 8 px outer gutter so
+            it never overpaints the bubble's bg (which would force
+            the bubble's left strip to repaint on every animation
+            frame, reading as the message "re-rendering"). It also
+            self-tunes its duration in <GuideAccent /> so the visual
+            draw rate stays constant across messages of different
+            heights. */}
+        <div className="relative pl-2">
+          <GuideAccent delay={TOOL_CALL + 100} />
+          {/* `will-change: transform` pins this bubble to its own GPU
+              compositor layer for the lifetime of the scene. Without it,
+              the browser only auto-promotes the bubble while
+              `animate-fade-up` is actively running (~700 ms); once that
+              finishes the layer can be demoted while the sibling
+              GuideAccent is still animating for another ~1 s. In that
+              window the line's per-frame compositor work would force the
+              bubble's region — including its translucent `bg-muted/40` —
+              to be re-rasterized every frame, and the alpha blend's
+              sub-pixel rounding read as a faint background flicker. */}
+          <div
+            className="animate-fade-up bg-muted/40 px-4 py-3"
+            style={{ animationDelay: `${TOOL_CALL}ms`, willChange: 'transform' }}
+          >
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
+              <span>Search Codebase</span>
+            </div>
+            <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
+              query: &quot;App Router nested layouts&quot;
+            </p>
+            <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
+              <span className="size-1 rounded-full bg-emerald-500" />
+              3 files found
+            </p>
+          </div>
+        </div>
 
-        <div
-          className="flex animate-fade-up items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
-          style={{ animationDelay: `${delay + GROUNDED_FOOTER_DELAY_MS}ms` }}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <span className="size-1 rounded-full bg-primary" />
-            grounded · {citations.length} files cited
-          </span>
+        {/* ── Group 2: Streamed body text ───────────────────────── */}
+        <div>
+          <p>
+            {BODY_WORDS.map((word, i) => (
+              <span
+                key={i}
+                className="animate-fade-in"
+                style={{ animationDelay: `${STREAM_START + i * STREAM_WORD_STEP}ms`, animationDuration: '0.12s' }}
+              >
+                {word}
+                {i < BODY_WORDS.length - 1 ? ' ' : ''}
+              </span>
+            ))}
+          </p>
+        </div>
+
+        {/* ── Citations + footer — appear after streaming ───────── */}
+        <div className="animate-fade-in flex flex-col gap-2.5" style={{ animationDelay: `${STREAM_END}ms` }}>
+          <ul className="flex flex-col gap-1.5">
+            {citations.map((path) => (
+              <li key={path} className="relative flex min-w-0 items-start gap-2">
+                <span aria-hidden className="shrink-0 leading-6 text-primary">
+                  →
+                </span>
+                <code className="min-w-0 break-all rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">
+                  {path}
+                </code>
+              </li>
+            ))}
+          </ul>
+
+          <div className="relative flex items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-1 rounded-full bg-primary" />
+              grounded · {citations.length} files cited
+            </span>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function CitationItem({ children, delay }: { children: ReactNode; delay: number }) {
+/**
+ * Guide accent — a thin vertical bar that draws in from the top edge
+ * of each sequentially appearing element, then fades out. Creates a
+ * "spotlight" effect that leads the viewer's eye through the streaming
+ * animation sequence: user message → tool call → body text → each
+ * citation → footer.
+ *
+ * Two compositor / timing details worth knowing:
+ *
+ *   1. **Constant draw rate.** The keyframe spends its first 40 % on
+ *      `scaleY: 0 → 1` and the rest holding / fading. With a fixed
+ *      total duration, a tall bubble's line would visibly outpace a
+ *      short bubble's line (px/s scales with height). We measure the
+ *      parent's height once on mount and back-solve the duration so
+ *      the *draw phase* runs at a fixed pixel rate.
+ *
+ *   2. **Own compositor layer.** `will-change` hints the browser to
+ *      promote this span to its own layer; without it, every frame
+ *      of the `scaleY` / `opacity` animation would force a repaint
+ *      of whatever sits behind the line.
+ */
+function GuideAccent({ delay }: { delay: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const parent = el?.parentElement;
+    if (!el || !parent) return;
+
+    // 150 px/s during the draw phase keeps a typical 60–110 px bubble
+    // close to the original ~1.5 s feel while letting taller bubbles
+    // take proportionally longer instead of speeding up.
+    const PX_PER_MS_DRAW = 0.15;
+    const DRAW_FRACTION = 0.4;
+    const drawMs = parent.offsetHeight / PX_PER_MS_DRAW;
+    const totalMs = Math.min(2000, Math.max(900, drawMs / DRAW_FRACTION));
+    el.style.animationDuration = `${totalMs}ms`;
+  }, []);
+
   return (
-    <li className="flex animate-fade-up items-start gap-2" style={{ animationDelay: `${delay}ms` }}>
-      <span aria-hidden className="leading-6 text-primary">
-        →
-      </span>
-      <code className="rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">{children}</code>
-    </li>
+    <span
+      ref={ref}
+      className="absolute left-0 top-0 block h-full w-[3px] animate-guide-accent bg-primary"
+      style={{ animationDelay: `${delay}ms`, willChange: 'transform, opacity' }}
+      aria-hidden
+    />
   );
 }
 
 /**
- * Composer mock. Mirrors the `<form>` at the bottom of `<ChatPanel />`:
- * a textarea-shaped placeholder, an inline mode pill (Docs is the
- * default that fits this hero's narrative — grounded, sourced answers),
- * and a Send button. Decorative only — no event handlers.
+ * Composer mock with typing choreography. Before the chat messages
+ * appear, the composer shows a typewriter animation of the user's
+ * question, followed by a Send-button press, and finally the text
+ * clears — as if the visitor just watched someone ask a question.
  */
 function ChatComposer() {
   return (
     <div className="border-t border-border bg-background/60 px-3 py-3">
-      <div className="flex min-h-16 items-start rounded-sm border border-border bg-background/80 px-3 py-2.5 text-[12.5px] leading-6 text-muted-foreground/70">
-        Ask about architecture, module boundaries, data flow, risks…
+      <div className="relative flex min-h-16 items-start rounded-sm border border-border bg-background/80 px-3 py-2.5 text-[12.5px] leading-6">
+        {/* Placeholder — disappears quickly right before typing begins */}
+        <span
+          className="animate-fade-out text-muted-foreground/70"
+          style={{ animationDelay: `${TYPING_START - 50}ms`, animationDuration: '0.1s' }}
+        >
+          Ask about architecture, module boundaries, data flow, risks…
+        </span>
+
+        {/* Typed text — typewriter effect, wrapped in a container
+            that fades out after Send so the composer "clears" */}
+        <span className="absolute inset-x-3 top-2.5 animate-fade-out" style={{ animationDelay: `${COMPOSE_CLEAR}ms`, animationDuration: '0s' }}>
+          <span
+            className="animate-hero-typing text-foreground"
+            style={
+              {
+                animationDelay: `${TYPING_START}ms, ${TYPING_START}ms`,
+                animationDuration: `${TYPING_DURATION}ms, 1.05s`,
+                '--type-width': '100%',
+              } as CSSProperties
+            }
+          >
+            {TYPED_TEXT}
+          </span>
+        </span>
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1 text-[11px] text-foreground">
@@ -200,7 +339,11 @@ function ChatComposer() {
           <span className="font-medium">Docs</span>
           <span className="hidden text-muted-foreground/70 sm:inline">searches your design docs</span>
         </span>
-        <span className="inline-flex items-center gap-1.5 rounded-sm bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground">
+        {/* Send button — press animation at SEND_PRESS */}
+        <span
+          className="inline-flex animate-send-press items-center gap-1.5 rounded-sm bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground"
+          style={{ animationDelay: `${SEND_PRESS}ms` }}
+        >
           <PaperPlaneTiltIcon size={12} weight="bold" />
           Send
         </span>
