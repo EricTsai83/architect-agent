@@ -13,10 +13,10 @@ import { REPO_URL } from '../data';
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-border/70 bg-background/75 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
-        <a href="#top" className="group flex items-center gap-2.5">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 px-4 py-3.5 sm:gap-4 sm:px-6">
+        <a href="#top" className="group flex min-w-0 items-center gap-2.5">
           <Logo size={28} />
-          <span className="font-mono text-[15px] font-semibold tracking-tight">Systify</span>
+          <span className="truncate font-mono text-[15px] font-semibold tracking-tight">Systify</span>
         </a>
         <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
           <a href="#how" className="transition-colors hover:text-foreground">
@@ -35,13 +35,14 @@ export function SiteHeader() {
             FAQ
           </a>
         </nav>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <Button
             asChild
             variant="secondary"
             size="icon"
             aria-label="View Systify on GitHub"
             title="View Systify on GitHub"
+            className="hidden sm:inline-flex"
           >
             <a href={REPO_URL} rel="noreferrer" target="_blank">
               <GitHubIcon />

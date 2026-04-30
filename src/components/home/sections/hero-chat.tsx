@@ -1,10 +1,10 @@
-import { forwardRef, type CSSProperties, type ReactNode } from 'react';
+import { forwardRef, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import {
   ArrowsClockwiseIcon,
   DotsThreeVerticalIcon,
   FileTextIcon,
-  List,
-  MagnifyingGlass,
+  ListIcon,
+  MagnifyingGlassIcon,
   PaperPlaneTiltIcon,
 } from '@phosphor-icons/react';
 
@@ -55,7 +55,7 @@ const STREAM_END = STREAM_START + BODY_WORDS.length * STREAM_WORD_STEP + 300;
 
 export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref) {
   return (
-    <div className="relative animate-fade-in" style={{ animationDelay: '600ms' }}>
+    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: '600ms' }}>
       <div
         ref={ref}
         className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur"
@@ -65,7 +65,7 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
         <ChatTopBar />
 
         {/* Chat body — same layout vocabulary as <ChatPanel /> */}
-        <div className="flex flex-col gap-3 px-5 py-5">
+        <div className="flex flex-col gap-3 px-3 py-4 sm:px-5 sm:py-5">
           <UserMessage delay={USER_MSG}>{TYPED_TEXT}</UserMessage>
           <AssistantMessage delay={ASST_HEADER} />
         </div>
@@ -86,20 +86,20 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
 function ChatTopBar() {
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3">
-      <span aria-hidden className="flex size-7 items-center justify-center text-muted-foreground/70">
-        <List weight="bold" className="size-4" />
+      <span aria-hidden className="flex size-7 shrink-0 items-center justify-center text-muted-foreground/70">
+        <ListIcon weight="bold" className="size-4" />
       </span>
 
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <GitHubIcon className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate text-[12.5px] font-semibold tracking-tight">vercel/next.js</span>
-        <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
           <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
           ready
         </span>
       </div>
 
-      <div className="ml-auto flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         <span className="hidden items-center gap-1 sm:inline-flex">
           <ArrowsClockwiseIcon weight="bold" className="size-3" />
           synced 14s ago
@@ -117,13 +117,15 @@ function ChatTopBar() {
  */
 function UserMessage({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <div className="relative animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+    <div className="relative pl-2">
       <GuideAccent delay={delay + 100} />
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
-        <p className="text-[10px] text-muted-foreground">Ready</p>
+      <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }}>
+        <div className="mb-1 flex items-center justify-between gap-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
+          <p className="text-[10px] text-muted-foreground">Ready</p>
+        </div>
+        <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
       </div>
-      <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
     </div>
   );
 }
@@ -144,19 +146,54 @@ function AssistantMessage({ delay }: { delay: number }) {
   ];
 
   return (
-    <div className="animate-fade-up px-0 py-1" style={{ animationDelay: `${delay}ms` }}>
-      {/* Header */}
-      <div className="mb-1 flex items-center justify-between gap-3">
+    // No animation on the container — children control their own
+    // visibility. If the container also faded in, its opacity would
+    // *multiply* with each child's fade-in (e.g. the Tool Call bubble
+    // below), and the moment the container's curve completes you'd
+    // see a perceptible brightness pulse on the child's bg as the
+    // multiplier snaps to 1.
+    <div className="px-0 py-1">
+      {/* Header — fades in on its own so it can ride the parent's
+          original entry beat without dragging the rest of the block
+          into a nested animation. */}
+      <div
+        className="animate-fade-up mb-1 flex items-center justify-between gap-3"
+        style={{ animationDelay: `${delay}ms` }}
+      >
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">assistant</p>
       </div>
 
       <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
-        {/* ── Group 1: Tool call ────────────────────────────────── */}
-        <div className="relative">
+        {/* ── Group 1: Tool call ──────────────────────────────────
+            Mirrors `<UserMessage />` exactly — same `pl-2` outer
+            wrapper, same bubble padding. Only the background tint
+            and the inner content differ.
+
+            The guide-accent line lives in the 8 px outer gutter so
+            it never overpaints the bubble's bg (which would force
+            the bubble's left strip to repaint on every animation
+            frame, reading as the message "re-rendering"). It also
+            self-tunes its duration in <GuideAccent /> so the visual
+            draw rate stays constant across messages of different
+            heights. */}
+        <div className="relative pl-2">
           <GuideAccent delay={TOOL_CALL + 100} />
-          <div className="rounded-sm border border-border/60 bg-muted/40 px-3 py-2.5">
+          {/* `will-change: transform` pins this bubble to its own GPU
+              compositor layer for the lifetime of the scene. Without it,
+              the browser only auto-promotes the bubble while
+              `animate-fade-up` is actively running (~700 ms); once that
+              finishes the layer can be demoted while the sibling
+              GuideAccent is still animating for another ~1 s. In that
+              window the line's per-frame compositor work would force the
+              bubble's region — including its translucent `bg-muted/40` —
+              to be re-rasterized every frame, and the alpha blend's
+              sub-pixel rounding read as a faint background flicker. */}
+          <div
+            className="animate-fade-up bg-muted/40 px-4 py-3"
+            style={{ animationDelay: `${TOOL_CALL}ms`, willChange: 'transform' }}
+          >
             <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              <MagnifyingGlass weight="bold" className="size-3 text-primary" />
+              <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
               <span>Search Codebase</span>
             </div>
             <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
@@ -189,11 +226,13 @@ function AssistantMessage({ delay }: { delay: number }) {
         <div className="animate-fade-in flex flex-col gap-2.5" style={{ animationDelay: `${STREAM_END}ms` }}>
           <ul className="flex flex-col gap-1.5">
             {citations.map((path) => (
-              <li key={path} className="relative flex items-start gap-2">
-                <span aria-hidden className="leading-6 text-primary">
+              <li key={path} className="relative flex min-w-0 items-start gap-2">
+                <span aria-hidden className="shrink-0 leading-6 text-primary">
                   →
                 </span>
-                <code className="rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">{path}</code>
+                <code className="min-w-0 break-all rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">
+                  {path}
+                </code>
               </li>
             ))}
           </ul>
@@ -216,12 +255,44 @@ function AssistantMessage({ delay }: { delay: number }) {
  * "spotlight" effect that leads the viewer's eye through the streaming
  * animation sequence: user message → tool call → body text → each
  * citation → footer.
+ *
+ * Two compositor / timing details worth knowing:
+ *
+ *   1. **Constant draw rate.** The keyframe spends its first 40 % on
+ *      `scaleY: 0 → 1` and the rest holding / fading. With a fixed
+ *      total duration, a tall bubble's line would visibly outpace a
+ *      short bubble's line (px/s scales with height). We measure the
+ *      parent's height once on mount and back-solve the duration so
+ *      the *draw phase* runs at a fixed pixel rate.
+ *
+ *   2. **Own compositor layer.** `will-change` hints the browser to
+ *      promote this span to its own layer; without it, every frame
+ *      of the `scaleY` / `opacity` animation would force a repaint
+ *      of whatever sits behind the line.
  */
 function GuideAccent({ delay }: { delay: number }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const parent = el?.parentElement;
+    if (!el || !parent) return;
+
+    // 150 px/s during the draw phase keeps a typical 60–110 px bubble
+    // close to the original ~1.5 s feel while letting taller bubbles
+    // take proportionally longer instead of speeding up.
+    const PX_PER_MS_DRAW = 0.15;
+    const DRAW_FRACTION = 0.4;
+    const drawMs = parent.offsetHeight / PX_PER_MS_DRAW;
+    const totalMs = Math.min(2000, Math.max(900, drawMs / DRAW_FRACTION));
+    el.style.animationDuration = `${totalMs}ms`;
+  }, []);
+
   return (
     <span
+      ref={ref}
       className="absolute left-0 top-0 block h-full w-[3px] animate-guide-accent bg-primary"
-      style={{ animationDelay: `${delay}ms` }}
+      style={{ animationDelay: `${delay}ms`, willChange: 'transform, opacity' }}
       aria-hidden
     />
   );

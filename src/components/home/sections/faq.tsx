@@ -17,9 +17,13 @@ const HEADING_ID = 'faq-heading';
 export function Faq() {
   return (
     <Reveal>
-      <section id="faq" aria-labelledby={HEADING_ID} className="grid gap-10 lg:grid-cols-[auto_1fr] lg:gap-16">
+      <section
+        id="faq"
+        aria-labelledby={HEADING_ID}
+        className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start lg:gap-x-14 lg:gap-y-16"
+      >
         <QuickAnswersPanel />
-        <ul className="flex flex-col divide-y divide-border/60">
+        <ul className="flex min-w-0 flex-col divide-y divide-border/60">
           {FAQS.map((item) => (
             <FaqItem key={item.q} item={item} />
           ))}
@@ -62,11 +66,11 @@ function FaqItem({ item }: { item: FaqEntry }) {
         aria-expanded={isOpen}
         aria-controls={regionId}
         onClick={handleToggle}
-        className={`group flex w-full cursor-pointer items-center justify-between gap-6 py-5 text-left transition-colors hover:text-foreground ${
+        className={`group flex w-full cursor-pointer items-center justify-between gap-3 py-5 text-left transition-colors hover:text-foreground sm:gap-6 ${
           isOpen ? 'text-foreground' : ''
         }`}
       >
-        <span className="text-[17px] font-semibold tracking-tight sm:text-lg">{item.q}</span>
+        <span className="min-w-0 text-pretty text-[15.5px] font-semibold tracking-tight sm:text-lg">{item.q}</span>
         <span
           aria-hidden
           className="inline-flex size-9 shrink-0 items-center justify-center border border-border bg-card text-muted-foreground transition-colors duration-200 group-hover:border-foreground/30 group-hover:bg-muted group-hover:text-foreground"
@@ -97,11 +101,11 @@ function FaqItem({ item }: { item: FaqEntry }) {
       >
         <div className="overflow-hidden">
           <div
-            className={`pb-5 pr-12 transition-[opacity,transform] duration-200 ease-out ${
+            className={`pb-5 pr-2 transition-[opacity,transform] duration-200 ease-out sm:pr-12 ${
               isOpen ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'
             }`}
           >
-            <p className="text-[15px] leading-relaxed text-muted-foreground">{item.a}</p>
+            <p className="text-pretty text-[14.5px] leading-relaxed text-muted-foreground sm:text-[15px]">{item.a}</p>
           </div>
         </div>
       </div>
@@ -138,7 +142,7 @@ function QuickAnswersPanel() {
       {/* Top strip — horizontal on mobile (heading left, cat right),
           stacked vertically on lg (sidebar mode). */}
       <div className="flex items-center lg:block">
-        <div className="min-w-0 flex-1 px-5 py-3 sm:py-4 lg:py-6">
+        <div className="min-w-0 flex-1 px-4 py-3 sm:px-5 sm:py-4 lg:py-6">
           <p
             aria-hidden
             className="mb-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground sm:mb-1.5 lg:mb-2"
@@ -147,7 +151,7 @@ function QuickAnswersPanel() {
           </p>
           <h2
             id={HEADING_ID}
-            className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-3xl lg:text-4xl"
+            className="text-balance text-xl font-semibold leading-tight tracking-tight sm:text-3xl lg:text-4xl"
           >
             Quick answers.
           </h2>
@@ -158,7 +162,7 @@ function QuickAnswersPanel() {
 
       {/* CTA strip — compact side-by-side buttons on mobile,
           full-width stacked rows on lg (sidebar). */}
-      <div className="flex items-center gap-2 border-t border-border/60 px-4 py-2.5 lg:flex-col lg:items-stretch lg:gap-0 lg:border-t-0 lg:p-0">
+      <div className="flex flex-wrap items-center gap-2 border-t border-border/60 px-3 py-2.5 sm:px-4 lg:flex-col lg:items-stretch lg:gap-0 lg:border-t-0 lg:p-0">
         {/* GitHub */}
         <a
           href={`${REPO_URL}/issues/new`}

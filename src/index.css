@@ -303,15 +303,6 @@
   }
 }
 
-@keyframes line-draw-y {
-  from {
-    transform: scaleY(0);
-  }
-  to {
-    transform: scaleY(1);
-  }
-}
-
 @keyframes typing {
   from {
     width: 0;
@@ -473,11 +464,6 @@
     animation: typing 1.4s steps(40, end) both, caret-border 1.05s steps(1, end) infinite;
   }
 
-  .animate-line-draw-y {
-    animation: line-draw-y 0.8s cubic-bezier(0.32, 0.72, 0, 1) both;
-    transform-origin: top;
-  }
-
   .animate-typing {
     overflow: hidden;
     white-space: nowrap;
@@ -526,7 +512,6 @@
     .animate-pulse-soft,
     .animate-fade-in,
     .animate-guide-accent,
-    .animate-line-draw-y,
     .animate-typing,
     .animate-cat-blink,
     .animate-cat-tail-wag,
