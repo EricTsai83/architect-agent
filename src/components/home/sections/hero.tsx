@@ -6,18 +6,22 @@ import { GitHubIcon } from '@/components/icons';
 import { REPO_URL } from '../data';
 import { HeroChat } from './hero-chat';
 
-/** Restart every CSS animation inside a container without unmounting it. */
+/**
+ * Restart every CSS animation inside a container without unmounting it.
+ * Uses `animationName` (longhand) instead of the `animation` shorthand
+ * so that inline `animationDelay` values set by React are preserved.
+ */
 function restartAnimations(container: HTMLElement) {
   const animated = container.querySelectorAll<HTMLElement>(
-    '.animate-fade-up, .animate-fade-in, .animate-guide-accent',
+    '.animate-fade-up, .animate-fade-in, .animate-guide-accent, .animate-fade-out, .animate-send-press, .animate-hero-typing',
   );
   animated.forEach((el) => {
-    el.style.animation = 'none';
+    el.style.animationName = 'none';
   });
   // Force a reflow so the browser registers the reset
   void container.offsetHeight;
   animated.forEach((el) => {
-    el.style.animation = '';
+    el.style.animationName = '';
   });
 }
 

@@ -271,6 +271,27 @@
   }
 }
 
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes send-press {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(0.88);
+    filter: brightness(1.15);
+  }
+}
+
 @keyframes line-draw-y {
   from {
     transform: scaleY(0);
@@ -423,6 +444,21 @@
     transform-origin: top;
   }
 
+  .animate-fade-out {
+    animation: fade-out 0.3s ease both;
+  }
+
+  .animate-send-press {
+    animation: send-press 0.35s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+
+  .animate-hero-typing {
+    overflow: hidden;
+    white-space: nowrap;
+    display: inline-block;
+    animation: typing 1.4s steps(40, end) both;
+  }
+
   .animate-line-draw-y {
     animation: line-draw-y 0.8s cubic-bezier(0.32, 0.72, 0, 1) both;
     transform-origin: top;
@@ -482,8 +518,18 @@
     .animate-cat-tail-wag,
     .animate-cat-head-tilt,
     .animate-cat-ear-twitch,
-    .animate-cat-heart-rise {
+    .animate-cat-heart-rise,
+    .animate-fade-out,
+    .animate-send-press,
+    .animate-hero-typing {
       animation: none;
+    }
+
+    .animate-hero-typing {
+      overflow: visible;
+      white-space: normal;
+      border-right: none;
+      width: auto;
     }
 
     .animate-typing {

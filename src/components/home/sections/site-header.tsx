@@ -31,6 +31,9 @@ export function SiteHeader() {
           <a href="#self-host" className="transition-colors hover:text-foreground">
             Self-host
           </a>
+          <a href="#faq" className="transition-colors hover:text-foreground">
+            FAQ
+          </a>
         </nav>
         <div className="flex items-center gap-1.5">
           <Button

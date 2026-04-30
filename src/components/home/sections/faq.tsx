@@ -17,7 +17,7 @@ const HEADING_ID = 'faq-heading';
 export function Faq() {
   return (
     <Reveal>
-      <section aria-labelledby={HEADING_ID} className="grid gap-10 lg:grid-cols-[auto_1fr] lg:gap-16">
+      <section id="faq" aria-labelledby={HEADING_ID} className="grid gap-10 lg:grid-cols-[auto_1fr] lg:gap-16">
         <QuickAnswersPanel />
         <ul className="flex flex-col divide-y divide-border/60">
           {FAQS.map((item) => (
