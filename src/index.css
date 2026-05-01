@@ -250,11 +250,11 @@
     visibility: hidden;
     transform: translateY(10px);
   }
-  1%,
-  100% {
+  1% {
     visibility: visible;
   }
   100% {
+    visibility: visible;
     transform: translateY(0);
   }
 }

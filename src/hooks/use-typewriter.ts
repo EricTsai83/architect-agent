@@ -54,10 +54,23 @@ export function useTypewriter({
   const [phase, setPhase] = useState<Phase>('typing');
 
   useEffect(() => {
-    if (!active || words.length === 0) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    if (!active || words.length === 0) {
+      if (text !== '' || wordIdx !== 0 || phase !== 'typing') {
+        timer = setTimeout(() => {
+          setText('');
+          setWordIdx(0);
+          setPhase('typing');
+        }, 0);
+      }
+
+      return () => {
+        if (timer !== undefined) clearTimeout(timer);
+      };
+    }
 
     const word = words[wordIdx % words.length];
-    let timer: ReturnType<typeof setTimeout> | undefined;
 
     switch (phase) {
       case 'typing': {
@@ -67,9 +80,9 @@ export function useTypewriter({
           }, typeSpeed);
         } else {
           // Typing complete — transition immediately to the pause phase.
-          // No timer needed; React will re-render and the next effect run
-          // schedules the real `pauseAfterType` delay.
-          setPhase('pausingType');
+          // A 0ms timer keeps the transition cancellable and avoids a
+          // synchronous state update inside the effect body.
+          timer = setTimeout(() => setPhase('pausingType'), 0);
         }
         break;
       }
@@ -83,8 +96,8 @@ export function useTypewriter({
             setText((current) => current.slice(0, -1));
           }, deleteSpeed);
         } else {
-          // Deletion complete — same immediate transition as above.
-          setPhase('pausingDelete');
+          // Deletion complete — same cancellable immediate transition as above.
+          timer = setTimeout(() => setPhase('pausingDelete'), 0);
         }
         break;
       }
@@ -102,8 +115,6 @@ export function useTypewriter({
     };
   }, [text, wordIdx, phase, active, words, typeSpeed, deleteSpeed, pauseAfterType, pauseAfterDelete]);
 
-  // While inactive we hand back an empty string so the consumer renders
-  // nothing; the internal state stays paused at whatever character it
-  // was on, so flipping `active` back on resumes the cycle smoothly.
-  return active ? text : '';
+  // While inactive, or without words, the hook resets and renders nothing.
+  return active && words.length > 0 ? text : '';
 }

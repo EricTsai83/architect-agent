@@ -296,6 +296,8 @@ function AssistantMessage({ delay }: { delay: number }) {
           </button>
           <div
             id={citationsListId}
+            aria-hidden={!citationsExpanded}
+            hidden={!citationsExpanded}
             className={`grid transition-[grid-template-rows] duration-200 ${citationsExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
           >
             <ul className="flex flex-col gap-1 overflow-hidden">

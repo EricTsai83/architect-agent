@@ -55,10 +55,10 @@ export function Narrative() {
       <section id="how" aria-labelledby={HEADING_ID} className="relative flex flex-col gap-12 sm:gap-16">
         <header className="flex max-w-3xl flex-col gap-3">
           <h2 id={HEADING_ID} className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">
-            A repo URL becomes a grounded answer in three moves.
+            A repo name becomes a grounded answer in three moves.
           </h2>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-muted-foreground sm:text-[11px]">
-            paste → index → cite
+            search → index → cite
           </p>
         </header>
 

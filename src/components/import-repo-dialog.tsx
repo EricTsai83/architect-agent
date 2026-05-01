@@ -249,7 +249,18 @@ export function ImportRepoDialog({
   });
 
   // Track the latest search request to avoid stale results
+  const inputRef = useRef<HTMLInputElement>(null);
   const latestSearchRef = useRef(0);
+
+  useEffect(() => {
+    if (!open || !showTypewriter) return;
+
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [open, showTypewriter]);
 
   const [isConnectingGitHub, handleConnectGitHub] = useAsyncCallback(async () => {
     setConnectError(null);
@@ -487,6 +498,7 @@ export function ImportRepoDialog({
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
+                  ref={inputRef}
                   value={publicInput}
                   onChange={(e) => {
                     setPublicInput(e.target.value);
@@ -497,7 +509,6 @@ export function ImportRepoDialog({
                   placeholder={showTypewriter ? '' : STATIC_PLACEHOLDER}
                   aria-label={STATIC_PLACEHOLDER}
                   className="pl-8"
-                  autoFocus
                 />
                 {showTypewriter && (
                   <div

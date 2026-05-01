@@ -62,8 +62,9 @@ describe('useTypewriter', () => {
     tick(10);
     expect(result.current).toBe('ab');
 
-    // Once typing completes, the hook transitions to pausingType
-    // synchronously (no 0ms timer), then the pauseAfterType delay fires.
+    // Once typing completes, the hook transitions to pausingType on a
+    // cancellable 0ms timer, then the pauseAfterType delay fires.
+    tick(0);
     tick(50);
 
     // Delete "ab" → ""
@@ -72,8 +73,9 @@ describe('useTypewriter', () => {
     tick(10);
     expect(result.current).toBe('');
 
-    // Deletion complete → synchronous transition to pausingDelete,
+    // Deletion complete → cancellable 0ms transition to pausingDelete,
     // then the pauseAfterDelete delay fires.
+    tick(0);
     tick(50);
 
     // Type "xy"
@@ -83,7 +85,7 @@ describe('useTypewriter', () => {
     expect(result.current).toBe('xy');
   });
 
-  test('returns empty string while inactive and resumes when reactivated', () => {
+  test('returns empty string while inactive and restarts when reactivated', () => {
     const { result, rerender } = renderHook(
       ({ active }) => useTypewriter({ words: ['hi'], typeSpeed: 100, active }),
       { initialProps: { active: true } },
@@ -99,12 +101,12 @@ describe('useTypewriter', () => {
     act(() => { vi.advanceTimersByTime(1000); });
     expect(result.current).toBe('');
 
-    // Flip back on; the cycle resumes from where it paused ("h" → "hi").
+    // Flip back on; the cycle restarts from an empty buffer.
     rerender({ active: true });
-    expect(result.current).toBe('h');
+    expect(result.current).toBe('');
 
     act(() => { vi.advanceTimersByTime(100); });
-    expect(result.current).toBe('hi');
+    expect(result.current).toBe('h');
   });
 
   test('handles an empty word list without crashing', () => {
