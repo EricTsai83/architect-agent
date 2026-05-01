@@ -446,23 +446,29 @@ export function ImportRepoDialog({
         </DialogHeader>
 
         {!isConnected ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-            <p className="text-sm text-muted-foreground">Connect your GitHub account first to import repositories.</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-6">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute h-28 w-28 rounded-full bg-primary/8 blur-2xl" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-gradient-to-b from-muted to-card shadow-lg ring-1 ring-white/[0.03]">
+                <GithubLogoIcon size={30} weight="fill" className="text-foreground" />
+              </div>
+            </div>
+
             <Button
               type="button"
               variant="default"
-              className="gap-2"
+              className="gap-2 px-5 shadow-md shadow-primary/20"
               disabled={isConnectingGitHub}
               onClick={() => void handleConnectGitHub()}
             >
               {isConnectingGitHub ? (
                 <>
-                  <CircleNotchIcon size={14} className="animate-spin" />
+                  <CircleNotchIcon size={15} className="animate-spin" />
                   Connecting…
                 </>
               ) : (
                 <>
-                  <GithubLogoIcon size={14} weight="fill" />
+                  <GithubLogoIcon size={15} weight="fill" />
                   Connect GitHub
                 </>
               )}
