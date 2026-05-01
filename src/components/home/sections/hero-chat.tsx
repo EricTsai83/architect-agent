@@ -1,4 +1,4 @@
-import { forwardRef, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { forwardRef, useId, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   ArrowsClockwiseIcon,
   CaretDownIcon,
@@ -114,7 +114,20 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
               • tablet (`sm-lg`) → mid-size; minor scroll on expand.
               • desktop (`lg+`)  → tall enough that even expanded
                                    citations fit without scrolling. */}
-        <div className="scrollbar-themed flex h-[340px] flex-col gap-2.5 overflow-y-auto px-3 py-3 sm:h-[400px] sm:gap-3 sm:px-5 sm:py-5 lg:h-[460px]">
+        {/* `contain: content` + `will-change: transform` promote this
+            scroll container to its own permanent GPU compositor layer.
+            This creates a compositing boundary that isolates child
+            animation layer promotions/demotions (especially the 17
+            rapid-fire word-streaming fade-ins) from the parent card's
+            `backdrop-blur` + `bg-card/85` compositing context — without
+            this, every child layer change forces a re-composite of the
+            entire backdrop-blur region, and the sub-pixel rounding
+            differences between GPU and CPU alpha blending on the
+            semi-transparent card background reads as flicker. */}
+        <div
+          className="scrollbar-themed flex h-[340px] flex-col gap-2.5 overflow-y-auto px-3 py-3 sm:h-[400px] sm:gap-3 sm:px-5 sm:py-5 lg:h-[460px]"
+          style={{ contain: 'content', willChange: 'transform' }}
+        >
           <UserMessage delay={TIMELINE.userMessage}>{TYPED_TEXT}</UserMessage>
           <AssistantMessage delay={TIMELINE.assistantHeader} />
         </div>
@@ -166,15 +179,18 @@ function ChatTopBar() {
  */
 function UserMessage({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <div className="relative pl-2">
-      <GuideAccent delay={delay + 100} />
-      <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }} {...replayAttr}>
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
-          <p className="text-[10px] text-muted-foreground">Ready</p>
-        </div>
-        <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
+    <div className="relative overflow-hidden bg-muted px-4 py-3 animate-reveal-up" style={{ animationDelay: `${delay}ms` }} {...replayAttr}>
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-0.5 bg-primary shadow-[0_0_14px_var(--color-primary)] animate-message-rail"
+        style={{ animationDelay: `${delay}ms` }}
+        {...replayAttr}
+      />
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
+        <p className="text-[10px] text-muted-foreground">Ready</p>
       </div>
+      <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
     </div>
   );
 }
@@ -214,47 +230,29 @@ function AssistantMessage({ delay }: { delay: number }) {
       </div>
 
       <div className="flex flex-col gap-2 text-[13.5px] leading-6 text-foreground/95 sm:gap-2.5">
-        {/* ── Group 1: Tool call ──────────────────────────────────
-            Mirrors `<UserMessage />` exactly — same `pl-2` outer
-            wrapper, same bubble padding. Only the background tint
-            and the inner content differ.
-
-            The guide-accent line lives in the 8 px outer gutter so
-            it never overpaints the bubble's bg (which would force
-            the bubble's left strip to repaint on every animation
-            frame, reading as the message "re-rendering"). It also
-            self-tunes its duration in <GuideAccent /> so the visual
-            draw rate stays constant across messages of different
-            heights. */}
-        <div className="relative pl-2">
-          <GuideAccent delay={TIMELINE.toolCall + 100} />
-          {/* `will-change: transform` pins this bubble to its own GPU
-              compositor layer for the lifetime of the scene. Without it,
-              the browser only auto-promotes the bubble while
-              `animate-fade-up` is actively running (~700 ms); once that
-              finishes the layer can be demoted while the sibling
-              GuideAccent is still animating for another ~1 s. In that
-              window the line's per-frame compositor work would force the
-              bubble's region — including its translucent `bg-muted/40` —
-              to be re-rasterized every frame, and the alpha blend's
-              sub-pixel rounding read as a faint background flicker. */}
-          <div
-            className="animate-fade-up bg-muted/40 px-3.5 py-2.5 sm:px-4 sm:py-3"
-            style={{ animationDelay: `${TIMELINE.toolCall}ms`, willChange: 'transform' }}
+        {/* ── Group 1: Tool call ────────────────────────────────── */}
+        <div
+          className="relative overflow-hidden bg-muted/40 px-3.5 py-2.5 animate-reveal-up sm:px-4 sm:py-3"
+          style={{ animationDelay: `${TIMELINE.toolCall}ms` }}
+          {...replayAttr}
+        >
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-0.5 bg-primary shadow-[0_0_14px_var(--color-primary)] animate-message-rail"
+            style={{ animationDelay: `${TIMELINE.toolCall}ms` }}
             {...replayAttr}
-          >
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
-              <span>Search Codebase</span>
-            </div>
-            <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
-              query: &quot;App Router nested layouts&quot;
-            </p>
-            <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
-              <span className="size-1 rounded-full bg-emerald-500" />
-              {CITATIONS.length} files found
-            </p>
+          />
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
+            <span>Search Codebase</span>
           </div>
+          <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
+            query: &quot;App Router nested layouts&quot;
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
+            <span className="size-1 rounded-full bg-emerald-500" />
+            {CITATIONS.length} files found
+          </p>
         </div>
 
         {/* ── Group 2: Streamed body text ───────────────────────── */}
@@ -319,59 +317,6 @@ function AssistantMessage({ delay }: { delay: number }) {
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Guide accent — a thin vertical bar that draws in from the top edge
- * of each sequentially appearing element, then fades out. Creates a
- * "spotlight" effect that leads the viewer's eye through the streaming
- * animation sequence: user message → tool call → body text → each
- * citation → footer.
- *
- * Two compositor / timing details worth knowing:
- *
- *   1. **Constant draw rate.** The keyframe spends its first 40 % on
- *      `scaleY: 0 → 1` and the rest holding / fading. With a fixed
- *      total duration, a tall bubble's line would visibly outpace a
- *      short bubble's line (px/s scales with height). We measure the
- *      parent's height once on mount and back-solve the duration so
- *      the *draw phase* runs at a fixed pixel rate.
- *
- *   2. **Own compositor layer.** `will-change` hints the browser to
- *      promote this span to its own layer; without it, every frame
- *      of the `scaleY` / `opacity` animation would force a repaint
- *      of whatever sits behind the line.
- */
-/** Pixel/second draw rate so taller bubbles take proportionally longer rather than speeding up. */
-const GUIDE_PX_PER_MS_DRAW = 0.15;
-/** Fraction of the keyframe spent on `scaleY: 0 → 1`; the rest is hold/fade. */
-const GUIDE_DRAW_FRACTION = 0.4;
-/** Clamp so very short or very tall bubbles still feel like the same scene. */
-const GUIDE_MIN_MS = 900;
-const GUIDE_MAX_MS = 2000;
-
-function GuideAccent({ delay }: { delay: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const parent = el?.parentElement;
-    if (!el || !parent) return;
-
-    const drawMs = parent.offsetHeight / GUIDE_PX_PER_MS_DRAW;
-    const totalMs = Math.min(GUIDE_MAX_MS, Math.max(GUIDE_MIN_MS, drawMs / GUIDE_DRAW_FRACTION));
-    el.style.animationDuration = `${totalMs}ms`;
-  }, []);
-
-  return (
-    <span
-      ref={ref}
-      className="absolute left-0 top-0 block h-full w-[3px] animate-guide-accent bg-primary"
-      style={{ animationDelay: `${delay}ms`, willChange: 'transform, opacity' }}
-      aria-hidden
-      {...replayAttr}
-    />
   );
 }
 
