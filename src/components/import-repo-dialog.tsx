@@ -31,7 +31,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useGitHubConnection } from '@/hooks/use-github-connection';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
+import { useTypewriter } from '@/hooks/use-typewriter';
 import type { RepositoryId, ThreadId } from '@/lib/types';
+
+// Example queries the placeholder cycles through to suggest searchable repo
+// names. Picked to span popular shapes (single word, owner/name, kebab-case)
+// so the visitor sees a few different valid forms.
+const PLACEHOLDER_QUERIES = ['react', 'shadcn-ui', 'vercel/next.js', 'systify'] as const;
+const STATIC_PLACEHOLDER = 'Search any GitHub repo or paste a URL...';
 
 type ImportSummary = {
   importStatus: string;
@@ -224,8 +231,22 @@ export function ImportRepoDialog({
   const [searchResults, setSearchResults] = useState<RepoInfo[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const isUrlMode = isGitHubUrl(publicInput);
+
+  // Animated placeholder for the search input. We only run the typewriter
+  // while the field is empty AND unfocused — the moment the user engages
+  // (focus or types) we yield to the native caret to avoid two carets
+  // showing at once. Reduced-motion users skip the animation entirely
+  // and see the static placeholder instead.
+  const prefersReducedMotion =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const showTypewriter = !publicInput && !isSearchFocused && !prefersReducedMotion;
+  const typedPlaceholder = useTypewriter({
+    words: PLACEHOLDER_QUERIES,
+    active: showTypewriter,
+  });
 
   // Track the latest search request to avoid stale results
   const latestSearchRef = useRef(0);
@@ -452,7 +473,13 @@ export function ImportRepoDialog({
 
             {/* ---- Tab 1: Public Repo (URL + Search) ---- */}
             <TabsContent value="public" className="pt-3">
-              {/* Smart input */}
+              {/* Smart input. The visible placeholder is rendered as an
+                  absolutely-positioned overlay so we can type it out
+                  character-by-character with a caret tracking the last
+                  visible letter. The native `placeholder` attribute is
+                  left empty while the typewriter is active to avoid
+                  drawing two placeholders on top of each other; the
+                  `aria-label` keeps screen readers informed regardless. */}
               <div className="relative shrink-0">
                 <MagnifyingGlassIcon
                   size={14}
@@ -465,10 +492,27 @@ export function ImportRepoDialog({
                     setPublicInput(e.target.value);
                     setImportError(null);
                   }}
-                  placeholder="Search any GitHub repo or paste a URL..."
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  placeholder={showTypewriter ? '' : STATIC_PLACEHOLDER}
+                  aria-label={STATIC_PLACEHOLDER}
                   className="pl-8"
                   autoFocus
                 />
+                {showTypewriter && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 left-8 right-3 flex items-center text-sm text-muted-foreground"
+                  >
+                    {/* Typed text + caret. The caret is its own span placed
+                        immediately after the text in the DOM, so it sits
+                        flush against the last rendered character without any
+                        position math — no matter how long the current
+                        phrase is, the caret tracks it for free. */}
+                    <span className="truncate">{typedPlaceholder}</span>
+                    <span className="ml-px inline-block h-4 w-px shrink-0 animate-caret bg-primary" />
+                  </div>
+                )}
               </div>
 
               {/* URL import mode */}

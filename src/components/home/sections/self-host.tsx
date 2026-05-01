@@ -27,7 +27,7 @@ export function SelfHost() {
           </h2>
           <p className="max-w-md text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
             Systify is MIT-licensed and dependency-clear. Clone the repo, plug in your own Convex and WorkOS keys, and
-            you have a private, grounded codebase Q&amp;A surface you fully own.
+            you have a private, grounded Q&amp;A and system-design analysis surface you fully own.
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

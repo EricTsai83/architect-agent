@@ -51,8 +51,8 @@ export function Hero() {
           className="max-w-xl animate-fade-up text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
           style={{ animationDelay: `${HERO_STAGGER.tagline}ms` }}
         >
-          An open-source, self-hostable Q&amp;A surface for any public repo. Every answer is cited back to a file you
-          can open. Run it on your own machine, with your own keys.
+          An open-source Q&amp;A and system-design analysis surface for any GitHub repo. Every answer cites a file
+          you can open.
         </p>
         <div
           className="flex animate-fade-up flex-col gap-3 sm:flex-row sm:items-center"

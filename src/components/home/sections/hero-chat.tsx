@@ -1,6 +1,7 @@
-import { forwardRef, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { forwardRef, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   ArrowsClockwiseIcon,
+  CaretDownIcon,
   DotsThreeVerticalIcon,
   FileTextIcon,
   ListIcon,
@@ -86,7 +87,6 @@ const STREAM_END = TIMELINE.streamStart + BODY_WORDS.length * TIMELINE.wordStep 
 const CITATIONS: ReadonlyArray<string> = [
   'packages/next/src/server/app-render/app-render.tsx',
   'packages/next/src/server/app-render/create-component-tree.tsx',
-  'packages/next/src/build/webpack/loaders/next-app-loader.ts',
 ];
 
 /** Marks any element whose entry animation should be replayed by the hero "Replay" button. */
@@ -103,8 +103,18 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
 
         <ChatTopBar />
 
-        {/* Chat body — same layout vocabulary as <ChatPanel /> */}
-        <div className="flex flex-col gap-3 px-3 py-4 sm:px-5 sm:py-5">
+        {/* Chat body — same layout vocabulary as <ChatPanel />.
+            Uses a *fixed* `h` (not `max-h`) at each breakpoint so
+            toggling the citations list open/closed never reflows the
+            page around the chat — the panel stays the same size, the
+            list itself overflows into the scroll area. The chosen
+            heights track the viewport's vertical room:
+              • mobile (`<sm`)  → just enough for collapsed content;
+                                   expanding citations triggers scroll.
+              • tablet (`sm-lg`) → mid-size; minor scroll on expand.
+              • desktop (`lg+`)  → tall enough that even expanded
+                                   citations fit without scrolling. */}
+        <div className="scrollbar-themed flex h-[340px] flex-col gap-2.5 overflow-y-auto px-3 py-3 sm:h-[400px] sm:gap-3 sm:px-5 sm:py-5 lg:h-[460px]">
           <UserMessage delay={TIMELINE.userMessage}>{TYPED_TEXT}</UserMessage>
           <AssistantMessage delay={TIMELINE.assistantHeader} />
         </div>
@@ -124,7 +134,7 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
  */
 function ChatTopBar() {
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3">
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3 sm:h-12">
       <span aria-hidden className="flex size-7 shrink-0 items-center justify-center text-muted-foreground/70">
         <ListIcon weight="bold" className="size-4" />
       </span>
@@ -178,6 +188,12 @@ function UserMessage({ children, delay }: { children: ReactNode; delay: number }
  *      completes.
  */
 function AssistantMessage({ delay }: { delay: number }) {
+  // Citations default to expanded so the marketing demo showcases the
+  // file-cited value prop, but the toggle below lets visitors collapse
+  // the list to keep the panel compact (especially on mobile).
+  const [citationsExpanded, setCitationsExpanded] = useState(true);
+  const citationsListId = useId();
+
   return (
     // No animation on the container — children control their own
     // visibility. If the container also faded in, its opacity would
@@ -197,7 +213,7 @@ function AssistantMessage({ delay }: { delay: number }) {
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">assistant</p>
       </div>
 
-      <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
+      <div className="flex flex-col gap-2 text-[13.5px] leading-6 text-foreground/95 sm:gap-2.5">
         {/* ── Group 1: Tool call ──────────────────────────────────
             Mirrors `<UserMessage />` exactly — same `pl-2` outer
             wrapper, same bubble padding. Only the background tint
@@ -223,7 +239,7 @@ function AssistantMessage({ delay }: { delay: number }) {
               to be re-rasterized every frame, and the alpha blend's
               sub-pixel rounding read as a faint background flicker. */}
           <div
-            className="animate-fade-up bg-muted/40 px-4 py-3"
+            className="animate-fade-up bg-muted/40 px-3.5 py-2.5 sm:px-4 sm:py-3"
             style={{ animationDelay: `${TIMELINE.toolCall}ms`, willChange: 'transform' }}
             {...replayAttr}
           >
@@ -258,26 +274,47 @@ function AssistantMessage({ delay }: { delay: number }) {
           </p>
         </div>
 
-        {/* ── Citations + footer — appear after streaming ───────── */}
-        <div className="animate-fade-in flex flex-col gap-2.5" style={{ animationDelay: `${STREAM_END}ms` }} {...replayAttr}>
-          <ul className="flex flex-col gap-1.5">
-            {CITATIONS.map((path) => (
-              <li key={path} className="relative flex min-w-0 items-start gap-2">
-                <span aria-hidden className="shrink-0 leading-6 text-primary">
-                  →
-                </span>
-                <code className="min-w-0 break-all rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">
-                  {path}
-                </code>
-              </li>
-            ))}
-          </ul>
-
-          <div className="relative flex items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="size-1 rounded-full bg-primary" />
-              grounded · {CITATIONS.length} files cited
-            </span>
+        {/* ── Citations — appear after streaming ─────────────────
+            The "N files cited" label doubles as a disclosure toggle:
+            clicking collapses or expands the list, letting visitors
+            on smaller viewports trim the panel down to just the
+            answer. The list itself is wrapped in the grid-rows
+            `1fr ↔ 0fr` trick so collapse animates smoothly without
+            a measured height. */}
+        <div className="animate-fade-in flex flex-col gap-1.5" style={{ animationDelay: `${STREAM_END}ms` }} {...replayAttr}>
+          <button
+            type="button"
+            onClick={() => setCitationsExpanded((prev) => !prev)}
+            aria-expanded={citationsExpanded}
+            aria-controls={citationsListId}
+            className="inline-flex items-center gap-1 self-end font-mono text-[10px] uppercase leading-none tracking-[0.16em] text-muted-foreground/80 transition-colors hover:text-foreground"
+          >
+            <span>{CITATIONS.length} files cited</span>
+            <CaretDownIcon
+              weight="bold"
+              aria-hidden
+              className={`size-3 transition-transform duration-200 ${citationsExpanded ? '' : '-rotate-90'}`}
+            />
+          </button>
+          <div
+            id={citationsListId}
+            className={`grid transition-[grid-template-rows] duration-200 ${citationsExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+          >
+            <ul className="flex flex-col gap-1 overflow-hidden">
+              {CITATIONS.map((path) => (
+                <li key={path} className="relative flex min-w-0 items-center gap-2">
+                  <span aria-hidden className="shrink-0 leading-6 text-primary">
+                    →
+                  </span>
+                  <code
+                    title={path}
+                    className="min-w-0 truncate rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5"
+                  >
+                    {path}
+                  </code>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
@@ -346,7 +383,7 @@ function GuideAccent({ delay }: { delay: number }) {
  */
 function ChatComposer() {
   return (
-    <div className="border-t border-border bg-background/60 px-3 py-3">
+    <div className="border-t border-border bg-background/60 px-3 py-2.5 sm:py-3">
       <div className="relative flex min-h-16 items-start rounded-sm border border-border bg-background/80 px-3 py-2.5 text-[12.5px] leading-6">
         {/* Placeholder — disappears quickly right before typing begins */}
         <span
@@ -379,7 +416,7 @@ function ChatComposer() {
           </span>
         </span>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-1.5 flex items-center justify-between gap-2 sm:mt-2">
         <span className="inline-flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1 text-[11px] text-foreground">
           <FileTextIcon size={12} weight="bold" />
           <span className="font-medium">Docs</span>

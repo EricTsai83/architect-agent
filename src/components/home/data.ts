@@ -87,8 +87,8 @@ export const STACK: ReadonlyArray<StackItem> = [
 export const NARRATIVE: ReadonlyArray<NarrativeEntry> = [
   {
     num: '01',
-    lead: 'Drop in a public GitHub URL.',
-    trail: 'We clone it into an isolated Daytona sandbox.',
+    lead: 'Search a GitHub repo by name.',
+    trail: 'Pick one and we clone it into an isolated Daytona sandbox.',
   },
   {
     num: '02',
