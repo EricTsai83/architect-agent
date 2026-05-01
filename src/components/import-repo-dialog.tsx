@@ -31,6 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useGitHubConnection } from '@/hooks/use-github-connection';
 import { useAsyncCallback } from '@/hooks/use-async-callback';
+import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion';
 import { useTypewriter } from '@/hooks/use-typewriter';
 import type { RepositoryId, ThreadId } from '@/lib/types';
 
@@ -240,8 +241,7 @@ export function ImportRepoDialog({
   // (focus or types) we yield to the native caret to avoid two carets
   // showing at once. Reduced-motion users skip the animation entirely
   // and see the static placeholder instead.
-  const prefersReducedMotion =
-    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const prefersReducedMotion = usePrefersReducedMotion();
   const showTypewriter = !publicInput && !isSearchFocused && !prefersReducedMotion;
   const typedPlaceholder = useTypewriter({
     words: PLACEHOLDER_QUERIES,

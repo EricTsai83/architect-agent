@@ -315,14 +315,16 @@
 /*
  * Looping animations for the `<Narrative>` section. Each block in that
  * section is a literal mini-UI mockup of its step's verb (search input ↦
- * paste, file tree ↦ index, answer + code ↦ cite). The keyframes below
+ * search, file tree ↦ index, answer + code ↦ cite). The keyframes below
  * choreograph each block's loop so the verb plays out continuously and
  * the visitor can read each stage at a glance.
  *
- * All three loops share a 5 s tempo — long enough to read, short enough
- * to repeat without wearing out, and aligned so the three side-by-side
- * cards don't drift in and out of phase. Each loop returns cleanly to
- * its "before" state so the cycle never visibly snaps.
+ * Each loop's tempo is tuned to its beat count:
+ *   • search (paste) — 10 s (three scenes: type → clone → chat ready)
+ *   • index           — 5 s  (single scan sweep)
+ *   • cite            — 7 s  (scroll → mark → file)
+ * All loops return cleanly to their "before" state so the cycle never
+ * visibly snaps.
  */
 
 /* ── PASTE — 7 s loop ───────────────────────────────────────────────

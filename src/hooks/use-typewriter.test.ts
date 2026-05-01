@@ -62,9 +62,8 @@ describe('useTypewriter', () => {
     tick(10);
     expect(result.current).toBe('ab');
 
-    // Transition to pause (the phase-flip uses a 0ms timer so we have to
-    // tick once to leave the typing phase) and run the pause to completion.
-    tick(1);
+    // Once typing completes, the hook transitions to pausingType
+    // synchronously (no 0ms timer), then the pauseAfterType delay fires.
     tick(50);
 
     // Delete "ab" → ""
@@ -73,8 +72,8 @@ describe('useTypewriter', () => {
     tick(10);
     expect(result.current).toBe('');
 
-    // Pause-after-delete then start the next word.
-    tick(1);
+    // Deletion complete → synchronous transition to pausingDelete,
+    // then the pauseAfterDelete delay fires.
     tick(50);
 
     // Type "xy"

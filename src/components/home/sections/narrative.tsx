@@ -1,14 +1,8 @@
 import { type ComponentType } from 'react';
 
-import {
-  CheckIcon,
-  FileIcon,
-  FolderIcon,
-  MagnifyingGlassIcon,
-  PaperPlaneTiltIcon,
-} from '@phosphor-icons/react';
+import { CheckIcon, FileIcon, FolderIcon, MagnifyingGlassIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 
-import { NARRATIVE } from '../data';
+import { NARRATIVE, REPO_LABEL } from '../data';
 import { Reveal } from '../primitives/reveal';
 import type { NarrativeEntry } from '../types';
 
@@ -16,7 +10,7 @@ const HEADING_ID = 'how-heading';
 
 // ─── Primary "blocks" design ──────────────────────────────────────────
 
-type StepKey = 'paste' | 'index' | 'cite';
+type StepKey = 'search' | 'index' | 'cite';
 
 type Step = {
   key: StepKey;
@@ -29,12 +23,17 @@ type Step = {
    * `index.css` under `narrative-*`.
    */
   Visual: ComponentType;
+  /** Copy for this step, pulled from the canonical NARRATIVE array in
+   *  `data.ts`. Binding it here (rather than parallel-indexing two
+   *  separate arrays at render time) makes misalignment a visible,
+   *  reviewable concern instead of a silent runtime bug. */
+  entry: NarrativeEntry;
 };
 
 const STEPS: ReadonlyArray<Step> = [
-  { key: 'paste', Visual: PasteBlock },
-  { key: 'index', Visual: IndexBlock },
-  { key: 'cite', Visual: CiteBlock },
+  { key: 'search', Visual: PasteBlock, entry: NARRATIVE[0] },
+  { key: 'index', Visual: IndexBlock, entry: NARRATIVE[1] },
+  { key: 'cite', Visual: CiteBlock, entry: NARRATIVE[2] },
 ];
 
 /**
@@ -45,23 +44,17 @@ const STEPS: ReadonlyArray<Step> = [
  * interaction; the captions guarantee the meaning lands even when the
  * visitor doesn't watch a full loop.
  *
- * Lead/trail copy is pulled from the canonical `NARRATIVE` data in
- * `data.ts` — STEPS owns only the visual config so wording lives in one
- * place.
+ * Each step binds its visual config to the matching `NARRATIVE` entry
+ * from `data.ts` at definition time (not at render time via parallel
+ * indexing), so wording lives in one place and misalignment is visible
+ * in code review.
  */
 export function Narrative() {
   return (
     <Reveal>
-      <section
-        id="how"
-        aria-labelledby={HEADING_ID}
-        className="relative flex flex-col gap-12 sm:gap-16"
-      >
+      <section id="how" aria-labelledby={HEADING_ID} className="relative flex flex-col gap-12 sm:gap-16">
         <header className="flex max-w-3xl flex-col gap-3">
-          <h2
-            id={HEADING_ID}
-            className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-4xl"
-          >
+          <h2 id={HEADING_ID} className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">
             A repo URL becomes a grounded answer in three moves.
           </h2>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.2em] text-muted-foreground sm:text-[11px]">
@@ -71,7 +64,7 @@ export function Narrative() {
 
         <ol className="grid grid-cols-1 gap-y-12 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-0 lg:gap-x-8">
           {STEPS.map((step, i) => (
-            <Block key={step.key} step={step} entry={NARRATIVE[i]} index={i} />
+            <Block key={step.key} step={step} index={i} />
           ))}
         </ol>
       </section>
@@ -79,22 +72,12 @@ export function Narrative() {
   );
 }
 
-function Block({
-  step,
-  entry,
-  index,
-}: {
-  step: Step;
-  entry: NarrativeEntry;
-  index: number;
-}) {
+function Block({ step, index }: { step: Step; index: number }) {
+  const { entry, Visual } = step;
   return (
-    <li
-      className="flex animate-fade-up list-none flex-col gap-5"
-      style={{ animationDelay: `${index * 110}ms` }}
-    >
-      <div className="relative aspect-[5/4] w-full overflow-hidden border border-border bg-card/60 backdrop-blur">
-        <step.Visual />
+    <li className="flex animate-fade-up list-none flex-col gap-5" style={{ animationDelay: `${index * 110}ms` }}>
+      <div className="relative aspect-5/4 w-full overflow-hidden border border-border bg-card/60 backdrop-blur">
+        <Visual />
       </div>
 
       <div className="flex flex-col gap-2.5">
@@ -104,12 +87,8 @@ function Block({
           <span aria-hidden className="block h-px flex-1 bg-border/60" />
           <span className="text-muted-foreground">{step.key}</span>
         </div>
-        <h3 className="text-pretty text-base font-semibold leading-snug tracking-tight sm:text-lg">
-          {entry.lead}
-        </h3>
-        <p className="text-pretty text-[13.5px] leading-relaxed text-muted-foreground sm:text-[14px]">
-          {entry.trail}
-        </p>
+        <h3 className="text-pretty text-base font-semibold leading-snug tracking-tight sm:text-lg">{entry.lead}</h3>
+        <p className="text-pretty text-[13.5px] leading-relaxed text-muted-foreground sm:text-[14px]">{entry.trail}</p>
       </div>
     </li>
   );
@@ -157,14 +136,9 @@ function PasteBlock() {
             width animates 0 → 7ch in `steps(7, end)` so "systify"
             appears one character at a time. */}
         <div>
-          <p className="mb-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">
-            repo name
-          </p>
+          <p className="mb-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">repo name</p>
           <div className="relative flex items-center gap-2 border border-border bg-background/80 px-2 py-1.5">
-            <MagnifyingGlassIcon
-              weight="bold"
-              className="size-3 shrink-0 text-muted-foreground/70"
-            />
+            <MagnifyingGlassIcon weight="bold" className="size-3 shrink-0 text-muted-foreground/70" />
             {/* Reserved-height text region. Placeholder is an absolute
                 overlay; the typed query is an absolutely-positioned
                 inline-block whose `width` animates 0 → 7ch in seven
@@ -206,13 +180,8 @@ function PasteBlock() {
                   className="animate-narrative-paste-list-highlight pointer-events-none absolute inset-0 bg-primary/20"
                 />
               ) : null}
-              <FolderIcon
-                weight="duotone"
-                className="relative size-3.5 shrink-0 text-muted-foreground/80"
-              />
-              <span className="relative min-w-0 flex-1 truncate text-foreground/85">
-                {result.repo}
-              </span>
+              <FolderIcon weight="duotone" className="relative size-3.5 shrink-0 text-muted-foreground/80" />
+              <span className="relative min-w-0 flex-1 truncate text-foreground/85">{result.repo}</span>
             </div>
           ))}
         </div>
@@ -242,18 +211,11 @@ function PasteBlock() {
             live. No "ready" label here; the success chip below carries
             that beat instead. */}
         <div className="flex items-center gap-1.5 border-b border-border/60 pb-1.5">
-          <FolderIcon
-            weight="duotone"
-            aria-hidden
-            className="size-3 shrink-0 text-muted-foreground"
-          />
+          <FolderIcon weight="duotone" aria-hidden className="size-3 shrink-0 text-muted-foreground" />
           <span className="min-w-0 flex-1 truncate font-mono text-[10px] tracking-tight text-foreground/85">
-            EricTsai83/systify
+            {REPO_LABEL}
           </span>
-          <span
-            aria-hidden
-            className="animate-pulse-soft size-1.5 shrink-0 rounded-full bg-emerald-500"
-          />
+          <span aria-hidden className="animate-pulse-soft size-1.5 shrink-0 rounded-full bg-emerald-500" />
         </div>
 
         {/* Sandbox-ready chip — the single success marker for this
@@ -281,9 +243,7 @@ function PasteBlock() {
             than reading as a tight one-liner. Static; the send icon
             does not press during this scene. */}
         <div className="flex min-h-12 items-start gap-2 border border-border bg-background/80 px-2.5 py-2.5">
-          <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground/55">
-            ask anything…
-          </span>
+          <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-muted-foreground/55">ask anything…</span>
           <span
             aria-hidden
             className="inline-flex size-5 shrink-0 items-center justify-center border border-primary/40 bg-primary/10 text-primary"
@@ -304,7 +264,7 @@ function PasteBlock() {
  * two are plausible noise so the click choice has weight.
  */
 const SEARCH_RESULTS: ReadonlyArray<{ repo: string }> = [
-  { repo: 'EricTsai83/systify' },
+  { repo: REPO_LABEL },
   { repo: 'octocat/systify-app' },
   { repo: 'hubot/systify-utils' },
 ];
@@ -328,16 +288,14 @@ const SEARCH_RESULTS: ReadonlyArray<{ repo: string }> = [
  * it's already invisible at the loop boundary, and a staggered cycle
  * there has no visual cost.
  *
- * INDEX_FILES.length must stay aligned with the number of per-row check
- * keyframes (currently 5: `narrative-index-check-0` … `-4`). If you add
- * a row, add the matching keyframe + utility class in `index.css`.
+ * Each row in `INDEX_FILES` carries its own `checkClass`, so adding a
+ * row means adding a matching `narrative-index-check-N` keyframe +
+ * utility class in `index.css` and a `checkClass` entry on the new row.
  */
 function IndexBlock() {
   return (
     <div className="flex h-full flex-col justify-center gap-0.5 p-3 sm:p-4">
-      <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">
-        scanning files
-      </p>
+      <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">scanning files</p>
       {INDEX_FILES.map((file, i) => (
         <div
           key={`${file.depth}-${file.name}`}
@@ -349,10 +307,7 @@ function IndexBlock() {
             className="animate-narrative-index-row pointer-events-none absolute inset-0 bg-primary/15"
             style={{ animationDelay: `${i * 220}ms` }}
           />
-          <span
-            className="relative flex shrink-0 items-center"
-            style={{ paddingLeft: `${file.depth * 10}px` }}
-          >
+          <span className="relative flex shrink-0 items-center" style={{ paddingLeft: `${file.depth * 10}px` }}>
             {file.isDir ? (
               <FolderIcon weight="duotone" className="size-3 text-muted-foreground" />
             ) : (
@@ -373,7 +328,7 @@ function IndexBlock() {
           <CheckIcon
             weight="bold"
             aria-hidden
-            className={`${INDEX_CHECK_CLASSES[i]} relative size-2.5 shrink-0 text-emerald-600 dark:text-emerald-400`}
+            className={`${file.checkClass} relative size-2.5 shrink-0 text-emerald-600 dark:text-emerald-400`}
           />
         </div>
       ))}
@@ -381,27 +336,31 @@ function IndexBlock() {
   );
 }
 
-const INDEX_FILES: ReadonlyArray<{ depth: number; name: string; isDir?: boolean }> = [
-  { depth: 0, name: 'src/', isDir: true },
-  { depth: 1, name: 'main.tsx' },
-  { depth: 1, name: 'App.tsx' },
-  { depth: 1, name: 'router.tsx' },
-  { depth: 0, name: 'README.md' },
-];
-
 /**
- * Per-row class names for the indexed-check animation. Listed as
- * literal strings (not built via template-literal at render time) so
- * Tailwind/PostCSS class scanners and any production purge step still
- * see every variant in source. Indexed by row position; length must
- * match `INDEX_FILES`.
+ * Index-block file tree. Each entry carries its own check-animation
+ * class so `INDEX_FILES` is the single source of truth for both the
+ * rendered tree and the per-row keyframe binding — adding or removing
+ * a row can no longer silently break the animation by leaving the old
+ * `INDEX_CHECK_CLASSES` array out of sync.
+ *
+ * The `checkClass` values are listed as literal strings (not built via
+ * template-literal at render time) so Tailwind/PostCSS class scanners
+ * and any production purge step still see every variant in source. If
+ * you add a row, add the matching `narrative-index-check-N` keyframe +
+ * utility class in `index.css`.
  */
-const INDEX_CHECK_CLASSES: ReadonlyArray<string> = [
-  'animate-narrative-index-check-0',
-  'animate-narrative-index-check-1',
-  'animate-narrative-index-check-2',
-  'animate-narrative-index-check-3',
-  'animate-narrative-index-check-4',
+const INDEX_FILES: ReadonlyArray<{
+  depth: number;
+  name: string;
+  isDir?: boolean;
+  /** Tailwind utility that binds this row to its per-row check keyframe. */
+  checkClass: string;
+}> = [
+  { depth: 0, name: 'src/', isDir: true, checkClass: 'animate-narrative-index-check-0' },
+  { depth: 1, name: 'main.tsx', checkClass: 'animate-narrative-index-check-1' },
+  { depth: 1, name: 'App.tsx', checkClass: 'animate-narrative-index-check-2' },
+  { depth: 1, name: 'router.tsx', checkClass: 'animate-narrative-index-check-3' },
+  { depth: 0, name: 'README.md', checkClass: 'animate-narrative-index-check-4' },
 ];
 
 /**
@@ -435,9 +394,7 @@ function CiteBlock() {
           loop reads as "scroll → mark → file". The chip's reveal is
           opacity + transform only, so it never reflows the card. */}
       <div className="flex flex-col gap-1.5 border border-border bg-background/80 px-2.5 py-2">
-        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">
-          assistant
-        </p>
+        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground/70">assistant</p>
         <div className="flex flex-col gap-1">
           <span aria-hidden className="block h-[3px] w-[88%] bg-foreground/20" />
           <span aria-hidden className="block h-[3px] w-[64%] bg-foreground/20" />
@@ -455,10 +412,8 @@ function CiteBlock() {
       <div className="relative overflow-hidden border border-border bg-background/80 px-2 py-2">
         <div className="animate-narrative-cite-scroll flex flex-col gap-[3px] font-mono text-[10px] leading-[14px] will-change-transform">
           {CITE_LINES.map(({ n, w, target }) => (
-            <div key={n} className="relative flex items-center gap-2 py-[1px]">
-              <span className="w-4 shrink-0 text-right text-muted-foreground/45 tabular-nums">
-                {n}
-              </span>
+            <div key={n} className="relative flex items-center gap-2 py-px">
+              <span className="w-4 shrink-0 text-right text-muted-foreground/45 tabular-nums">{n}</span>
               <span
                 aria-hidden
                 className={`block h-[3px] ${target ? 'bg-foreground/55' : 'bg-foreground/20'}`}
@@ -470,7 +425,7 @@ function CiteBlock() {
               {target ? (
                 <span
                   aria-hidden
-                  className="animate-narrative-cite-sweep pointer-events-none absolute inset-y-[1px] left-[24px] right-1 bg-primary/30"
+                  className="animate-narrative-cite-sweep pointer-events-none absolute inset-y-px left-[24px] right-1 bg-primary/30"
                 />
               ) : null}
             </div>

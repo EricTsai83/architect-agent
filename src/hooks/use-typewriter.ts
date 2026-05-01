@@ -7,6 +7,10 @@ export type UseTypewriterOptions = {
    * Phrases to cycle through. The hook types each one out, pauses, deletes
    * it, then moves on to the next. When the list is exhausted it wraps back
    * to the first entry. An empty list returns an empty string.
+   *
+   * **Stability:** pass a stable reference (module-level constant or
+   * `useMemo`). An inline array literal creates a new reference every
+   * render, which restarts the effect loop.
    */
   words: ReadonlyArray<string>;
   /**
@@ -62,7 +66,10 @@ export function useTypewriter({
             setText(word.slice(0, text.length + 1));
           }, typeSpeed);
         } else {
-          timer = setTimeout(() => setPhase('pausingType'), 0);
+          // Typing complete — transition immediately to the pause phase.
+          // No timer needed; React will re-render and the next effect run
+          // schedules the real `pauseAfterType` delay.
+          setPhase('pausingType');
         }
         break;
       }
@@ -76,7 +83,8 @@ export function useTypewriter({
             setText((current) => current.slice(0, -1));
           }, deleteSpeed);
         } else {
-          timer = setTimeout(() => setPhase('pausingDelete'), 0);
+          // Deletion complete — same immediate transition as above.
+          setPhase('pausingDelete');
         }
         break;
       }

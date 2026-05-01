@@ -1,20 +1,5 @@
-import {
-  AnthropicIcon,
-  ConvexIcon,
-  DaytonaIcon,
-  GitHubIcon,
-  OpenAIIcon,
-  WorkOSIcon,
-} from '@/components/icons';
-import type {
-  CommandStep,
-  FaqEntry,
-  HeaderNavLink,
-  Mode,
-  NarrativeEntry,
-  SelfHostFeature,
-  StackItem,
-} from './types';
+import { AnthropicIcon, ConvexIcon, DaytonaIcon, GitHubIcon, OpenAIIcon, WorkOSIcon } from '@/components/icons';
+import type { CommandStep, FaqEntry, HeaderNavLink, Mode, NarrativeEntry, SelfHostFeature, StackItem } from './types';
 
 export const REPO_URL = 'https://github.com/EricTsai83/systify';
 export const REPO_LABEL = 'EricTsai83/systify';
@@ -31,8 +16,8 @@ export const REPO_LABEL = 'EricTsai83/systify';
  * a single horizontal row on `md+`.
  */
 export const HEADER_NAV_LINKS: ReadonlyArray<HeaderNavLink> = [
-  { href: '#how', label: 'How it works' },
   { href: '#stack', label: 'Stack' },
+  { href: '#how', label: 'How it works' },
   { href: '#modes', label: 'Modes' },
   { href: '#self-host', label: 'Self-host' },
   { href: '#faq', label: 'FAQ' },

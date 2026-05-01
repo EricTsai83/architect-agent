@@ -8,7 +8,9 @@ export function SiteFooter() {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-4 px-4 py-8 font-mono text-[12.5px] text-muted-foreground sm:flex-row sm:items-center sm:px-6 sm:text-[13px]">
         <div className="flex min-w-0 items-center gap-2.5">
           <Logo size={18} />
-          <span className="min-w-0 truncate tracking-tight">© {COPYRIGHT_YEAR} Systify · open source</span>
+          <span className="min-w-0 truncate tracking-tight flex items-center gap-1">
+            <span className="text-sm">©</span> {COPYRIGHT_YEAR} Systify · open source
+          </span>
         </div>
         <div className="flex shrink-0 items-center gap-5">
           <a href="#top" className="transition-colors hover:text-foreground">
