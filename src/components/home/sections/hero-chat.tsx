@@ -1,16 +1,17 @@
-import { forwardRef, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { forwardRef, useId, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowsClockwiseIcon,
+  CaretDownIcon,
   DotsThreeVerticalIcon,
   FileTextIcon,
   ListIcon,
   MagnifyingGlassIcon,
   PaperPlaneTiltIcon,
-} from '@phosphor-icons/react';
+} from "@phosphor-icons/react";
 
-import { GitHubIcon } from '@/components/icons';
-import { CornerMarks } from '../primitives/corner-marks';
-import { REPLAY_ON_MOUNT_ATTR } from '../primitives/replay-animations';
+import { GitHubIcon } from "@/components/icons";
+import { CornerMarks } from "../primitives/corner-marks";
+import { REPLAY_ON_MOUNT_ATTR } from "../primitives/replay-animations";
 
 /**
  * HeroChat — a faithful preview of the real `<ChatPanel />` the user
@@ -69,10 +70,10 @@ const TIMELINE = {
   wordStep: 60,
 } as const;
 
-const TYPED_TEXT = 'How does the App Router resolve nested layouts?';
+const TYPED_TEXT = "How does the App Router resolve nested layouts?";
 
 const BODY_TEXT =
-  'Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:';
+  "Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:";
 const BODY_WORDS = BODY_TEXT.split(/\s+/);
 
 /** Wall-clock time (ms from mount) when the streamed body finishes. */
@@ -84,17 +85,16 @@ const STREAM_END = TIMELINE.streamStart + BODY_WORDS.length * TIMELINE.wordStep 
  * does not need to recreate it every time.
  */
 const CITATIONS: ReadonlyArray<string> = [
-  'packages/next/src/server/app-render/app-render.tsx',
-  'packages/next/src/server/app-render/create-component-tree.tsx',
-  'packages/next/src/build/webpack/loaders/next-app-loader.ts',
+  "packages/next/src/server/app-render/app-render.tsx",
+  "packages/next/src/server/app-render/create-component-tree.tsx",
 ];
 
 /** Marks any element whose entry animation should be replayed by the hero "Replay" button. */
-const replayAttr = { [REPLAY_ON_MOUNT_ATTR]: '' } as const;
+const replayAttr = { [REPLAY_ON_MOUNT_ATTR]: "" } as const;
 
 export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref) {
   return (
-    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: '600ms' }} {...replayAttr}>
+    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: "600ms" }} {...replayAttr}>
       <div
         ref={ref}
         className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur"
@@ -103,8 +103,31 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
 
         <ChatTopBar />
 
-        {/* Chat body — same layout vocabulary as <ChatPanel /> */}
-        <div className="flex flex-col gap-3 px-3 py-4 sm:px-5 sm:py-5">
+        {/* Chat body — same layout vocabulary as <ChatPanel />.
+            Uses a *fixed* `h` (not `max-h`) at each breakpoint so
+            toggling the citations list open/closed never reflows the
+            page around the chat — the panel stays the same size, the
+            list itself overflows into the scroll area. The chosen
+            heights track the viewport's vertical room:
+              • mobile (`<sm`)  → just enough for collapsed content;
+                                   expanding citations triggers scroll.
+              • tablet (`sm-lg`) → mid-size; minor scroll on expand.
+              • desktop (`lg+`)  → tall enough that even expanded
+                                   citations fit without scrolling. */}
+        {/* `contain: content` + `will-change: transform` promote this
+            scroll container to its own permanent GPU compositor layer.
+            This creates a compositing boundary that isolates child
+            animation layer promotions/demotions (especially the 17
+            rapid-fire word-streaming fade-ins) from the parent card's
+            `backdrop-blur` + `bg-card/85` compositing context — without
+            this, every child layer change forces a re-composite of the
+            entire backdrop-blur region, and the sub-pixel rounding
+            differences between GPU and CPU alpha blending on the
+            semi-transparent card background reads as flicker. */}
+        <div
+          className="scrollbar-themed flex h-[340px] flex-col gap-2.5 overflow-y-auto px-3 py-3 sm:h-[400px] sm:gap-3 sm:px-5 sm:py-5 lg:h-[460px]"
+          style={{ contain: "content", willChange: "transform" }}
+        >
           <UserMessage delay={TIMELINE.userMessage}>{TYPED_TEXT}</UserMessage>
           <AssistantMessage delay={TIMELINE.assistantHeader} />
         </div>
@@ -124,7 +147,7 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
  */
 function ChatTopBar() {
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3">
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border bg-background/60 px-3 sm:h-12">
       <span aria-hidden className="flex size-7 shrink-0 items-center justify-center text-muted-foreground/70">
         <ListIcon weight="bold" className="size-4" />
       </span>
@@ -156,15 +179,22 @@ function ChatTopBar() {
  */
 function UserMessage({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <div className="relative pl-2">
-      <GuideAccent delay={delay + 100} />
-      <div className="animate-fade-up bg-muted px-4 py-3" style={{ animationDelay: `${delay}ms` }} {...replayAttr}>
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
-          <p className="text-[10px] text-muted-foreground">Ready</p>
-        </div>
-        <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
+    <div
+      className="relative overflow-hidden bg-muted px-4 py-3 animate-reveal-up"
+      style={{ animationDelay: `${delay}ms` }}
+      {...replayAttr}
+    >
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-0.5 bg-primary shadow-[0_0_14px_var(--color-primary)] animate-message-rail"
+        style={{ animationDelay: `${delay}ms` }}
+        {...replayAttr}
+      />
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">user</p>
+        <p className="text-[10px] text-muted-foreground">Ready</p>
       </div>
+      <p className="text-[13.5px] leading-6 text-foreground">{children}</p>
     </div>
   );
 }
@@ -178,6 +208,12 @@ function UserMessage({ children, delay }: { children: ReactNode; delay: number }
  *      completes.
  */
 function AssistantMessage({ delay }: { delay: number }) {
+  // Citations default to expanded so the marketing demo showcases the
+  // file-cited value prop, but the toggle below lets visitors collapse
+  // the list to keep the panel compact (especially on mobile).
+  const [citationsExpanded, setCitationsExpanded] = useState(true);
+  const citationsListId = useId();
+
   return (
     // No animation on the container — children control their own
     // visibility. If the container also faded in, its opacity would
@@ -197,48 +233,30 @@ function AssistantMessage({ delay }: { delay: number }) {
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">assistant</p>
       </div>
 
-      <div className="flex flex-col gap-2.5 text-[13.5px] leading-6 text-foreground/95">
-        {/* ── Group 1: Tool call ──────────────────────────────────
-            Mirrors `<UserMessage />` exactly — same `pl-2` outer
-            wrapper, same bubble padding. Only the background tint
-            and the inner content differ.
-
-            The guide-accent line lives in the 8 px outer gutter so
-            it never overpaints the bubble's bg (which would force
-            the bubble's left strip to repaint on every animation
-            frame, reading as the message "re-rendering"). It also
-            self-tunes its duration in <GuideAccent /> so the visual
-            draw rate stays constant across messages of different
-            heights. */}
-        <div className="relative pl-2">
-          <GuideAccent delay={TIMELINE.toolCall + 100} />
-          {/* `will-change: transform` pins this bubble to its own GPU
-              compositor layer for the lifetime of the scene. Without it,
-              the browser only auto-promotes the bubble while
-              `animate-fade-up` is actively running (~700 ms); once that
-              finishes the layer can be demoted while the sibling
-              GuideAccent is still animating for another ~1 s. In that
-              window the line's per-frame compositor work would force the
-              bubble's region — including its translucent `bg-muted/40` —
-              to be re-rasterized every frame, and the alpha blend's
-              sub-pixel rounding read as a faint background flicker. */}
-          <div
-            className="animate-fade-up bg-muted/40 px-4 py-3"
-            style={{ animationDelay: `${TIMELINE.toolCall}ms`, willChange: 'transform' }}
+      <div className="flex flex-col gap-2 text-[13.5px] leading-6 text-foreground/95 sm:gap-2.5">
+        {/* ── Group 1: Tool call ────────────────────────────────── */}
+        <div
+          className="relative overflow-hidden bg-muted/40 px-3.5 py-2.5 animate-reveal-up sm:px-4 sm:py-3"
+          style={{ animationDelay: `${TIMELINE.toolCall}ms` }}
+          {...replayAttr}
+        >
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-0.5 bg-primary shadow-[0_0_14px_var(--color-primary)] animate-message-rail"
+            style={{ animationDelay: `${TIMELINE.toolCall}ms` }}
             {...replayAttr}
-          >
-            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-              <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
-              <span>Search Codebase</span>
-            </div>
-            <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
-              query: &quot;App Router nested layouts&quot;
-            </p>
-            <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
-              <span className="size-1 rounded-full bg-emerald-500" />
-              {CITATIONS.length} files found
-            </p>
+          />
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            <MagnifyingGlassIcon weight="bold" className="size-3 text-primary" />
+            <span>Search Codebase</span>
           </div>
+          <p className="mt-1.5 font-mono text-[11px] leading-5 text-muted-foreground/80">
+            query: &quot;App Router nested layouts&quot;
+          </p>
+          <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
+            <span className="size-1 rounded-full bg-emerald-500" />
+            {CITATIONS.length} files found
+          </p>
         </div>
 
         {/* ── Group 2: Streamed body text ───────────────────────── */}
@@ -248,93 +266,70 @@ function AssistantMessage({ delay }: { delay: number }) {
               <span
                 key={i}
                 className="animate-fade-in"
-                style={{ animationDelay: `${TIMELINE.streamStart + i * TIMELINE.wordStep}ms`, animationDuration: '0.12s' }}
+                style={{
+                  animationDelay: `${TIMELINE.streamStart + i * TIMELINE.wordStep}ms`,
+                  animationDuration: "0.12s",
+                }}
                 {...replayAttr}
               >
                 {word}
-                {i < BODY_WORDS.length - 1 ? ' ' : ''}
+                {i < BODY_WORDS.length - 1 ? " " : ""}
               </span>
             ))}
           </p>
         </div>
 
-        {/* ── Citations + footer — appear after streaming ───────── */}
-        <div className="animate-fade-in flex flex-col gap-2.5" style={{ animationDelay: `${STREAM_END}ms` }} {...replayAttr}>
-          <ul className="flex flex-col gap-1.5">
-            {CITATIONS.map((path) => (
-              <li key={path} className="relative flex min-w-0 items-start gap-2">
-                <span aria-hidden className="shrink-0 leading-6 text-primary">
-                  →
-                </span>
-                <code className="min-w-0 break-all rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5">
-                  {path}
-                </code>
-              </li>
-            ))}
-          </ul>
-
-          <div className="relative flex items-center gap-2 pt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="size-1 rounded-full bg-primary" />
-              grounded · {CITATIONS.length} files cited
-            </span>
+        {/* ── Citations — appear after streaming ─────────────────
+            The "N files cited" label doubles as a disclosure toggle:
+            clicking collapses or expands the list, letting visitors
+            on smaller viewports trim the panel down to just the
+            answer. The list itself is wrapped in the grid-rows
+            `1fr ↔ 0fr` trick so collapse animates smoothly without
+            a measured height. */}
+        <div
+          className="animate-fade-in flex flex-col gap-1.5"
+          style={{ animationDelay: `${STREAM_END}ms` }}
+          {...replayAttr}
+        >
+          <button
+            type="button"
+            onClick={() => setCitationsExpanded((prev) => !prev)}
+            aria-expanded={citationsExpanded}
+            aria-controls={citationsListId}
+            className="inline-flex items-center gap-1 self-end font-mono text-[10px] uppercase leading-none tracking-[0.16em] text-muted-foreground/80 transition-colors hover:text-foreground"
+          >
+            <span>{CITATIONS.length} files cited</span>
+            <CaretDownIcon
+              weight="bold"
+              aria-hidden
+              className={`size-3 transition-transform duration-200 ${citationsExpanded ? "" : "-rotate-90"}`}
+            />
+          </button>
+          <div
+            id={citationsListId}
+            aria-hidden={!citationsExpanded}
+            hidden={!citationsExpanded}
+            className={`grid transition-[grid-template-rows] duration-200 ${citationsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+          >
+            <ul className="flex flex-col gap-1 overflow-hidden">
+              {CITATIONS.map((path) => (
+                <li key={path} className="relative flex min-w-0 items-center gap-2">
+                  <span aria-hidden className="shrink-0 leading-6 text-primary">
+                    →
+                  </span>
+                  <code
+                    title={path}
+                    className="min-w-0 truncate rounded-sm bg-muted/60 px-1.5 py-0.5 font-mono text-[11.5px] leading-5"
+                  >
+                    {path}
+                  </code>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-/**
- * Guide accent — a thin vertical bar that draws in from the top edge
- * of each sequentially appearing element, then fades out. Creates a
- * "spotlight" effect that leads the viewer's eye through the streaming
- * animation sequence: user message → tool call → body text → each
- * citation → footer.
- *
- * Two compositor / timing details worth knowing:
- *
- *   1. **Constant draw rate.** The keyframe spends its first 40 % on
- *      `scaleY: 0 → 1` and the rest holding / fading. With a fixed
- *      total duration, a tall bubble's line would visibly outpace a
- *      short bubble's line (px/s scales with height). We measure the
- *      parent's height once on mount and back-solve the duration so
- *      the *draw phase* runs at a fixed pixel rate.
- *
- *   2. **Own compositor layer.** `will-change` hints the browser to
- *      promote this span to its own layer; without it, every frame
- *      of the `scaleY` / `opacity` animation would force a repaint
- *      of whatever sits behind the line.
- */
-/** Pixel/second draw rate so taller bubbles take proportionally longer rather than speeding up. */
-const GUIDE_PX_PER_MS_DRAW = 0.15;
-/** Fraction of the keyframe spent on `scaleY: 0 → 1`; the rest is hold/fade. */
-const GUIDE_DRAW_FRACTION = 0.4;
-/** Clamp so very short or very tall bubbles still feel like the same scene. */
-const GUIDE_MIN_MS = 900;
-const GUIDE_MAX_MS = 2000;
-
-function GuideAccent({ delay }: { delay: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useLayoutEffect(() => {
-    const el = ref.current;
-    const parent = el?.parentElement;
-    if (!el || !parent) return;
-
-    const drawMs = parent.offsetHeight / GUIDE_PX_PER_MS_DRAW;
-    const totalMs = Math.min(GUIDE_MAX_MS, Math.max(GUIDE_MIN_MS, drawMs / GUIDE_DRAW_FRACTION));
-    el.style.animationDuration = `${totalMs}ms`;
-  }, []);
-
-  return (
-    <span
-      ref={ref}
-      className="absolute left-0 top-0 block h-full w-[3px] animate-guide-accent bg-primary"
-      style={{ animationDelay: `${delay}ms`, willChange: 'transform, opacity' }}
-      aria-hidden
-      {...replayAttr}
-    />
   );
 }
 
@@ -346,12 +341,12 @@ function GuideAccent({ delay }: { delay: number }) {
  */
 function ChatComposer() {
   return (
-    <div className="border-t border-border bg-background/60 px-3 py-3">
+    <div className="border-t border-border bg-background/60 px-3 py-2.5 sm:py-3">
       <div className="relative flex min-h-16 items-start rounded-sm border border-border bg-background/80 px-3 py-2.5 text-[12.5px] leading-6">
         {/* Placeholder — disappears quickly right before typing begins */}
         <span
           className="animate-fade-out text-muted-foreground/70"
-          style={{ animationDelay: `${TIMELINE.typingStart - 50}ms`, animationDuration: '0.1s' }}
+          style={{ animationDelay: `${TIMELINE.typingStart - 50}ms`, animationDuration: "0.1s" }}
           {...replayAttr}
         >
           Ask about architecture, module boundaries, data flow, risks…
@@ -361,16 +356,16 @@ function ChatComposer() {
             that fades out after Send so the composer "clears" */}
         <span
           className="absolute inset-x-3 top-2.5 animate-fade-out"
-          style={{ animationDelay: `${TIMELINE.composeClear}ms`, animationDuration: '0s' }}
+          style={{ animationDelay: `${TIMELINE.composeClear}ms`, animationDuration: "0s" }}
           {...replayAttr}
         >
           <span
             className="animate-hero-typing text-foreground"
             style={
               {
-                animationDelay: `${TIMELINE.typingStart}ms, ${TIMELINE.typingStart}ms`,
-                animationDuration: `${TIMELINE.typingDuration}ms, 1.05s`,
-                '--type-width': '100%',
+                "animationDelay": `${TIMELINE.typingStart}ms, ${TIMELINE.typingStart}ms`,
+                "animationDuration": `${TIMELINE.typingDuration}ms, 1.05s`,
+                "--type-width": "100%",
               } as CSSProperties
             }
             {...replayAttr}
@@ -379,7 +374,7 @@ function ChatComposer() {
           </span>
         </span>
       </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-1.5 flex items-center justify-between gap-2 sm:mt-2">
         <span className="inline-flex items-center gap-1.5 rounded-sm bg-muted px-2 py-1 text-[11px] text-foreground">
           <FileTextIcon size={12} weight="bold" />
           <span className="font-medium">Docs</span>

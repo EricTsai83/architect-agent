@@ -1,18 +1,18 @@
-import { v } from 'convex/values';
-import type { GenericDatabaseWriter } from 'convex/server';
-import type { DataModel, Id, TableNames } from './_generated/dataModel';
-import { internal } from './_generated/api';
-import { mutation, query, internalQuery, internalMutation, type MutationCtx } from './_generated/server';
-import { getDefaultThreadMode } from './chatModeResolver';
-import { requireViewerIdentity } from './lib/auth';
-import { getSandboxModeStatus } from './lib/sandboxAvailability';
-import { makeRepositoryTitle, parseGitHubUrl } from './lib/github';
-import { CASCADE_BATCH_SIZE } from './lib/constants';
+import { v } from "convex/values";
+import type { GenericDatabaseWriter } from "convex/server";
+import type { DataModel, Id, TableNames } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import { mutation, query, internalQuery, internalMutation, type MutationCtx } from "./_generated/server";
+import { getDefaultThreadMode } from "./chatModeResolver";
+import { requireViewerIdentity } from "./lib/auth";
+import { getSandboxModeStatus } from "./lib/sandboxAvailability";
+import { makeRepositoryTitle, parseGitHubUrl } from "./lib/github";
+import { CASCADE_BATCH_SIZE } from "./lib/constants";
 import {
   consumeDaytonaGlobalRateLimit,
   consumeImportRateLimit,
   throwOperationAlreadyInProgress,
-} from './lib/rateLimit';
+} from "./lib/rateLimit";
 
 const FILE_COUNT_DISPLAY_LIMIT = 400;
 const REPOSITORY_DETAIL_ARTIFACT_LIMIT = 20;
@@ -21,42 +21,42 @@ const REPOSITORY_DELETE_RETRY_MS = 5_000;
 const STREAM_CHUNK_DRAIN_PASS_LIMIT = 8;
 
 function isRepositoryDeleting(repository: { deletionRequestedAt?: number } | null | undefined) {
-  return typeof repository?.deletionRequestedAt === 'number';
+  return typeof repository?.deletionRequestedAt === "number";
 }
 
 async function queueImportWorkflow(
   ctx: MutationCtx,
   args: {
-    repositoryId: Id<'repositories'>;
+    repositoryId: Id<"repositories">;
     ownerTokenIdentifier: string;
     sourceUrl: string;
     branch?: string;
     clearLatestRemoteSha?: boolean;
   },
 ) {
-  const jobId = await ctx.db.insert('jobs', {
+  const jobId = await ctx.db.insert("jobs", {
     repositoryId: args.repositoryId,
     ownerTokenIdentifier: args.ownerTokenIdentifier,
-    kind: 'import',
-    status: 'queued',
-    stage: 'queued',
+    kind: "import",
+    status: "queued",
+    stage: "queued",
     progress: 0,
-    costCategory: 'indexing',
-    triggerSource: 'user',
+    costCategory: "indexing",
+    triggerSource: "user",
   });
 
-  const importId = await ctx.db.insert('imports', {
+  const importId = await ctx.db.insert("imports", {
     repositoryId: args.repositoryId,
     ownerTokenIdentifier: args.ownerTokenIdentifier,
     sourceUrl: args.sourceUrl,
     branch: args.branch,
-    adapterKind: 'git_clone',
-    status: 'queued',
+    adapterKind: "git_clone",
+    status: "queued",
     jobId,
   });
 
   await ctx.db.patch(args.repositoryId, {
-    importStatus: 'queued',
+    importStatus: "queued",
     ...(args.clearLatestRemoteSha ? { latestRemoteSha: undefined } : {}),
   });
 
@@ -72,8 +72,8 @@ export const listRepositories = query({
   handler: async (ctx) => {
     const identity = await requireViewerIdentity(ctx);
     const repositories = await ctx.db
-      .query('repositories')
-      .withIndex('by_ownerTokenIdentifier', (q) => q.eq('ownerTokenIdentifier', identity.tokenIdentifier))
+      .query("repositories")
+      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", identity.tokenIdentifier))
       .take(100);
 
     return repositories
@@ -92,10 +92,8 @@ export const getImportedRepoSummaries = query({
   handler: async (ctx) => {
     const identity = await requireViewerIdentity(ctx);
     const repos = await ctx.db
-      .query('repositories')
-      .withIndex('by_ownerTokenIdentifier', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
-      )
+      .query("repositories")
+      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", identity.tokenIdentifier))
       .take(200);
 
     const summaries: Record<
@@ -116,9 +114,7 @@ export const getImportedRepoSummaries = query({
         importStatus: repo.importStatus,
         lastImportedAt: repo.lastImportedAt,
         hasRemoteUpdates:
-          !!repo.latestRemoteSha &&
-          !!repo.lastSyncedCommitSha &&
-          repo.latestRemoteSha !== repo.lastSyncedCommitSha,
+          !!repo.latestRemoteSha && !!repo.lastSyncedCommitSha && repo.latestRemoteSha !== repo.lastSyncedCommitSha,
       };
     }
 
@@ -128,7 +124,7 @@ export const getImportedRepoSummaries = query({
 
 export const getRepositoryDetail = query({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
@@ -138,27 +134,24 @@ export const getRepositoryDetail = query({
       isRepositoryDeleting(repository) ||
       repository.ownerTokenIdentifier !== identity.tokenIdentifier
     ) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     const currentImportArtifacts = repository.latestImportJobId
       ? await ctx.db
-          .query('artifacts')
-          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .query("artifacts")
+          .withIndex("by_jobId", (q) => q.eq("jobId", repository.latestImportJobId!))
           .take(REPOSITORY_DETAIL_IMPORT_ARTIFACT_LIMIT)
       : [];
-    const remainingArtifactSlots = Math.max(
-      0,
-      REPOSITORY_DETAIL_ARTIFACT_LIMIT - currentImportArtifacts.length,
-    );
+    const remainingArtifactSlots = Math.max(0, REPOSITORY_DETAIL_ARTIFACT_LIMIT - currentImportArtifacts.length);
     const recentDeepAnalysisArtifacts =
       remainingArtifactSlots > 0
         ? await ctx.db
-            .query('artifacts')
-            .withIndex('by_repositoryId_and_kind', (q) =>
-              q.eq('repositoryId', args.repositoryId).eq('kind', 'deep_analysis'),
+            .query("artifacts")
+            .withIndex("by_repositoryId_and_kind", (q) =>
+              q.eq("repositoryId", args.repositoryId).eq("kind", "deep_analysis"),
             )
-            .order('desc')
+            .order("desc")
             .take(remainingArtifactSlots)
         : [];
 
@@ -170,19 +163,18 @@ export const getRepositoryDetail = query({
     }
     const artifacts = Array.from(artifactsById.values());
     const jobs = await ctx.db
-      .query('jobs')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .order('desc')
+      .query("jobs")
+      .withIndex("by_repositoryId", (q) => q.eq("repositoryId", args.repositoryId))
+      .order("desc")
       .take(30);
     const threads = await ctx.db
-      .query('threads')
-      .withIndex('by_repositoryId_and_lastMessageAt', (q) => q.eq('repositoryId', args.repositoryId))
-      .order('desc')
+      .query("threads")
+      .withIndex("by_repositoryId_and_lastMessageAt", (q) => q.eq("repositoryId", args.repositoryId))
+      .order("desc")
       .take(10);
 
     const fileCount = repository.fileCount;
-    const fileCountLabel =
-      fileCount >= FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(fileCount);
+    const fileCountLabel = fileCount >= FILE_COUNT_DISPLAY_LIMIT ? `${FILE_COUNT_DISPLAY_LIMIT}+` : String(fileCount);
 
     const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
 
@@ -226,23 +218,23 @@ export const createRepositoryImport = mutation({
 
     // Check if user has GitHub connected via GitHub App installation
     const installation = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
+      .query("githubInstallations")
+      .withIndex("by_ownerTokenIdentifier_and_status", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier).eq("status", "active"),
       )
       .first();
 
     if (!installation) {
-      throw new Error('Please connect your GitHub account first to import repositories.');
+      throw new Error("Please connect your GitHub account first to import repositories.");
     }
 
     // Installation tokens can access both public and private repos
-    const accessMode = 'private' as const;
+    const accessMode = "private" as const;
 
     let repository = await ctx.db
-      .query('repositories')
-      .withIndex('by_ownerTokenIdentifier_and_sourceUrl', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('sourceUrl', parsed.normalizedUrl),
+      .query("repositories")
+      .withIndex("by_ownerTokenIdentifier_and_sourceUrl", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier).eq("sourceUrl", parsed.normalizedUrl),
       )
       .unique();
 
@@ -250,13 +242,13 @@ export const createRepositoryImport = mutation({
     let defaultThreadId = repository?.defaultThreadId;
 
     if (repository && isRepositoryDeleting(repository)) {
-      throw new Error('Repository deletion is already in progress.');
+      throw new Error("Repository deletion is already in progress.");
     }
 
-    if (repository && (repository.importStatus === 'queued' || repository.importStatus === 'running')) {
+    if (repository && (repository.importStatus === "queued" || repository.importStatus === "running")) {
       throwOperationAlreadyInProgress(
-        'repositoryImportInFlight',
-        'An import is already in progress for this repository.',
+        "repositoryImportInFlight",
+        "An import is already in progress for this repository.",
       );
     }
 
@@ -266,24 +258,24 @@ export const createRepositoryImport = mutation({
     if (!repository) {
       // Visibility will be updated after the import pipeline checks GitHub API.
       // Default to 'unknown' until the actual check completes.
-      repositoryId = await ctx.db.insert('repositories', {
+      repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier: identity.tokenIdentifier,
-        sourceHost: 'github',
+        sourceHost: "github",
         sourceUrl: parsed.normalizedUrl,
         sourceRepoFullName: parsed.fullName,
         sourceRepoOwner: parsed.owner,
         sourceRepoName: parsed.repo,
         defaultBranch: args.branch ?? parsed.branch,
-        visibility: 'unknown',
+        visibility: "unknown",
         accessMode,
-        importStatus: 'idle',
+        importStatus: "idle",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      defaultThreadId = await ctx.db.insert('threads', {
+      defaultThreadId = await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier: identity.tokenIdentifier,
         title: `${makeRepositoryTitle(parsed.fullName)} chat`,
@@ -302,7 +294,7 @@ export const createRepositoryImport = mutation({
     }
 
     if (!repositoryId || !repository) {
-      throw new Error('Failed to create repository.');
+      throw new Error("Failed to create repository.");
     }
 
     await ctx.db.patch(repositoryId, { accessMode });
@@ -325,7 +317,7 @@ export const createRepositoryImport = mutation({
 
 export const syncRepository = mutation({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
@@ -335,27 +327,24 @@ export const syncRepository = mutation({
       isRepositoryDeleting(repository) ||
       repository.ownerTokenIdentifier !== identity.tokenIdentifier
     ) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     // Check if user has an active GitHub installation
     const installation = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
+      .query("githubInstallations")
+      .withIndex("by_ownerTokenIdentifier_and_status", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier).eq("status", "active"),
       )
       .first();
 
     if (!installation) {
-      throw new Error('Please connect your GitHub account first to sync repositories.');
+      throw new Error("Please connect your GitHub account first to sync repositories.");
     }
 
     // Prevent duplicate syncs while one is already running
-    if (repository.importStatus === 'queued' || repository.importStatus === 'running') {
-      throwOperationAlreadyInProgress(
-        'repositoryImportInFlight',
-        'A sync is already in progress for this repository.',
-      );
+    if (repository.importStatus === "queued" || repository.importStatus === "running") {
+      throwOperationAlreadyInProgress("repositoryImportInFlight", "A sync is already in progress for this repository.");
     }
 
     await consumeImportRateLimit(ctx, identity.tokenIdentifier);
@@ -375,13 +364,13 @@ export const syncRepository = mutation({
 
 export const deleteRepository = mutation({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const repository = await ctx.db.get(args.repositoryId);
     if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     if (isRepositoryDeleting(repository)) {
@@ -416,10 +405,7 @@ async function drainTable<T extends TableNames>(
   value: string,
   batchSize: number,
 ): Promise<boolean> {
-  const docs = await (db
-    .query(table)
-    .withIndex(indexName, (q: any) => q.eq(field, value)) as any)
-    .take(batchSize);
+  const docs = await (db.query(table).withIndex(indexName, (q: any) => q.eq(field, value)) as any).take(batchSize);
   for (const doc of docs) {
     await db.delete(doc._id);
   }
@@ -428,7 +414,7 @@ async function drainTable<T extends TableNames>(
 
 export const cascadeDeleteRepository = internalMutation({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const cleanupState: { pendingCleanupCount: number } = await ctx.runMutation(
@@ -442,27 +428,27 @@ export const cascadeDeleteRepository = internalMutation({
 
     // Delete threads and their messages (threads need special handling)
     const threads = await ctx.db
-      .query('threads')
-      .withIndex('by_repositoryId_and_lastMessageAt', (q) => q.eq('repositoryId', args.repositoryId))
+      .query("threads")
+      .withIndex("by_repositoryId_and_lastMessageAt", (q) => q.eq("repositoryId", args.repositoryId))
       .take(CASCADE_BATCH_SIZE);
     for (const thread of threads) {
       const msgs = await ctx.db
-        .query('messages')
-        .withIndex('by_threadId', (q) => q.eq('threadId', thread._id))
+        .query("messages")
+        .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
         .take(CASCADE_BATCH_SIZE);
       for (const msg of msgs) await ctx.db.delete(msg._id);
 
       const streams = await ctx.db
-        .query('messageStreams')
-        .withIndex('by_threadId', (q) => q.eq('threadId', thread._id))
+        .query("messageStreams")
+        .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
         .take(CASCADE_BATCH_SIZE);
       let streamChunksDrained = true;
       for (const stream of streams) {
         let streamChunksFullyDrained = false;
         for (let pass = 0; pass < STREAM_CHUNK_DRAIN_PASS_LIMIT; pass += 1) {
           const streamChunks = await ctx.db
-            .query('messageStreamChunks')
-            .withIndex('by_streamId_and_sequence', (q) => q.eq('streamId', stream._id))
+            .query("messageStreamChunks")
+            .withIndex("by_streamId_and_sequence", (q) => q.eq("streamId", stream._id))
             .take(CASCADE_BATCH_SIZE);
           for (const chunk of streamChunks) {
             await ctx.db.delete(chunk._id);
@@ -488,8 +474,8 @@ export const cascadeDeleteRepository = internalMutation({
       let artifactMore = false;
       for (let pass = 0; pass < STREAM_CHUNK_DRAIN_PASS_LIMIT; pass += 1) {
         const artifacts = await ctx.db
-          .query('artifacts')
-          .withIndex('by_threadId', (q) => q.eq('threadId', thread._id))
+          .query("artifacts")
+          .withIndex("by_threadId", (q) => q.eq("threadId", thread._id))
           .take(CASCADE_BATCH_SIZE);
         for (const artifact of artifacts) {
           await ctx.db.delete(artifact._id);
@@ -506,7 +492,12 @@ export const cascadeDeleteRepository = internalMutation({
         more = true;
       }
 
-      if (msgs.length < CASCADE_BATCH_SIZE && streams.length < CASCADE_BATCH_SIZE && streamChunksDrained && artifactsDrained) {
+      if (
+        msgs.length < CASCADE_BATCH_SIZE &&
+        streams.length < CASCADE_BATCH_SIZE &&
+        streamChunksDrained &&
+        artifactsDrained
+      ) {
         await ctx.db.delete(thread._id);
       } else {
         more = true;
@@ -515,18 +506,44 @@ export const cascadeDeleteRepository = internalMutation({
     if (threads.length === CASCADE_BATCH_SIZE) more = true;
 
     // Drain remaining tables, but keep cleanup jobs until sandbox deletion has finished.
-    more = await drainTable(ctx.db, 'artifacts', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
-    more = await drainTable(ctx.db, 'repoChunks', 'by_repositoryId_and_path', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
-    more = await drainTable(ctx.db, 'repoFiles', 'by_repositoryId_and_path', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
-    more = await drainTable(ctx.db, 'imports', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+    more =
+      (await drainTable(
+        ctx.db,
+        "artifacts",
+        "by_repositoryId",
+        "repositoryId",
+        args.repositoryId,
+        CASCADE_BATCH_SIZE,
+      )) || more;
+    more =
+      (await drainTable(
+        ctx.db,
+        "repoChunks",
+        "by_repositoryId_and_path",
+        "repositoryId",
+        args.repositoryId,
+        CASCADE_BATCH_SIZE,
+      )) || more;
+    more =
+      (await drainTable(
+        ctx.db,
+        "repoFiles",
+        "by_repositoryId_and_path",
+        "repositoryId",
+        args.repositoryId,
+        CASCADE_BATCH_SIZE,
+      )) || more;
+    more =
+      (await drainTable(ctx.db, "imports", "by_repositoryId", "repositoryId", args.repositoryId, CASCADE_BATCH_SIZE)) ||
+      more;
 
     const sandboxes = await ctx.db
-      .query('sandboxes')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .order('desc')
+      .query("sandboxes")
+      .withIndex("by_repositoryId", (q) => q.eq("repositoryId", args.repositoryId))
+      .order("desc")
       .take(CASCADE_BATCH_SIZE);
     for (const sandbox of sandboxes) {
-      if (sandbox.status === 'archived') {
+      if (sandbox.status === "archived") {
         await ctx.db.delete(sandbox._id);
       } else {
         waitingOnSandboxCleanup = true;
@@ -537,14 +554,20 @@ export const cascadeDeleteRepository = internalMutation({
     }
 
     if (!waitingOnSandboxCleanup) {
-      more = await drainTable(ctx.db, 'jobs', 'by_repositoryId', 'repositoryId', args.repositoryId, CASCADE_BATCH_SIZE) || more;
+      more =
+        (await drainTable(ctx.db, "jobs", "by_repositoryId", "repositoryId", args.repositoryId, CASCADE_BATCH_SIZE)) ||
+        more;
     }
 
     // Self-schedule if any table still has remaining records
     if (more || waitingOnSandboxCleanup) {
-      await ctx.scheduler.runAfter(waitingOnSandboxCleanup ? REPOSITORY_DELETE_RETRY_MS : 0, internal.repositories.cascadeDeleteRepository, {
-        repositoryId: args.repositoryId,
-      });
+      await ctx.scheduler.runAfter(
+        waitingOnSandboxCleanup ? REPOSITORY_DELETE_RETRY_MS : 0,
+        internal.repositories.cascadeDeleteRepository,
+        {
+          repositoryId: args.repositoryId,
+        },
+      );
       return;
     }
 
@@ -557,8 +580,8 @@ export const cascadeDeleteRepository = internalMutation({
 
 export const updateRepoVisibility = internalMutation({
   args: {
-    repositoryId: v.id('repositories'),
-    visibility: v.union(v.literal('public'), v.literal('private')),
+    repositoryId: v.id("repositories"),
+    visibility: v.union(v.literal("public"), v.literal("private")),
   },
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repositoryId);
@@ -569,26 +592,24 @@ export const updateRepoVisibility = internalMutation({
 
 export const getRepositoryForProcessing = internalQuery({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const repository = await ctx.db.get(args.repositoryId);
     if (!repository) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     const artifacts = repository.latestImportJobId
       ? await ctx.db
-          .query('artifacts')
-          .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+          .query("artifacts")
+          .withIndex("by_jobId", (q) => q.eq("jobId", repository.latestImportJobId!))
           .take(20)
       : [];
     const chunks = repository.latestImportId
       ? await ctx.db
-          .query('repoChunks')
-          .withIndex('by_importId_and_path_and_chunkIndex', (q) =>
-            q.eq('importId', repository.latestImportId!),
-          )
+          .query("repoChunks")
+          .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", repository.latestImportId!))
           .take(60)
       : [];
 

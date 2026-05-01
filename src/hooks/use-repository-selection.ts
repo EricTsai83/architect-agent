@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
-import type { Doc } from '../../convex/_generated/dataModel';
-import type { RepositoryId } from '@/lib/types';
+import { useMemo } from "react";
+import type { Doc } from "../../convex/_generated/dataModel";
+import type { RepositoryId } from "@/lib/types";
 
 export function useRepositorySelection(
-  repositories: Doc<'repositories'>[] | undefined,
+  repositories: Doc<"repositories">[] | undefined,
   selectedRepositoryId: RepositoryId | null,
 ) {
   const isRepositoriesLoading = repositories === undefined;

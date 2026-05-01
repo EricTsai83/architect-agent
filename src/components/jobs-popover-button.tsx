@@ -1,17 +1,11 @@
-import { ListChecksIcon } from '@phosphor-icons/react';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { JobRow } from '@/components/job-row';
+import { ListChecksIcon } from "@phosphor-icons/react";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { JobRow } from "@/components/job-row";
 
-export function JobsPopoverButton({ jobs }: { jobs?: Doc<'jobs'>[] }) {
-  const activeJobCount = jobs?.filter(
-    (job) => job.status === 'running' || job.status === 'queued',
-  ).length ?? 0;
+export function JobsPopoverButton({ jobs }: { jobs?: Doc<"jobs">[] }) {
+  const activeJobCount = jobs?.filter((job) => job.status === "running" || job.status === "queued").length ?? 0;
 
   return (
     <Popover>
@@ -19,7 +13,7 @@ export function JobsPopoverButton({ jobs }: { jobs?: Doc<'jobs'>[] }) {
         <Button
           variant="ghost"
           size="icon"
-          aria-label={activeJobCount > 0 ? `Jobs (${activeJobCount} active)` : 'Jobs'}
+          aria-label={activeJobCount > 0 ? `Jobs (${activeJobCount} active)` : "Jobs"}
           className="relative text-muted-foreground hover:text-foreground"
         >
           {activeJobCount > 0 && (

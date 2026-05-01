@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties } from "react";
 
 /**
  * Decorative kawaii / chibi sitting cat used in the FAQ "Quick answers"
@@ -28,7 +28,7 @@ export function InvitingCat() {
         className="pointer-events-none absolute inset-0 hidden opacity-60 lg:block"
         style={{
           backgroundImage:
-            'radial-gradient(60% 60% at 50% 75%, color-mix(in oklab, var(--primary) 18%, transparent) 0%, transparent 70%)',
+            "radial-gradient(60% 60% at 50% 75%, color-mix(in oklab, var(--primary) 18%, transparent) 0%, transparent 70%)",
         }}
       />
 
@@ -47,9 +47,9 @@ export function InvitingCat() {
  * regardless of width.
  */
 const HEARTS: ReadonlyArray<{ left: string; delay: number }> = [
-  { left: '40%', delay: 0 },
-  { left: '52%', delay: 1.5 },
-  { left: '60%', delay: 3 },
+  { left: "40%", delay: 0 },
+  { left: "52%", delay: 1.5 },
+  { left: "60%", delay: 3 },
 ];
 
 function RisingHearts() {
@@ -61,8 +61,8 @@ function RisingHearts() {
           className="animate-cat-heart-rise absolute bottom-0 select-none font-mono text-[14px] leading-none text-primary"
           style={
             {
-              left: heart.left,
-              '--heart-delay': `${heart.delay}s`,
+              "left": heart.left,
+              "--heart-delay": `${heart.delay}s`,
             } as CSSProperties
           }
         >

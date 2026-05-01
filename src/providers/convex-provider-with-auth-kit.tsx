@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
-import { ConvexProviderWithAuth, ConvexReactClient } from 'convex/react';
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
 
 // Modified to match WorkOS's auth hook structure
 type UseAuth = () => {
@@ -13,14 +13,14 @@ type ConvexAuthStatus = {
   authError: string | null;
 };
 
-const AUTH_TOKEN_ERROR_MESSAGE = 'Authentication failed. Please refresh the page and sign in again.';
+const AUTH_TOKEN_ERROR_MESSAGE = "Authentication failed. Please refresh the page and sign in again.";
 
 const ConvexAuthStatusContext = createContext<ConvexAuthStatus | null>(null);
 
 export function useConvexAuthStatus() {
   const value = useContext(ConvexAuthStatusContext);
   if (value === null) {
-    throw new Error('useConvexAuthStatus must be used within ConvexProviderWithAuthKit.');
+    throw new Error("useConvexAuthStatus must be used within ConvexProviderWithAuthKit.");
   }
   return value;
 }
@@ -56,10 +56,7 @@ export function ConvexProviderWithAuthKit({
   );
 }
 
-function useUseAuthFromAuthKit(
-  useAuth: UseAuth,
-  setAuthError: (nextError: string | null) => void,
-) {
+function useUseAuthFromAuthKit(useAuth: UseAuth, setAuthError: (nextError: string | null) => void) {
   return useMemo(
     () =>
       function useAuthFromWorkOS() {
@@ -71,7 +68,7 @@ function useUseAuthFromAuthKit(
             setAuthError(null);
             return token;
           } catch (error) {
-            console.error('Error fetching WorkOS access token:', error);
+            console.error("Error fetching WorkOS access token:", error);
             setAuthError(AUTH_TOKEN_ERROR_MESSAGE);
             return null;
           }

@@ -1,29 +1,29 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, test } from 'vitest';
-import { convexTest } from 'convex-test';
-import { api } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import schema from './schema';
+import { describe, expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
 
-const modules = import.meta.glob('./**/*.ts');
+const modules = import.meta.glob("./**/*.ts");
 
 async function insertRepository(
   t: ReturnType<typeof convexTest>,
   ownerTokenIdentifier: string,
-): Promise<Id<'repositories'>> {
+): Promise<Id<"repositories">> {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert('repositories', {
+    return await ctx.db.insert("repositories", {
       ownerTokenIdentifier,
-      sourceHost: 'github',
-      sourceUrl: 'https://github.com/acme/widget',
-      sourceRepoFullName: 'acme/widget',
-      sourceRepoOwner: 'acme',
-      sourceRepoName: 'widget',
-      defaultBranch: 'main',
-      visibility: 'private',
-      accessMode: 'private',
-      importStatus: 'completed',
+      sourceHost: "github",
+      sourceUrl: "https://github.com/acme/widget",
+      sourceRepoFullName: "acme/widget",
+      sourceRepoOwner: "acme",
+      sourceRepoName: "widget",
+      defaultBranch: "main",
+      visibility: "private",
+      accessMode: "private",
+      importStatus: "completed",
       detectedLanguages: [],
       packageManagers: [],
       entrypoints: [],
@@ -32,18 +32,18 @@ async function insertRepository(
   });
 }
 
-describe('chat thread defaults', () => {
-  test('repo-less createThread and detach converge on the same persisted default mode', async () => {
-    const ownerTokenIdentifier = 'user|chat-default-mode';
+describe("chat thread defaults", () => {
+  test("repo-less createThread and detach converge on the same persisted default mode", async () => {
+    const ownerTokenIdentifier = "user|chat-default-mode";
     const t = convexTest(schema, modules);
     const repositoryId = await insertRepository(t, ownerTokenIdentifier);
 
     const threadId = await t.run(async (ctx) => {
-      return await ctx.db.insert('threads', {
+      return await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier,
-        title: 'Grounded thread',
-        mode: 'sandbox',
+        title: "Grounded thread",
+        mode: "sandbox",
         lastMessageAt: Date.now(),
       });
     });
@@ -61,13 +61,13 @@ describe('chat thread defaults', () => {
     }));
 
     expect(detachedThread?.repositoryId).toBeUndefined();
-    expect(detachedThread?.mode).toBe('discuss');
-    expect(emptyThread?.mode).toBe('discuss');
+    expect(detachedThread?.mode).toBe("discuss");
+    expect(emptyThread?.mode).toBe("discuss");
     expect(detachedThread?.mode).toBe(emptyThread?.mode);
   });
 
-  test('createThread defaults to docs when a repository is attached', async () => {
-    const ownerTokenIdentifier = 'user|chat-default-attached-mode';
+  test("createThread defaults to docs when a repository is attached", async () => {
+    const ownerTokenIdentifier = "user|chat-default-attached-mode";
     const t = convexTest(schema, modules);
     const repositoryId = await insertRepository(t, ownerTokenIdentifier);
 
@@ -75,7 +75,7 @@ describe('chat thread defaults', () => {
     const threadId = await viewer.mutation(api.chat.createThread, { repositoryId });
 
     const thread = await t.run(async (ctx) => await ctx.db.get(threadId));
-    expect(thread?.mode).toBe('docs');
+    expect(thread?.mode).toBe("docs");
     expect(thread?.repositoryId).toBe(repositoryId);
   });
 });

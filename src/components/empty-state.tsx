@@ -1,8 +1,8 @@
-import { ChatCircleTextIcon, GitBranchIcon } from '@phosphor-icons/react';
-import { Logo } from '@/components/logo';
-import { Button } from '@/components/ui/button';
-import { ImportRepoDialog } from '@/components/import-repo-dialog';
-import type { RepositoryId, ThreadId } from '@/lib/types';
+import { ChatCircleTextIcon, GitBranchIcon } from "@phosphor-icons/react";
+import { Logo } from "@/components/logo";
+import { Button } from "@/components/ui/button";
+import { ImportRepoDialog } from "@/components/import-repo-dialog";
+import type { RepositoryId, ThreadId } from "@/lib/types";
 
 /**
  * Workspace empty state — what the user sees the very first time they sign
@@ -30,8 +30,8 @@ export function EmptyState({
       <div className="max-w-md">
         <h1 className="text-2xl font-semibold tracking-tight">Design with your codebase</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Talk through architecture refactors, generate diagrams and ADRs, and pressure-test
-          designs against your real code.
+          Talk through architecture refactors, generate diagrams and ADRs, and pressure-test designs against your real
+          code.
         </p>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row">
@@ -44,7 +44,7 @@ export function EmptyState({
           onClick={onStartConversation}
         >
           <ChatCircleTextIcon size={14} weight="bold" />
-          {isStartingConversation ? 'Starting…' : 'Start a design conversation'}
+          {isStartingConversation ? "Starting…" : "Start a design conversation"}
         </Button>
         <ImportRepoDialog
           onImported={onImported}
@@ -57,8 +57,8 @@ export function EmptyState({
         />
       </div>
       <p className="max-w-md text-xs text-muted-foreground">
-        Threads can stand on their own for general design conversation, or be grounded by
-        attaching a repository at any time.
+        Threads can stand on their own for general design conversation, or be grounded by attaching a repository at any
+        time.
       </p>
     </div>
   );

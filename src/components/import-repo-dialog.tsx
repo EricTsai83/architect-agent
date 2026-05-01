@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react';
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   PlusIcon,
   GlobeIcon,
@@ -11,13 +11,13 @@ import {
   ArrowsClockwiseIcon,
   ArrowSquareOutIcon,
   GithubLogoIcon,
-} from '@phosphor-icons/react';
-import { api } from '../../convex/_generated/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+} from "@phosphor-icons/react";
+import { api } from "../../convex/_generated/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -27,11 +27,19 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
-} from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import { useGitHubConnection } from '@/hooks/use-github-connection';
-import { useAsyncCallback } from '@/hooks/use-async-callback';
-import type { RepositoryId, ThreadId } from '@/lib/types';
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { useGitHubConnection } from "@/hooks/use-github-connection";
+import { useAsyncCallback } from "@/hooks/use-async-callback";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+import { useTypewriter } from "@/hooks/use-typewriter";
+import type { RepositoryId, ThreadId } from "@/lib/types";
+
+// Example queries the placeholder cycles through to suggest searchable repo
+// names. Picked to span popular shapes (single word, owner/name, kebab-case)
+// so the visitor sees a few different valid forms.
+const PLACEHOLDER_QUERIES = ["react", "shadcn-ui", "vercel/next.js", "systify"] as const;
+const STATIC_PLACEHOLDER = "Search any GitHub repo or paste a URL...";
 
 type ImportSummary = {
   importStatus: string;
@@ -57,17 +65,17 @@ function formatRelativeDate(dateStr: string): string {
   const diffHours = Math.floor(diffMs / 3_600_000);
   const diffDays = Math.floor(diffMs / 86_400_000);
 
-  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 1) return "just now";
   if (diffMinutes < 60) return `${diffMinutes}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function isGitHubUrl(input: string): boolean {
   const trimmed = input.trim();
-  return trimmed.includes('github.com/') || /^https?:\/\//.test(trimmed);
+  return trimmed.includes("github.com/") || /^https?:\/\//.test(trimmed);
 }
 
 // ---------------------------------------------------------------------------
@@ -86,16 +94,16 @@ function RepoRow({
   onImport: () => void;
   importSummary?: ImportSummary;
 }) {
-  const ownerInitial = (repo.fullName.split('/')[0] ?? '?')[0].toUpperCase();
-  const hasCompletedImport = importSummary?.importStatus === 'completed' || importSummary?.lastImportedAt !== undefined;
-  const isRunning = importSummary?.importStatus === 'queued' || importSummary?.importStatus === 'running';
+  const ownerInitial = (repo.fullName.split("/")[0] ?? "?")[0].toUpperCase();
+  const hasCompletedImport = importSummary?.importStatus === "completed" || importSummary?.lastImportedAt !== undefined;
+  const isRunning = importSummary?.importStatus === "queued" || importSummary?.importStatus === "running";
   const hasUpdates = hasCompletedImport && !!importSummary?.hasRemoteUpdates;
-  const canRetryFailedSync = hasCompletedImport && importSummary?.importStatus === 'failed';
-  const runningLabel = hasCompletedImport ? 'Syncing…' : 'Importing…';
+  const canRetryFailedSync = hasCompletedImport && importSummary?.importStatus === "failed";
+  const runningLabel = hasCompletedImport ? "Syncing…" : "Importing…";
 
   return (
     <div
-      className={`flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning ? 'opacity-60' : ''}`}
+      className={`flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning ? "opacity-60" : ""}`}
     >
       {/* Avatar */}
       {repo.ownerAvatarUrl ? (
@@ -129,7 +137,7 @@ function RepoRow({
             onClick={onImport}
           >
             <ArrowsClockwiseIcon size={12} weight="bold" />
-            {isImporting ? 'Syncing…' : 'Sync'}
+            {isImporting ? "Syncing…" : "Sync"}
           </Button>
         ) : canRetryFailedSync ? (
           <Button
@@ -140,7 +148,7 @@ function RepoRow({
             onClick={onImport}
           >
             <ArrowsClockwiseIcon size={12} weight="bold" />
-            {isImporting ? 'Syncing…' : 'Retry sync'}
+            {isImporting ? "Syncing…" : "Retry sync"}
           </Button>
         ) : (
           <Badge variant="muted" className="shrink-0 gap-1">
@@ -156,7 +164,7 @@ function RepoRow({
           disabled={isImporting}
           onClick={onImport}
         >
-          {isImporting ? 'Importing…' : 'Import'}
+          {isImporting ? "Importing…" : "Import"}
         </Button>
       )}
     </div>
@@ -218,17 +226,41 @@ export function ImportRepoDialog({
   }, [authorizedRepos, importedSummaries]);
 
   // --- Public tab state ---
-  const [publicInput, setPublicInput] = useState('');
-  const [branch, setBranch] = useState('');
-  const [importStage, setImportStage] = useState<'idle' | 'verifying' | 'importing'>('idle');
+  const [publicInput, setPublicInput] = useState("");
+  const [branch, setBranch] = useState("");
+  const [importStage, setImportStage] = useState<"idle" | "verifying" | "importing">("idle");
   const [searchResults, setSearchResults] = useState<RepoInfo[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const isUrlMode = isGitHubUrl(publicInput);
 
+  // Animated placeholder for the search input. We only run the typewriter
+  // while the field is empty AND unfocused — the moment the user engages
+  // (focus or types) we yield to the native caret to avoid two carets
+  // showing at once. Reduced-motion users skip the animation entirely
+  // and see the static placeholder instead.
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const showTypewriter = !publicInput && !isSearchFocused && !prefersReducedMotion;
+  const typedPlaceholder = useTypewriter({
+    words: PLACEHOLDER_QUERIES,
+    active: showTypewriter,
+  });
+
   // Track the latest search request to avoid stale results
+  const inputRef = useRef<HTMLInputElement>(null);
   const latestSearchRef = useRef(0);
+
+  useEffect(() => {
+    if (!open || !showTypewriter) return;
+
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [open, showTypewriter]);
 
   const [isConnectingGitHub, handleConnectGitHub] = useAsyncCallback(async () => {
     setConnectError(null);
@@ -238,7 +270,7 @@ export function ImportRepoDialog({
       });
       window.location.assign(redirectUrl);
     } catch (error) {
-      setConnectError(error instanceof Error ? error.message : 'Failed to connect GitHub.');
+      setConnectError(error instanceof Error ? error.message : "Failed to connect GitHub.");
     }
   });
 
@@ -250,7 +282,7 @@ export function ImportRepoDialog({
       const result = await listRepos({});
       setAuthorizedRepos(result.repos);
     } catch (err) {
-      setAuthorizedError(err instanceof Error ? err.message : 'Failed to load repos');
+      setAuthorizedError(err instanceof Error ? err.message : "Failed to load repos");
     } finally {
       setIsLoadingAuthorized(false);
     }
@@ -275,8 +307,8 @@ export function ImportRepoDialog({
       void fetchAuthorizedRepos();
     };
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [open, isConnected, fetchAuthorizedRepos]);
 
   // Debounced search effect
@@ -305,7 +337,7 @@ export function ImportRepoDialog({
         })
         .catch((err) => {
           if (requestId === latestSearchRef.current) {
-            setSearchError(err instanceof Error ? err.message : 'Search failed');
+            setSearchError(err instanceof Error ? err.message : "Search failed");
             setSearchResults(null);
           }
         })
@@ -325,7 +357,7 @@ export function ImportRepoDialog({
     try {
       const match = publicInput.match(/github\.com\/([^/]+\/[^/\s#?]+)/);
       if (match) {
-        const fullName = match[1].replace(/\.git$/, '');
+        const fullName = match[1].replace(/\.git$/, "");
         return authorizedSet.has(fullName);
       }
     } catch {
@@ -341,14 +373,14 @@ export function ImportRepoDialog({
         void fetchAuthorizedRepos();
       }
       if (!nextOpen) {
-        setPublicInput('');
-        setBranch('');
+        setPublicInput("");
+        setBranch("");
         setImportError(null);
         setConnectError(null);
         setImportingRepo(null);
         setSearchResults(null);
         setSearchError(null);
-        setImportStage('idle');
+        setImportStage("idle");
       }
     },
     [fetchAuthorizedRepos, isConnected],
@@ -358,22 +390,22 @@ export function ImportRepoDialog({
   async function handleImportByUrl(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setImportError(null);
-    setImportStage('verifying');
+    setImportStage("verifying");
     try {
       await verifyAccess({ url: publicInput });
-      setImportStage('importing');
+      setImportStage("importing");
       const result = await createRepositoryImport({
         url: publicInput,
         branch: branch.trim() || undefined,
       });
-      setPublicInput('');
-      setBranch('');
+      setPublicInput("");
+      setBranch("");
       setOpen(false);
       onImported(result.repositoryId, result.defaultThreadId ?? null);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : 'Import failed.');
+      setImportError(error instanceof Error ? error.message : "Import failed.");
     } finally {
-      setImportStage('idle');
+      setImportStage("idle");
     }
   }
 
@@ -388,7 +420,7 @@ export function ImportRepoDialog({
       setOpen(false);
       onImported(result.repositoryId, result.defaultThreadId ?? null);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : 'Import failed.');
+      setImportError(error instanceof Error ? error.message : "Import failed.");
     } finally {
       setImportingRepo(null);
     }
@@ -408,8 +440,8 @@ export function ImportRepoDialog({
           <DialogTitle>Add a repository</DialogTitle>
           <DialogDescription>
             {!isConnected
-              ? 'Connect your GitHub account to import repositories.'
-              : 'Import any public repo by URL or search, or add your private repos.'}
+              ? "Connect your GitHub account to import repositories."
+              : "Import any public repo by URL or search, or add your private repos."}
           </DialogDescription>
         </DialogHeader>
 
@@ -452,7 +484,13 @@ export function ImportRepoDialog({
 
             {/* ---- Tab 1: Public Repo (URL + Search) ---- */}
             <TabsContent value="public" className="pt-3">
-              {/* Smart input */}
+              {/* Smart input. The visible placeholder is rendered as an
+                  absolutely-positioned overlay so we can type it out
+                  character-by-character with a caret tracking the last
+                  visible letter. The native `placeholder` attribute is
+                  left empty while the typewriter is active to avoid
+                  drawing two placeholders on top of each other; the
+                  `aria-label` keeps screen readers informed regardless. */}
               <div className="relative shrink-0">
                 <MagnifyingGlassIcon
                   size={14}
@@ -460,15 +498,32 @@ export function ImportRepoDialog({
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
+                  ref={inputRef}
                   value={publicInput}
                   onChange={(e) => {
                     setPublicInput(e.target.value);
                     setImportError(null);
                   }}
-                  placeholder="Search any GitHub repo or paste a URL..."
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  placeholder={showTypewriter ? "" : STATIC_PLACEHOLDER}
+                  aria-label={STATIC_PLACEHOLDER}
                   className="pl-8"
-                  autoFocus
                 />
+                {showTypewriter && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 left-8 right-3 flex items-center text-sm text-muted-foreground"
+                  >
+                    {/* Typed text + caret. The caret is its own span placed
+                        immediately after the text in the DOM, so it sits
+                        flush against the last rendered character without any
+                        position math — no matter how long the current
+                        phrase is, the caret tracks it for free. */}
+                    <span className="truncate">{typedPlaceholder}</span>
+                    <span className="ml-px inline-block h-4 w-px shrink-0 animate-caret bg-primary" />
+                  </div>
+                )}
               </div>
 
               {/* URL import mode */}
@@ -503,13 +558,13 @@ export function ImportRepoDialog({
                       type="submit"
                       variant="default"
                       className="min-w-36"
-                      disabled={importStage !== 'idle' || !publicInput.trim()}
+                      disabled={importStage !== "idle" || !publicInput.trim()}
                     >
-                      {importStage === 'verifying'
-                        ? 'Checking access…'
-                        : importStage === 'importing'
-                          ? 'Queuing import…'
-                          : 'Import'}
+                      {importStage === "verifying"
+                        ? "Checking access…"
+                        : importStage === "importing"
+                          ? "Queuing import…"
+                          : "Import"}
                     </Button>
                   </DialogFooter>
                 </form>

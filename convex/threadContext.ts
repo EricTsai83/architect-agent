@@ -1,20 +1,16 @@
-import { v } from 'convex/values';
-import type { Doc, Id } from './_generated/dataModel';
-import { internalQuery, query } from './_generated/server';
-import type { QueryCtx } from './_generated/server';
-import { requireViewerIdentity } from './lib/auth';
-import { getSandboxModeStatus, type SandboxModeStatus } from './lib/sandboxAvailability';
-import {
-  resolveChatModes,
-  type ChatModeResolution,
-  type ChatModeSandboxStatus,
-} from './chatModeResolver';
+import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalQuery, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+import { requireViewerIdentity } from "./lib/auth";
+import { getSandboxModeStatus, type SandboxModeStatus } from "./lib/sandboxAvailability";
+import { resolveChatModes, type ChatModeResolution, type ChatModeSandboxStatus } from "./chatModeResolver";
 
-export type SandboxTableStatus = Doc<'sandboxes'>['status'];
+export type SandboxTableStatus = Doc<"sandboxes">["status"];
 
 export interface ThreadContext {
-  thread: Doc<'threads'>;
-  attachedRepository: Doc<'repositories'> | null;
+  thread: Doc<"threads">;
+  attachedRepository: Doc<"repositories"> | null;
   sandboxStatus: SandboxTableStatus | null;
   sandboxModeStatus: SandboxModeStatus | null;
   chatModes: ChatModeResolution;
@@ -30,31 +26,25 @@ export interface ThreadContext {
  */
 function toChatModeSandboxStatus(status: SandboxTableStatus | null): ChatModeSandboxStatus {
   if (!status) {
-    return 'none';
+    return "none";
   }
   switch (status) {
-    case 'ready':
-    case 'provisioning':
-    case 'failed':
+    case "ready":
+    case "provisioning":
+    case "failed":
       return status;
-    case 'stopped':
-    case 'archived':
-      return 'expired';
+    case "stopped":
+    case "archived":
+      return "expired";
   }
 }
 
-async function loadThread(
-  ctx: QueryCtx,
-  threadId: Id<'threads'>,
-): Promise<Doc<'threads'> | null> {
+async function loadThread(ctx: QueryCtx, threadId: Id<"threads">): Promise<Doc<"threads"> | null> {
   return await ctx.db.get(threadId);
 }
 
-async function enrichThreadContext(
-  ctx: QueryCtx,
-  thread: Doc<'threads'>,
-): Promise<ThreadContext> {
-  let attachedRepository: Doc<'repositories'> | null = null;
+async function enrichThreadContext(ctx: QueryCtx, thread: Doc<"threads">): Promise<ThreadContext> {
+  let attachedRepository: Doc<"repositories"> | null = null;
   let sandboxStatus: SandboxTableStatus | null = null;
   let sandboxModeStatus: SandboxModeStatus | null = null;
 
@@ -69,10 +59,7 @@ async function enrichThreadContext(
     }
   }
 
-  const chatModes = resolveChatModes(
-    attachedRepository !== null,
-    toChatModeSandboxStatus(sandboxStatus),
-  );
+  const chatModes = resolveChatModes(attachedRepository !== null, toChatModeSandboxStatus(sandboxStatus));
 
   return {
     thread,
@@ -83,10 +70,7 @@ async function enrichThreadContext(
   };
 }
 
-async function loadThreadContext(
-  ctx: QueryCtx,
-  threadId: Id<'threads'>,
-): Promise<ThreadContext | null> {
+async function loadThreadContext(ctx: QueryCtx, threadId: Id<"threads">): Promise<ThreadContext | null> {
   const thread = await loadThread(ctx, threadId);
   if (!thread) {
     return null;
@@ -95,7 +79,7 @@ async function loadThreadContext(
 }
 
 export const getThreadContext = query({
-  args: { threadId: v.id('threads') },
+  args: { threadId: v.id("threads") },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await loadThread(ctx, args.threadId);
@@ -105,13 +89,13 @@ export const getThreadContext = query({
     }
 
     if (thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (thread.repositoryId) {
       const repository = await ctx.db.get(thread.repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Thread not found.');
+        throw new Error("Thread not found.");
       }
     }
 
@@ -120,6 +104,6 @@ export const getThreadContext = query({
 });
 
 export const getThreadContextInternal = internalQuery({
-  args: { threadId: v.id('threads') },
+  args: { threadId: v.id("threads") },
   handler: (ctx, args) => loadThreadContext(ctx, args.threadId),
 });

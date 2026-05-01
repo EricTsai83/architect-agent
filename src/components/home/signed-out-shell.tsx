@@ -1,12 +1,12 @@
-import { BackgroundLayer } from './sections/background-layer';
-import { SiteHeader } from './sections/site-header';
-import { Hero } from './sections/hero';
-import { Narrative } from './sections/narrative';
-import { Stack } from './sections/stack';
-import { Modes } from './sections/modes';
-import { SelfHost } from './sections/self-host';
-import { Faq } from './sections/faq';
-import { SiteFooter } from './sections/site-footer';
+import { BackgroundLayer } from "./sections/background-layer";
+import { SiteHeader } from "./sections/site-header";
+import { Hero } from "./sections/hero";
+import { Narrative } from "./sections/narrative";
+import { Stack } from "./sections/stack";
+import { Modes } from "./sections/modes";
+import { SelfHost } from "./sections/self-host";
+import { Faq } from "./sections/faq";
+import { SiteFooter } from "./sections/site-footer";
 
 /**
  * Top-level layout for the signed-out home experience. The shell owns

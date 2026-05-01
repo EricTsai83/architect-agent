@@ -15,9 +15,9 @@
  * `dark:opacity-60` class on the rendered `<div>`.
  */
 const COLOR_WASH_GRADIENT =
-  'radial-gradient(58% 50% at 12% -4%, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 60%),' +
-  'radial-gradient(45% 40% at 92% 8%, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0) 60%),' +
-  'radial-gradient(50% 38% at 50% 96%, rgba(255,59,107,0.12) 0%, rgba(255,59,107,0) 60%)';
+  "radial-gradient(58% 50% at 12% -4%, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 60%)," +
+  "radial-gradient(45% 40% at 92% 8%, rgba(125,211,252,0.18) 0%, rgba(125,211,252,0) 60%)," +
+  "radial-gradient(50% 38% at 50% 96%, rgba(255,59,107,0.12) 0%, rgba(255,59,107,0) 60%)";
 
 /**
  * 36 px tiling grid. Color is `currentColor` so the grid follows the
@@ -26,8 +26,8 @@ const COLOR_WASH_GRADIENT =
  * grid as it approaches the bottom of the viewport).
  */
 const GRID_PATTERN =
-  'linear-gradient(to right, currentColor 1px, transparent 1px),' +
-  'linear-gradient(to bottom, currentColor 1px, transparent 1px)';
+  "linear-gradient(to right, currentColor 1px, transparent 1px)," +
+  "linear-gradient(to bottom, currentColor 1px, transparent 1px)";
 
 export function BackgroundLayer() {
   return (
@@ -42,7 +42,7 @@ export function BackgroundLayer() {
         className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07] mask-[radial-gradient(ellipse_at_top,black,transparent_75%)]"
         style={{
           backgroundImage: GRID_PATTERN,
-          backgroundSize: '36px 36px',
+          backgroundSize: "36px 36px",
         }}
       />
     </>

@@ -1,179 +1,179 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, test } from 'vitest';
-import { convexTest } from 'convex-test';
-import { internal } from './_generated/api';
-import { selectRelevantChunks } from './chat';
-import schema from './schema';
+import { describe, expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { internal } from "./_generated/api";
+import { selectRelevantChunks } from "./chat";
+import schema from "./schema";
 
-const modules = import.meta.glob('./**/*.ts');
+const modules = import.meta.glob("./**/*.ts");
 
-describe('chat reply context', () => {
-  test('uses the latest import snapshot instead of stale historical data', async () => {
-    const ownerTokenIdentifier = 'user|chat-context';
+describe("chat reply context", () => {
+  test("uses the latest import snapshot instead of stale historical data", async () => {
+    const ownerTokenIdentifier = "user|chat-context";
     const t = convexTest(schema, modules);
 
     const threadId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/context-repo',
-        sourceRepoFullName: 'acme/context-repo',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'context-repo',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/context-repo",
+        sourceRepoFullName: "acme/context-repo",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "context-repo",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const threadId = await ctx.db.insert('threads', {
+      const threadId = await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier,
-        title: 'Context thread',
-        mode: 'discuss',
+        title: "Context thread",
+        mode: "discuss",
         lastMessageAt: Date.now(),
       });
 
-      const oldJobId = await ctx.db.insert('jobs', {
+      const oldJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const oldImportId = await ctx.db.insert('imports', {
+      const oldImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/context-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/context-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: oldJobId,
       });
-      const oldFileId = await ctx.db.insert('repoFiles', {
+      const oldFileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId: oldImportId,
-        path: 'src/legacy.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/legacy.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 120,
         isEntryPoint: false,
         isConfig: false,
         isImportant: false,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId: oldImportId,
         fileId: oldFileId,
-        path: 'src/legacy.ts',
+        path: "src/legacy.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 5,
-        chunkKind: 'code',
-        summary: 'Old chunk',
+        chunkKind: "code",
+        summary: "Old chunk",
         content: 'const legacyValue = "old";',
       });
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         jobId: oldJobId,
         ownerTokenIdentifier,
-        kind: 'manifest',
-        title: 'Old Manifest',
-        summary: 'Old import summary',
-        contentMarkdown: 'old',
-        source: 'heuristic',
+        kind: "manifest",
+        title: "Old Manifest",
+        summary: "Old import summary",
+        contentMarkdown: "old",
+        source: "heuristic",
         version: 1,
       });
 
-      const latestJobId = await ctx.db.insert('jobs', {
+      const latestJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const latestImportId = await ctx.db.insert('imports', {
+      const latestImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/context-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/context-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: latestJobId,
       });
-      const latestFileId = await ctx.db.insert('repoFiles', {
+      const latestFileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId: latestImportId,
-        path: 'src/current.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/current.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 128,
         isEntryPoint: true,
         isConfig: false,
         isImportant: true,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId: latestImportId,
         fileId: latestFileId,
-        path: 'src/current.ts',
+        path: "src/current.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 5,
-        chunkKind: 'code',
-        summary: 'New chunk',
+        chunkKind: "code",
+        summary: "New chunk",
         content: 'const currentValue = "new";',
       });
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         jobId: latestJobId,
         ownerTokenIdentifier,
-        kind: 'manifest',
-        title: 'New Manifest',
-        summary: 'New import summary',
-        contentMarkdown: 'new',
-        source: 'heuristic',
+        kind: "manifest",
+        title: "New Manifest",
+        summary: "New import summary",
+        contentMarkdown: "new",
+        source: "heuristic",
         version: 1,
       });
 
-      const deepAnalysisJobId = await ctx.db.insert('jobs', {
+      const deepAnalysisJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'deep_analysis',
-        status: 'completed',
-        stage: 'completed',
+        kind: "deep_analysis",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'deep_analysis',
-        triggerSource: 'user',
+        costCategory: "deep_analysis",
+        triggerSource: "user",
       });
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         jobId: deepAnalysisJobId,
         ownerTokenIdentifier,
-        kind: 'deep_analysis',
-        title: 'Latest Deep Analysis',
-        summary: 'Deep summary',
-        contentMarkdown: 'deep',
-        source: 'sandbox',
+        kind: "deep_analysis",
+        title: "Latest Deep Analysis",
+        summary: "Deep summary",
+        contentMarkdown: "deep",
+        source: "sandbox",
         version: 1,
       });
 
@@ -188,131 +188,127 @@ describe('chat reply context', () => {
     const context = await t.query(internal.chat.getReplyContext, { threadId });
 
     expect(context.chunks).toHaveLength(1);
-    expect(context.chunks[0]?.path).toBe('src/current.ts');
+    expect(context.chunks[0]?.path).toBe("src/current.ts");
     expect(context.chunks[0]?.content).toContain('"new"');
-    expect(context.chunks.some((chunk) => chunk.path === 'src/legacy.ts')).toBe(false);
-    expect(context.artifacts.map((artifact) => artifact.title)).toEqual([
-      'New Manifest',
-      'Latest Deep Analysis',
-    ]);
+    expect(context.chunks.some((chunk) => chunk.path === "src/legacy.ts")).toBe(false);
+    expect(context.artifacts.map((artifact) => artifact.title)).toEqual(["New Manifest", "Latest Deep Analysis"]);
   });
 
-  test('expands the candidate pool with query-aware search hits from the latest import', async () => {
-    const ownerTokenIdentifier = 'user|chat-query-aware';
+  test("expands the candidate pool with query-aware search hits from the latest import", async () => {
+    const ownerTokenIdentifier = "user|chat-query-aware";
     const t = convexTest(schema, modules);
 
     const threadId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/query-aware-repo',
-        sourceRepoFullName: 'acme/query-aware-repo',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'query-aware-repo',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/query-aware-repo",
+        sourceRepoFullName: "acme/query-aware-repo",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "query-aware-repo",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const threadId = await ctx.db.insert('threads', {
+      const threadId = await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier,
-        title: 'Query-aware thread',
-        mode: 'discuss',
+        title: "Query-aware thread",
+        mode: "discuss",
         lastMessageAt: Date.now(),
       });
 
-      const olderJobId = await ctx.db.insert('jobs', {
+      const olderJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const olderImportId = await ctx.db.insert('imports', {
+      const olderImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/query-aware-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/query-aware-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: olderJobId,
       });
-      const olderFileId = await ctx.db.insert('repoFiles', {
+      const olderFileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId: olderImportId,
-        path: 'src/file-stale-auth.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/file-stale-auth.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 128,
         isEntryPoint: false,
         isConfig: false,
         isImportant: false,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId: olderImportId,
         fileId: olderFileId,
-        path: 'src/file-stale-auth.ts',
+        path: "src/file-stale-auth.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 6,
-        chunkKind: 'code',
-        summary: 'src/file-stale-auth.ts: stale auth middleware boundary',
+        chunkKind: "code",
+        summary: "src/file-stale-auth.ts: stale auth middleware boundary",
         content: 'export function handleAuthToken() { return "stale auth middleware token flow"; }',
       });
 
-      const latestJobId = await ctx.db.insert('jobs', {
+      const latestJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const latestImportId = await ctx.db.insert('imports', {
+      const latestImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/query-aware-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/query-aware-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: latestJobId,
       });
 
       for (let index = 0; index < 200; index += 1) {
-        const path =
-          index === 180 ? 'src/file-180-auth.ts' : `src/file-${index.toString().padStart(3, '0')}.ts`;
-        const fileId = await ctx.db.insert('repoFiles', {
+        const path = index === 180 ? "src/file-180-auth.ts" : `src/file-${index.toString().padStart(3, "0")}.ts`;
+        const fileId = await ctx.db.insert("repoFiles", {
           repositoryId,
           ownerTokenIdentifier,
           importId: latestImportId,
           path,
-          parentPath: 'src',
-          fileType: 'file',
-          extension: 'ts',
-          language: 'typescript',
+          parentPath: "src",
+          fileType: "file",
+          extension: "ts",
+          language: "typescript",
           sizeBytes: 128,
           isEntryPoint: index === 0,
           isConfig: false,
           isImportant: index < 10,
         });
 
-        await ctx.db.insert('repoChunks', {
+        await ctx.db.insert("repoChunks", {
           repositoryId,
           ownerTokenIdentifier,
           importId: latestImportId,
@@ -321,9 +317,8 @@ describe('chat reply context', () => {
           chunkIndex: 0,
           startLine: 1,
           endLine: 6,
-          chunkKind: 'code',
-          summary:
-            index === 180 ? `${path}: auth middleware boundary` : `${path}: generic helper ${index}`,
+          chunkKind: "code",
+          summary: index === 180 ? `${path}: auth middleware boundary` : `${path}: generic helper ${index}`,
           content:
             index === 180
               ? 'export function handleAuthToken() { return "auth middleware token flow"; }'
@@ -331,14 +326,14 @@ describe('chat reply context', () => {
         });
       }
 
-      await ctx.db.insert('messages', {
+      await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         ownerTokenIdentifier,
-        role: 'user',
-        status: 'completed',
-        mode: 'discuss',
-        content: 'How does auth work?',
+        role: "user",
+        status: "completed",
+        mode: "discuss",
+        content: "How does auth work?",
       });
 
       await ctx.db.patch(repositoryId, {
@@ -351,77 +346,77 @@ describe('chat reply context', () => {
 
     const context = await t.query(internal.chat.getReplyContext, { threadId });
 
-    expect(context.chunks.some((chunk) => chunk.path === 'src/file-180-auth.ts')).toBe(true);
-    expect(context.chunks.some((chunk) => chunk.path === 'src/file-stale-auth.ts')).toBe(false);
+    expect(context.chunks.some((chunk) => chunk.path === "src/file-180-auth.ts")).toBe(true);
+    expect(context.chunks.some((chunk) => chunk.path === "src/file-stale-auth.ts")).toBe(false);
   });
 
-  test('keeps a baseline chunk set when search terms miss everything', async () => {
-    const ownerTokenIdentifier = 'user|chat-baseline-fallback';
+  test("keeps a baseline chunk set when search terms miss everything", async () => {
+    const ownerTokenIdentifier = "user|chat-baseline-fallback";
     const t = convexTest(schema, modules);
 
     const threadId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/fallback-repo',
-        sourceRepoFullName: 'acme/fallback-repo',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'fallback-repo',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/fallback-repo",
+        sourceRepoFullName: "acme/fallback-repo",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "fallback-repo",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const threadId = await ctx.db.insert('threads', {
+      const threadId = await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier,
-        title: 'Fallback thread',
-        mode: 'discuss',
+        title: "Fallback thread",
+        mode: "discuss",
         lastMessageAt: Date.now(),
       });
 
-      const latestJobId = await ctx.db.insert('jobs', {
+      const latestJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const latestImportId = await ctx.db.insert('imports', {
+      const latestImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/fallback-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/fallback-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: latestJobId,
       });
 
-      for (const [index, path] of ['src/a.ts', 'src/b.ts', 'src/c.ts'].entries()) {
-        const fileId = await ctx.db.insert('repoFiles', {
+      for (const [index, path] of ["src/a.ts", "src/b.ts", "src/c.ts"].entries()) {
+        const fileId = await ctx.db.insert("repoFiles", {
           repositoryId,
           ownerTokenIdentifier,
           importId: latestImportId,
           path,
-          parentPath: 'src',
-          fileType: 'file',
-          extension: 'ts',
-          language: 'typescript',
+          parentPath: "src",
+          fileType: "file",
+          extension: "ts",
+          language: "typescript",
           sizeBytes: 80,
           isEntryPoint: false,
           isConfig: false,
           isImportant: false,
         });
 
-        await ctx.db.insert('repoChunks', {
+        await ctx.db.insert("repoChunks", {
           repositoryId,
           ownerTokenIdentifier,
           importId: latestImportId,
@@ -430,20 +425,20 @@ describe('chat reply context', () => {
           chunkIndex: 0,
           startLine: 1,
           endLine: 4,
-          chunkKind: 'code',
+          chunkKind: "code",
           summary: `${path}: generic helper ${index}`,
           content: `export const value${index} = ${index};`,
         });
       }
 
-      await ctx.db.insert('messages', {
+      await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         ownerTokenIdentifier,
-        role: 'user',
-        status: 'completed',
-        mode: 'discuss',
-        content: 'quaternion entanglement neutron lattice',
+        role: "user",
+        status: "completed",
+        mode: "discuss",
+        content: "quaternion entanglement neutron lattice",
       });
 
       await ctx.db.patch(repositoryId, {
@@ -457,78 +452,78 @@ describe('chat reply context', () => {
     const context = await t.query(internal.chat.getReplyContext, { threadId });
 
     expect(context.chunks).not.toHaveLength(0);
-    expect(context.chunks.map((chunk) => chunk.path)).toContain('src/a.ts');
+    expect(context.chunks.map((chunk) => chunk.path)).toContain("src/a.ts");
   });
 
-  test('content matches influence ranking even when path and summary miss', () => {
+  test("content matches influence ranking even when path and summary miss", () => {
     const ranked = selectRelevantChunks(
       [
         {
-          path: 'src/helpers.ts',
-          summary: 'Generic utility helpers',
-          content: 'This module coordinates auth middleware session token validation.',
+          path: "src/helpers.ts",
+          summary: "Generic utility helpers",
+          content: "This module coordinates auth middleware session token validation.",
         },
         {
-          path: 'src/misc.ts',
-          summary: 'Assorted helpers',
-          content: 'This module formats timestamps.',
+          path: "src/misc.ts",
+          summary: "Assorted helpers",
+          content: "This module formats timestamps.",
         },
       ],
-      'How does auth middleware work?',
+      "How does auth middleware work?",
     );
 
-    expect(ranked[0]?.path).toBe('src/helpers.ts');
+    expect(ranked[0]?.path).toBe("src/helpers.ts");
   });
 
-  test('preserves short technical tokens while dropping question filler words', () => {
+  test("preserves short technical tokens while dropping question filler words", () => {
     const ranked = selectRelevantChunks(
       [
         {
-          path: 'src/how-does-work.ts',
-          summary: 'How does the system work',
-          content: 'This file explains how it works for you.',
+          path: "src/how-does-work.ts",
+          summary: "How does the system work",
+          content: "This file explains how it works for you.",
         },
         {
-          path: 'src/db-auth.ts',
-          summary: 'DB auth adapter',
-          content: 'Database auth token validation pipeline.',
+          path: "src/db-auth.ts",
+          summary: "DB auth adapter",
+          content: "Database auth token validation pipeline.",
         },
       ],
-      'How does db auth work?',
+      "How does db auth work?",
     );
 
-    expect(ranked[0]?.path).toBe('src/db-auth.ts');
+    expect(ranked[0]?.path).toBe("src/db-auth.ts");
   });
 
-  test('preserves original candidate order for equal scores', () => {
+  test("preserves original candidate order for equal scores", () => {
     const ranked = selectRelevantChunks(
       [
         {
-          path: 'src/zeta.ts',
-          summary: 'Auth helper',
-          content: 'Token refresh flow.',
+          path: "src/zeta.ts",
+          summary: "Auth helper",
+          content: "Token refresh flow.",
         },
         {
-          path: 'src/alpha.ts',
-          summary: 'Auth helper',
-          content: 'Token refresh flow.',
+          path: "src/alpha.ts",
+          summary: "Auth helper",
+          content: "Token refresh flow.",
         },
       ],
-      'auth',
+      "auth",
     );
 
-    expect(ranked.map((chunk) => chunk.path)).toEqual(['src/zeta.ts', 'src/alpha.ts']);
+    expect(ranked.map((chunk) => chunk.path)).toEqual(["src/zeta.ts", "src/alpha.ts"]);
   });
 
-  test('returns early with empty artifacts and chunks for repository-less threads', async () => {
-    const ownerTokenIdentifier = 'user|repo-less-thread';
+  test("returns early with empty artifacts and chunks for repository-less threads", async () => {
+    const ownerTokenIdentifier = "user|repo-less-thread";
     const t = convexTest(schema, modules);
 
     const threadId = await t.run(async (ctx) => {
-      return await ctx.db.insert('threads', {
+      return await ctx.db.insert("threads", {
         ownerTokenIdentifier,
-        title: 'Design conversation',
-        mode: 'discuss',
+        title: "Design conversation",
+        mode: "discuss",
         lastMessageAt: Date.now(),
       });
     });
@@ -543,102 +538,102 @@ describe('chat reply context', () => {
     expect(context.architectureSummary).toBeUndefined();
   });
 
-  test('docs mode uses artifact-only context and skips indexed code chunks', async () => {
-    const ownerTokenIdentifier = 'user|docs-artifact-only';
+  test("docs mode uses artifact-only context and skips indexed code chunks", async () => {
+    const ownerTokenIdentifier = "user|docs-artifact-only";
     const t = convexTest(schema, modules);
 
     const threadId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/docs-mode',
-        sourceRepoFullName: 'acme/docs-mode',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'docs-mode',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/docs-mode",
+        sourceRepoFullName: "acme/docs-mode",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "docs-mode",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const threadId = await ctx.db.insert('threads', {
+      const threadId = await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier,
-        title: 'Docs thread',
-        mode: 'docs',
+        title: "Docs thread",
+        mode: "docs",
         lastMessageAt: Date.now(),
       });
 
-      const importJobId = await ctx.db.insert('jobs', {
+      const importJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const importId = await ctx.db.insert('imports', {
+      const importId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/docs-mode',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/docs-mode",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: importJobId,
       });
-      const fileId = await ctx.db.insert('repoFiles', {
+      const fileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId,
-        path: 'src/engine.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/engine.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 128,
         isEntryPoint: false,
         isConfig: false,
         isImportant: true,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId,
         fileId,
-        path: 'src/engine.ts',
+        path: "src/engine.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 3,
-        chunkKind: 'code',
-        summary: 'engine internals',
+        chunkKind: "code",
+        summary: "engine internals",
         content: 'export const engine = () => "hot path";',
       });
 
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         threadId,
         ownerTokenIdentifier,
-        kind: 'architecture_diagram',
-        title: 'Architecture diagram',
-        summary: 'Module boundaries',
-        contentMarkdown: 'graph TD\nA-->B',
-        source: 'heuristic',
+        kind: "architecture_diagram",
+        title: "Architecture diagram",
+        summary: "Module boundaries",
+        contentMarkdown: "graph TD\nA-->B",
+        source: "heuristic",
         version: 1,
       });
-      await ctx.db.insert('messages', {
+      await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         ownerTokenIdentifier,
-        role: 'user',
-        status: 'completed',
-        mode: 'docs',
-        content: 'What did we already decide about architecture?',
+        role: "user",
+        status: "completed",
+        mode: "docs",
+        content: "What did we already decide about architecture?",
       });
 
       await ctx.db.patch(repositoryId, {
@@ -650,62 +645,62 @@ describe('chat reply context', () => {
     });
 
     const context = await t.query(internal.chat.getReplyContext, { threadId });
-    expect(context.artifacts.map((artifact) => artifact.title)).toContain('Architecture diagram');
+    expect(context.artifacts.map((artifact) => artifact.title)).toContain("Architecture diagram");
     expect(context.chunks).toHaveLength(0);
   });
 
-  test('docs mode can fill the limit from a single artifact kind', async () => {
-    const ownerTokenIdentifier = 'user|docs-single-kind';
+  test("docs mode can fill the limit from a single artifact kind", async () => {
+    const ownerTokenIdentifier = "user|docs-single-kind";
     const t = convexTest(schema, modules);
 
     const threadId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/docs-single-kind',
-        sourceRepoFullName: 'acme/docs-single-kind',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'docs-single-kind',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/docs-single-kind",
+        sourceRepoFullName: "acme/docs-single-kind",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "docs-single-kind",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const threadId = await ctx.db.insert('threads', {
+      const threadId = await ctx.db.insert("threads", {
         repositoryId,
         ownerTokenIdentifier,
-        title: 'Docs single kind thread',
-        mode: 'docs',
+        title: "Docs single kind thread",
+        mode: "docs",
         lastMessageAt: Date.now(),
       });
 
       for (let index = 0; index < 20; index += 1) {
-        await ctx.db.insert('artifacts', {
+        await ctx.db.insert("artifacts", {
           repositoryId,
           threadId,
           ownerTokenIdentifier,
-          kind: 'architecture_diagram',
+          kind: "architecture_diagram",
           title: `Architecture diagram ${index}`,
           summary: `Diagram summary ${index}`,
           contentMarkdown: `graph TD\nA${index}-->B${index}`,
-          source: 'heuristic',
+          source: "heuristic",
           version: 1,
         });
       }
 
-      await ctx.db.insert('messages', {
+      await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         ownerTokenIdentifier,
-        role: 'user',
-        status: 'completed',
-        mode: 'docs',
-        content: 'Show the latest architecture artifacts.',
+        role: "user",
+        status: "completed",
+        mode: "docs",
+        content: "Show the latest architecture artifacts.",
       });
 
       return threadId;
@@ -714,7 +709,7 @@ describe('chat reply context', () => {
     const context = await t.query(internal.chat.getReplyContext, { threadId });
 
     expect(context.artifacts).toHaveLength(12);
-    expect(context.artifacts[0]?.title).toBe('Architecture diagram 19');
-    expect(context.artifacts[11]?.title).toBe('Architecture diagram 8');
+    expect(context.artifacts[0]?.title).toBe("Architecture diagram 19");
+    expect(context.artifacts[11]?.title).toBe("Architecture diagram 8");
   });
 });

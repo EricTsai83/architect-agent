@@ -1,11 +1,11 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef } from "react";
 
-import { ArrowCounterClockwise } from '@phosphor-icons/react';
-import { Button } from '@/components/ui/button';
-import { GitHubIcon } from '@/components/icons';
-import { REPO_URL } from '../data';
-import { replayAnimationsIn } from '../primitives/replay-animations';
-import { HeroChat } from './hero-chat';
+import { ArrowCounterClockwise } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
+import { GitHubIcon } from "@/components/icons";
+import { REPO_URL } from "../data";
+import { replayAnimationsIn } from "../primitives/replay-animations";
+import { HeroChat } from "./hero-chat";
 
 /**
  * Stagger schedule for the headline → tagline → buttons → stats column.
@@ -51,8 +51,8 @@ export function Hero() {
           className="max-w-xl animate-fade-up text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
           style={{ animationDelay: `${HERO_STAGGER.tagline}ms` }}
         >
-          An open-source, self-hostable Q&amp;A surface for any public repo. Every answer is cited back to a file you
-          can open. Run it on your own machine, with your own keys.
+          An open-source Q&amp;A and system-design analysis surface for any GitHub repo. Every answer cites a file you
+          can open.
         </p>
         <div
           className="flex animate-fade-up flex-col gap-3 sm:flex-row sm:items-center"
@@ -110,9 +110,9 @@ function StatusPill() {
  * renderer.
  */
 const HERO_STATS: ReadonlyArray<{ label: string; value: string }> = [
-  { label: 'Answers', value: 'file-cited' },
-  { label: 'License', value: 'MIT' },
-  { label: 'Run', value: 'your machine' },
+  { label: "Answers", value: "file-cited" },
+  { label: "License", value: "MIT" },
+  { label: "Run", value: "your machine" },
 ];
 
 function Stat() {
@@ -128,15 +128,7 @@ function Stat() {
   );
 }
 
-function StatRow({
-  label,
-  value,
-  withDividerBefore,
-}: {
-  label: string;
-  value: string;
-  withDividerBefore: boolean;
-}) {
+function StatRow({ label, value, withDividerBefore }: { label: string; value: string; withDividerBefore: boolean }) {
   return (
     <>
       {withDividerBefore && <div className="h-8 w-px shrink-0 bg-border" aria-hidden />}

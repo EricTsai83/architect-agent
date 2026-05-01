@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type UseClipboardOptions = {
   /** Milliseconds before `copied` flips back to `false`. Defaults to 1600. */
@@ -45,7 +45,7 @@ export function useClipboard({ resetAfterMs = 1600 }: UseClipboardOptions = {}):
   }, [copied, resetAfterMs]);
 
   const copy = useCallback(async (text: string): Promise<boolean> => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+    if (typeof navigator === "undefined" || !navigator.clipboard) {
       return false;
     }
     try {
@@ -55,7 +55,7 @@ export function useClipboard({ resetAfterMs = 1600 }: UseClipboardOptions = {}):
       }
       return true;
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
+      console.error("Failed to copy to clipboard:", error);
       return false;
     }
   }, []);

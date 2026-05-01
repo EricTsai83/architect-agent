@@ -1,16 +1,16 @@
-import type { ComponentProps } from 'react';
-import { AuthKitProvider, useAuth } from '@workos-inc/authkit-react';
-import { ConvexReactClient } from 'convex/react';
-import { RouterProvider } from 'react-router-dom';
-import { ConvexProviderWithAuthKit } from '@/providers/convex-provider-with-auth-kit';
-import { ErrorBoundary } from '@/providers/error-boundary';
-import { ThemeProvider } from '@/providers/theme-provider';
-import { createAppRouter } from '@/router';
-import { AUTH_CALLBACK_PATH } from '@/route-paths';
+import type { ComponentProps } from "react";
+import { AuthKitProvider, useAuth } from "@workos-inc/authkit-react";
+import { ConvexReactClient } from "convex/react";
+import { RouterProvider } from "react-router-dom";
+import { ConvexProviderWithAuthKit } from "@/providers/convex-provider-with-auth-kit";
+import { ErrorBoundary } from "@/providers/error-boundary";
+import { ThemeProvider } from "@/providers/theme-provider";
+import { createAppRouter } from "@/router";
+import { AUTH_CALLBACK_PATH } from "@/route-paths";
 
-type AppRouter = ComponentProps<typeof RouterProvider>['router'];
-type ConvexClient = ComponentProps<typeof ConvexProviderWithAuthKit>['client'];
-type AuthHook = ComponentProps<typeof ConvexProviderWithAuthKit>['useAuth'];
+type AppRouter = ComponentProps<typeof RouterProvider>["router"];
+type ConvexClient = ComponentProps<typeof ConvexProviderWithAuthKit>["client"];
+type AuthHook = ComponentProps<typeof ConvexProviderWithAuthKit>["useAuth"];
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 const router = createAppRouter();

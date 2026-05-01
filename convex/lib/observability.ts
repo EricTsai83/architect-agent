@@ -8,7 +8,12 @@ type SerializableValue =
   | { [key: string]: SerializableValue };
 
 function normalizeScope(scope: string) {
-  return scope.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'event';
+  return (
+    scope
+      .replace(/[^a-z0-9]+/gi, "_")
+      .replace(/^_+|_+$/g, "")
+      .toLowerCase() || "event"
+  );
 }
 
 function serializeError(error: unknown): SerializableValue {
@@ -19,16 +24,16 @@ function serializeError(error: unknown): SerializableValue {
       stack: error.stack,
     };
   }
-  if (typeof error === 'string') {
+  if (typeof error === "string") {
     return error;
   }
-  if (typeof error === 'number' || typeof error === 'boolean' || error == null) {
+  if (typeof error === "number" || typeof error === "boolean" || error == null) {
     return error;
   }
   try {
     return JSON.stringify(error);
   } catch {
-    return '[unserializable-error]';
+    return "[unserializable-error]";
   }
 }
 

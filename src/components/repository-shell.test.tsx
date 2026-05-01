@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import type React from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { RepositoryShell } from './repository-shell';
-import type { RepositoryId } from '@/lib/types';
+import type React from "react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { RepositoryShell } from "./repository-shell";
+import type { RepositoryId } from "@/lib/types";
 
 const { useMutationMock, useQueryMock } = vi.hoisted(() => ({
   useMutationMock: vi.fn(),
@@ -14,24 +14,24 @@ const { useMutationMock, useQueryMock } = vi.hoisted(() => ({
 
 const navigateMock = vi.fn();
 
-vi.mock('convex/react', () => ({
+vi.mock("convex/react", () => ({
   useMutation: useMutationMock,
   useQuery: useQueryMock,
 }));
 
-vi.mock('react-router-dom', () => ({
+vi.mock("react-router-dom", () => ({
   useNavigate: () => navigateMock,
 }));
 
-vi.mock('@/components/app-sidebar', () => ({
+vi.mock("@/components/app-sidebar", () => ({
   AppSidebar: () => <div data-testid="app-sidebar" />,
 }));
 
-vi.mock('@/components/top-bar', () => ({
+vi.mock("@/components/top-bar", () => ({
   TopBar: () => <div data-testid="top-bar" />,
 }));
 
-vi.mock('@/components/chat-panel', () => ({
+vi.mock("@/components/chat-panel", () => ({
   ChatPanel: ({
     showArtifactToggle,
     isArtifactPanelOpen,
@@ -45,7 +45,7 @@ vi.mock('@/components/chat-panel', () => ({
       {showArtifactToggle ? (
         <button
           data-testid="artifact-panel-toggle"
-          data-open={isArtifactPanelOpen ? 'true' : 'false'}
+          data-open={isArtifactPanelOpen ? "true" : "false"}
           onClick={onToggleArtifactPanel}
         >
           Toggle artifacts
@@ -55,29 +55,29 @@ vi.mock('@/components/chat-panel', () => ({
   ),
 }));
 
-vi.mock('@/components/artifact-panel', () => ({
+vi.mock("@/components/artifact-panel", () => ({
   ArtifactPanel: () => <div data-testid="artifact-panel" />,
 }));
 
-vi.mock('@/components/empty-state', () => ({
+vi.mock("@/components/empty-state", () => ({
   EmptyState: () => <div data-testid="empty-state" />,
 }));
 
-vi.mock('@/components/confirm-dialog', () => ({
+vi.mock("@/components/confirm-dialog", () => ({
   ConfirmDialog: () => null,
 }));
 
-vi.mock('@/components/app-notice', () => ({
+vi.mock("@/components/app-notice", () => ({
   AppNotice: () => null,
 }));
 
-vi.mock('@/components/ui/sidebar', () => ({
+vi.mock("@/components/ui/sidebar", () => ({
   SidebarInset: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ui/sheet', () => ({
+vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ open, children }: { open: boolean; children: React.ReactNode }) => (
-    <div data-testid="artifact-sheet" data-open={open ? 'true' : 'false'}>
+    <div data-testid="artifact-sheet" data-open={open ? "true" : "false"}>
       {children}
     </div>
   ),
@@ -86,7 +86,7 @@ vi.mock('@/components/ui/sheet', () => ({
   SheetTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ui/dialog', () => ({
+vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -94,27 +94,27 @@ vi.mock('@/components/ui/dialog', () => ({
   DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ui/skeleton', () => ({
+vi.mock("@/components/ui/skeleton", () => ({
   Skeleton: () => <div />,
 }));
 
-vi.mock('@/hooks/use-thread-capabilities', () => ({
+vi.mock("@/hooks/use-thread-capabilities", () => ({
   useThreadCapabilities: () => ({
-    availableModes: ['discuss'],
-    defaultMode: 'discuss',
+    availableModes: ["discuss"],
+    defaultMode: "discuss",
     attachedRepository: null,
-    sandboxModeStatus: { reasonCode: 'missing_sandbox', message: null },
+    sandboxModeStatus: { reasonCode: "missing_sandbox", message: null },
     disabledReasons: {},
     isMissingThread: false,
     isLoading: false,
   }),
 }));
 
-vi.mock('@/hooks/use-check-for-updates', () => ({
+vi.mock("@/hooks/use-check-for-updates", () => ({
   useCheckForUpdates: vi.fn(),
 }));
 
-vi.mock('@/hooks/use-repository-actions', () => ({
+vi.mock("@/hooks/use-repository-actions", () => ({
   useRepositoryActions: () => ({
     isSending: false,
     handleSendMessage: vi.fn(),
@@ -131,8 +131,8 @@ vi.mock('@/hooks/use-repository-actions', () => ({
 
 type MatchMediaListener = (event: MediaQueryListEvent) => void;
 
-let repositoriesResult: Doc<'repositories'>[] | undefined;
-let ownerThreadsResult: Doc<'threads'>[] | undefined;
+let repositoriesResult: Doc<"repositories">[] | undefined;
+let ownerThreadsResult: Doc<"threads">[] | undefined;
 let isDesktopMatches = false;
 let mediaListener: MatchMediaListener | null = null;
 
@@ -150,16 +150,16 @@ beforeEach(() => {
     if (args === undefined) {
       return repositoriesResult;
     }
-    if (args && typeof args === 'object' && Object.keys(args).length === 0) {
+    if (args && typeof args === "object" && Object.keys(args).length === 0) {
       return ownerThreadsResult;
     }
-    if (args === 'skip') {
+    if (args === "skip") {
       return undefined;
     }
-    if (args && typeof args === 'object' && 'threadId' in args) {
+    if (args && typeof args === "object" && "threadId" in args) {
       return [];
     }
-    if (args && typeof args === 'object' && 'repositoryId' in args) {
+    if (args && typeof args === "object" && "repositoryId" in args) {
       return null;
     }
     return undefined;
@@ -167,9 +167,9 @@ beforeEach(() => {
 
   window.matchMedia = vi.fn().mockImplementation(() => ({
     matches: isDesktopMatches,
-    media: '(min-width: 1024px)',
+    media: "(min-width: 1024px)",
     onchange: null,
-    addEventListener: (_: 'change', listener: MatchMediaListener) => {
+    addEventListener: (_: "change", listener: MatchMediaListener) => {
       mediaListener = listener;
     },
     removeEventListener: vi.fn(),
@@ -183,19 +183,19 @@ afterEach(() => {
   cleanup();
 });
 
-const repoId = 'repo_1' as RepositoryId;
+const repoId = "repo_1" as RepositoryId;
 
-function makeRepository(overrides: Partial<Doc<'repositories'>> = {}): Doc<'repositories'> {
+function makeRepository(overrides: Partial<Doc<"repositories">> = {}): Doc<"repositories"> {
   return {
     _id: repoId,
     _creationTime: Date.now(),
-    sourceRepoFullName: 'octocat/hello-world',
+    sourceRepoFullName: "octocat/hello-world",
     ...overrides,
-  } as unknown as Doc<'repositories'>;
+  } as unknown as Doc<"repositories">;
 }
 
-describe('RepositoryShell artifact toggle behavior', () => {
-  test('hides the artifact toggle while workspace is in no-repo state', () => {
+describe("RepositoryShell artifact toggle behavior", () => {
+  test("hides the artifact toggle while workspace is in no-repo state", () => {
     // The no-repo guard is structural — the ChatPanel-level toggle does not
     // render — instead of a disabled-but-present button. Assert the
     // absence and confirm the sheet stays closed once the workspace
@@ -203,27 +203,27 @@ describe('RepositoryShell artifact toggle behavior', () => {
     // one) cannot have leaked into shared state.
     const { rerender } = render(<RepositoryShell urlThreadId={null} urlRepositoryId={null} />);
 
-    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
-    expect(screen.queryByTestId('artifact-panel-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+    expect(screen.queryByTestId("artifact-panel-toggle")).not.toBeInTheDocument();
 
     repositoriesResult = [makeRepository()];
     rerender(<RepositoryShell urlThreadId={null} urlRepositoryId={repoId} />);
 
-    expect(screen.getByTestId('artifact-sheet')).toHaveAttribute('data-open', 'false');
+    expect(screen.getByTestId("artifact-sheet")).toHaveAttribute("data-open", "false");
   });
 
-  test('opens mobile sheet in ready state and closes it on desktop breakpoint', () => {
+  test("opens mobile sheet in ready state and closes it on desktop breakpoint", () => {
     repositoriesResult = [makeRepository()];
 
     render(<RepositoryShell urlThreadId={null} urlRepositoryId={repoId} />);
-    expect(screen.getByTestId('artifact-sheet')).toHaveAttribute('data-open', 'false');
+    expect(screen.getByTestId("artifact-sheet")).toHaveAttribute("data-open", "false");
 
-    fireEvent.click(screen.getByTestId('artifact-panel-toggle'));
-    expect(screen.getByTestId('artifact-sheet')).toHaveAttribute('data-open', 'true');
+    fireEvent.click(screen.getByTestId("artifact-panel-toggle"));
+    expect(screen.getByTestId("artifact-sheet")).toHaveAttribute("data-open", "true");
 
     act(() => {
       mediaListener?.({ matches: true } as MediaQueryListEvent);
     });
-    expect(screen.queryByTestId('artifact-sheet')).not.toBeInTheDocument();
+    expect(screen.queryByTestId("artifact-sheet")).not.toBeInTheDocument();
   });
 });

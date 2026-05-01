@@ -1,4 +1,4 @@
-import type { ModeTone } from './types';
+import type { ModeTone } from "./types";
 
 /**
  * Tone → Tailwind class lookup.
@@ -9,15 +9,15 @@ import type { ModeTone } from './types';
  */
 export const MODE_TONE_CLASSES: Record<ModeTone, { title: string; fill: string }> = {
   emerald: {
-    title: 'text-emerald-500',
-    fill: 'bg-emerald-500',
+    title: "text-emerald-500",
+    fill: "bg-emerald-500",
   },
   sky: {
-    title: 'text-sky-500',
-    fill: 'bg-sky-500',
+    title: "text-sky-500",
+    fill: "bg-sky-500",
   },
   amber: {
-    title: 'text-amber-500',
-    fill: 'bg-amber-500',
+    title: "text-amber-500",
+    fill: "bg-amber-500",
   },
 };

@@ -1,27 +1,27 @@
 /// <reference types="vite/client" />
 
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { register as registerRateLimiter } from '@convex-dev/rate-limiter/test';
-import { convexTest } from 'convex-test';
-import { api, internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import schema from './schema';
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { register as registerRateLimiter } from "@convex-dev/rate-limiter/test";
+import { convexTest } from "convex-test";
+import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
 
-const modules = import.meta.glob('./**/*.ts');
+const modules = import.meta.glob("./**/*.ts");
 type AppTestConvex = ReturnType<typeof createTestConvex>;
 
-describe('rate limits and interactive job guards', () => {
+describe("rate limits and interactive job guards", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-22T00:00:00.000Z'));
+    vi.setSystemTime(new Date("2026-04-22T00:00:00.000Z"));
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  test('createRepositoryImport rejects the sixth request without extra side effects', async () => {
-    const ownerTokenIdentifier = 'user|import-rate-limit';
+  test("createRepositoryImport rejects the sixth request without extra side effects", async () => {
+    const ownerTokenIdentifier = "user|import-rate-limit";
     const t = createTestConvex();
     await seedGithubInstallation(t, ownerTokenIdentifier, 1);
 
@@ -35,32 +35,32 @@ describe('rate limits and interactive job guards', () => {
     const before = await getOwnerImportCounts(t, ownerTokenIdentifier);
     const error = await viewer
       .mutation(api.repositories.createRepositoryImport, {
-        url: 'https://github.com/acme/import-rate-limit-5',
+        url: "https://github.com/acme/import-rate-limit-5",
       })
       .catch((caughtError) => caughtError);
 
-    expectStructuredError(error, 'RATE_LIMIT_EXCEEDED', 'importRequests');
+    expectStructuredError(error, "RATE_LIMIT_EXCEEDED", "importRequests");
     expect(await getOwnerImportCounts(t, ownerTokenIdentifier)).toEqual(before);
   });
 
-  test('requestDeepAnalysis rejects active leased jobs without creating another job', async () => {
-    const ownerTokenIdentifier = 'user|deep-analysis-in-flight';
+  test("requestDeepAnalysis rejects active leased jobs without creating another job", async () => {
+    const ownerTokenIdentifier = "user|deep-analysis-in-flight";
     const t = createTestConvex();
-    const { repositoryId, sandboxId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'deep-analysis-active', {
+    const { repositoryId, sandboxId } = await createRepositoryFixture(t, ownerTokenIdentifier, "deep-analysis-active", {
       withSandbox: true,
     });
 
     await t.run(async (ctx) => {
-      await ctx.db.insert('jobs', {
+      await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
         sandboxId,
-        kind: 'deep_analysis',
-        status: 'running',
-        stage: 'focused_inspection',
+        kind: "deep_analysis",
+        status: "running",
+        stage: "focused_inspection",
         progress: 0.4,
-        costCategory: 'deep_analysis',
-        triggerSource: 'user',
+        costCategory: "deep_analysis",
+        triggerSource: "user",
         startedAt: Date.now(),
         leaseExpiresAt: Date.now() + 60_000,
       });
@@ -71,43 +71,43 @@ describe('rate limits and interactive job guards', () => {
     const error = await viewer
       .mutation(api.analysis.requestDeepAnalysis, {
         repositoryId,
-        prompt: 'Trace the data flow.',
+        prompt: "Trace the data flow.",
       })
       .catch((caughtError) => caughtError);
 
-    expectStructuredError(error, 'OPERATION_ALREADY_IN_PROGRESS', 'repositoryDeepAnalysisInFlight');
+    expectStructuredError(error, "OPERATION_ALREADY_IN_PROGRESS", "repositoryDeepAnalysisInFlight");
     expect(await countRepositoryJobs(t, repositoryId)).toBe(before);
   });
 
-  test('sendMessage rejects active chat jobs without creating extra jobs or messages', async () => {
-    const ownerTokenIdentifier = 'user|chat-in-flight';
+  test("sendMessage rejects active chat jobs without creating extra jobs or messages", async () => {
+    const ownerTokenIdentifier = "user|chat-in-flight";
     const t = createTestConvex();
-    const { repositoryId, threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'chat-active');
+    const { repositoryId, threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, "chat-active");
 
     await t.run(async (ctx) => {
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
         threadId,
-        kind: 'chat',
-        status: 'running',
-        stage: 'generating_reply',
+        kind: "chat",
+        status: "running",
+        stage: "generating_reply",
         progress: 0.3,
-        costCategory: 'chat',
-        triggerSource: 'user',
+        costCategory: "chat",
+        triggerSource: "user",
         startedAt: Date.now(),
         leaseExpiresAt: Date.now() + 60_000,
       });
 
-      await ctx.db.insert('messages', {
+      await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         jobId,
         ownerTokenIdentifier,
-        role: 'assistant',
-        status: 'streaming',
-        mode: 'discuss',
-        content: '',
+        role: "assistant",
+        status: "streaming",
+        mode: "discuss",
+        content: "",
       });
     });
 
@@ -116,18 +116,18 @@ describe('rate limits and interactive job guards', () => {
     const error = await viewer
       .mutation(api.chat.sendMessage, {
         threadId,
-        content: 'Can you answer this now?',
+        content: "Can you answer this now?",
       })
       .catch((caughtError) => caughtError);
 
-    expectStructuredError(error, 'OPERATION_ALREADY_IN_PROGRESS', 'threadChatInFlight');
+    expectStructuredError(error, "OPERATION_ALREADY_IN_PROGRESS", "threadChatInFlight");
     expect(await getThreadCounts(t, threadId)).toEqual(before);
   });
 
-  test('sendMessage allows a burst of six then rate limits the seventh request', async () => {
-    const ownerTokenIdentifier = 'user|chat-rate-limit';
+  test("sendMessage allows a burst of six then rate limits the seventh request", async () => {
+    const ownerTokenIdentifier = "user|chat-rate-limit";
     const t = createTestConvex();
-    const { threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'chat-rate-limit');
+    const { threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, "chat-rate-limit");
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
 
     for (let index = 0; index < 6; index += 1) {
@@ -142,35 +142,35 @@ describe('rate limits and interactive job guards', () => {
     const error = await viewer
       .mutation(api.chat.sendMessage, {
         threadId,
-        content: 'message-6',
+        content: "message-6",
       })
       .catch((caughtError) => caughtError);
 
-    expectStructuredError(error, 'RATE_LIMIT_EXCEEDED', 'chatRequestsPerOwner');
+    expectStructuredError(error, "RATE_LIMIT_EXCEEDED", "chatRequestsPerOwner");
     expect(await getThreadCounts(t, threadId)).toEqual(before);
   });
 
-  test('sendMessage rejects blank content before enqueueing any work', async () => {
-    const ownerTokenIdentifier = 'user|chat-empty-content';
+  test("sendMessage rejects blank content before enqueueing any work", async () => {
+    const ownerTokenIdentifier = "user|chat-empty-content";
     const t = createTestConvex();
-    const { threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'chat-empty-content');
+    const { threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, "chat-empty-content");
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
 
     const before = await getThreadCounts(t, threadId);
     await expect(
       viewer.mutation(api.chat.sendMessage, {
         threadId,
-        content: '   \n\t  ',
+        content: "   \n\t  ",
       }),
-    ).rejects.toThrow('Message content cannot be empty.');
+    ).rejects.toThrow("Message content cannot be empty.");
     expect(await getThreadCounts(t, threadId)).toEqual(before);
   });
 
-  test('chat global limiter eventually rejects a multi-owner burst without side effects', async () => {
+  test("chat global limiter eventually rejects a multi-owner burst without side effects", async () => {
     const t = createTestConvex();
 
     let successCount = 0;
-    let blockedThreadId: Id<'threads'> | null = null;
+    let blockedThreadId: Id<"threads"> | null = null;
     let blockedError: unknown = null;
 
     for (let index = 0; index < 120; index += 1) {
@@ -195,7 +195,7 @@ describe('rate limits and interactive job guards', () => {
 
     expect(successCount).toBeGreaterThan(0);
     expect(blockedThreadId).not.toBeNull();
-    expectStructuredError(blockedError, 'RATE_LIMIT_EXCEEDED', 'chatRequestsGlobal');
+    expectStructuredError(blockedError, "RATE_LIMIT_EXCEEDED", "chatRequestsGlobal");
     expect(await getThreadCounts(t, blockedThreadId!)).toEqual({
       jobs: 0,
       messages: 0,
@@ -204,7 +204,7 @@ describe('rate limits and interactive job guards', () => {
     });
   });
 
-  test('daytona global limiter eventually rejects multi-owner imports without side effects', async () => {
+  test("daytona global limiter eventually rejects multi-owner imports without side effects", async () => {
     const t = createTestConvex();
 
     let successCount = 0;
@@ -232,7 +232,7 @@ describe('rate limits and interactive job guards', () => {
 
     expect(successCount).toBeGreaterThan(0);
     expect(blockedOwner).not.toBeNull();
-    expectStructuredError(blockedError, 'RATE_LIMIT_EXCEEDED', 'daytonaRequestsGlobal');
+    expectStructuredError(blockedError, "RATE_LIMIT_EXCEEDED", "daytonaRequestsGlobal");
     expect(await getOwnerImportCounts(t, blockedOwner!)).toEqual({
       repositories: 0,
       imports: 0,
@@ -240,64 +240,64 @@ describe('rate limits and interactive job guards', () => {
     });
   });
 
-  test('stale chat recovery fails the job and assistant message', async () => {
-    const ownerTokenIdentifier = 'user|stale-chat';
+  test("stale chat recovery fails the job and assistant message", async () => {
+    const ownerTokenIdentifier = "user|stale-chat";
     const t = createTestConvex();
-    const { repositoryId, threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'stale-chat');
+    const { repositoryId, threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, "stale-chat");
 
     const { jobId, assistantMessageId } = await t.run(async (ctx) => {
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
         threadId,
-        kind: 'chat',
-        status: 'running',
-        stage: 'generating_reply',
+        kind: "chat",
+        status: "running",
+        stage: "generating_reply",
         progress: 0.6,
-        costCategory: 'chat',
-        triggerSource: 'user',
+        costCategory: "chat",
+        triggerSource: "user",
         startedAt: Date.now() - 120_000,
         leaseExpiresAt: Date.now() - 1_000,
       });
 
-      await ctx.db.insert('messages', {
+      await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         jobId,
         ownerTokenIdentifier,
-        role: 'user',
-        status: 'completed',
-        mode: 'discuss',
-        content: 'Hello?',
+        role: "user",
+        status: "completed",
+        mode: "discuss",
+        content: "Hello?",
       });
 
-      const assistantMessageId = await ctx.db.insert('messages', {
+      const assistantMessageId = await ctx.db.insert("messages", {
         repositoryId,
         threadId,
         jobId,
         ownerTokenIdentifier,
-        role: 'assistant',
-        status: 'streaming',
-        mode: 'discuss',
-        content: '',
+        role: "assistant",
+        status: "streaming",
+        mode: "discuss",
+        content: "",
       });
 
-      const streamId = await ctx.db.insert('messageStreams', {
+      const streamId = await ctx.db.insert("messageStreams", {
         repositoryId,
         threadId,
         jobId,
         assistantMessageId,
         ownerTokenIdentifier,
-        compactedContent: 'Partial ',
+        compactedContent: "Partial ",
         compactedThroughSequence: -1,
         nextSequence: 1,
         startedAt: Date.now() - 120_000,
         lastAppendedAt: Date.now() - 30_000,
       });
-      await ctx.db.insert('messageStreamChunks', {
+      await ctx.db.insert("messageStreamChunks", {
         streamId,
         sequence: 0,
-        text: 'reply',
+        text: "reply",
       });
 
       return { jobId, assistantMessageId };
@@ -309,37 +309,37 @@ describe('rate limits and interactive job guards', () => {
       job: await ctx.db.get(jobId),
       assistantMessage: await ctx.db.get(assistantMessageId),
       streams: await ctx.db
-        .query('messageStreams')
-        .withIndex('by_jobId', (q) => q.eq('jobId', jobId))
+        .query("messageStreams")
+        .withIndex("by_jobId", (q) => q.eq("jobId", jobId))
         .take(10),
     }));
 
-    expect(result.job?.status).toBe('failed');
+    expect(result.job?.status).toBe("failed");
     expect(result.job?.leaseExpiresAt).toBeUndefined();
-    expect(result.assistantMessage?.status).toBe('failed');
-    expect(result.assistantMessage?.content).toBe('Partial reply');
-    expect(result.assistantMessage?.errorMessage).toContain('stalled');
+    expect(result.assistantMessage?.status).toBe("failed");
+    expect(result.assistantMessage?.content).toBe("Partial reply");
+    expect(result.assistantMessage?.errorMessage).toContain("stalled");
     expect(result.streams).toHaveLength(0);
   });
 
-  test('stale deep analysis recovery fails the expired job', async () => {
-    const ownerTokenIdentifier = 'user|stale-analysis';
+  test("stale deep analysis recovery fails the expired job", async () => {
+    const ownerTokenIdentifier = "user|stale-analysis";
     const t = createTestConvex();
-    const { repositoryId, sandboxId } = await createRepositoryFixture(t, ownerTokenIdentifier, 'stale-analysis', {
+    const { repositoryId, sandboxId } = await createRepositoryFixture(t, ownerTokenIdentifier, "stale-analysis", {
       withSandbox: true,
     });
 
     const jobId = await t.run(async (ctx) => {
-      return await ctx.db.insert('jobs', {
+      return await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
         sandboxId,
-        kind: 'deep_analysis',
-        status: 'queued',
-        stage: 'queued',
+        kind: "deep_analysis",
+        status: "queued",
+        stage: "queued",
         progress: 0,
-        costCategory: 'deep_analysis',
-        triggerSource: 'user',
+        costCategory: "deep_analysis",
+        triggerSource: "user",
         leaseExpiresAt: Date.now() - 1_000,
       });
     });
@@ -347,9 +347,9 @@ describe('rate limits and interactive job guards', () => {
     await t.action(internal.opsNode.reconcileStaleInteractiveJobs, {});
 
     const job = await t.run(async (ctx) => await ctx.db.get(jobId));
-    expect(job?.status).toBe('failed');
+    expect(job?.status).toBe("failed");
     expect(job?.leaseExpiresAt).toBeUndefined();
-    expect(job?.errorMessage).toContain('stalled');
+    expect(job?.errorMessage).toContain("stalled");
   });
 });
 
@@ -359,19 +359,15 @@ function createTestConvex() {
   return t;
 }
 
-async function seedGithubInstallation(
-  t: AppTestConvex,
-  ownerTokenIdentifier: string,
-  installationId: number,
-) {
+async function seedGithubInstallation(t: AppTestConvex, ownerTokenIdentifier: string, installationId: number) {
   await t.run(async (ctx) => {
-    await ctx.db.insert('githubInstallations', {
+    await ctx.db.insert("githubInstallations", {
       ownerTokenIdentifier,
       installationId,
       accountLogin: `account-${installationId}`,
-      accountType: 'User',
-      status: 'active',
-      repositorySelection: 'all',
+      accountType: "User",
+      status: "active",
+      repositorySelection: "all",
       connectedAt: Date.now(),
     });
   });
@@ -386,41 +382,41 @@ async function createRepositoryFixture(
   },
 ) {
   return await t.run(async (ctx) => {
-    const repositoryId = await ctx.db.insert('repositories', {
+    const repositoryId = await ctx.db.insert("repositories", {
       ownerTokenIdentifier,
-      sourceHost: 'github',
+      sourceHost: "github",
       sourceUrl: `https://github.com/acme/${slug}`,
       sourceRepoFullName: `acme/${slug}`,
-      sourceRepoOwner: 'acme',
+      sourceRepoOwner: "acme",
       sourceRepoName: slug,
-      defaultBranch: 'main',
-      visibility: 'private',
-      accessMode: 'private',
-      importStatus: 'completed',
+      defaultBranch: "main",
+      visibility: "private",
+      accessMode: "private",
+      importStatus: "completed",
       detectedLanguages: [],
       packageManagers: [],
       entrypoints: [],
       fileCount: 0,
     });
 
-    const threadId = await ctx.db.insert('threads', {
+    const threadId = await ctx.db.insert("threads", {
       repositoryId,
       ownerTokenIdentifier,
       title: `${slug} thread`,
-      mode: 'discuss',
+      mode: "discuss",
       lastMessageAt: Date.now(),
     });
 
-    let sandboxId: Id<'sandboxes'> | undefined;
+    let sandboxId: Id<"sandboxes"> | undefined;
     if (options?.withSandbox) {
-      sandboxId = await ctx.db.insert('sandboxes', {
+      sandboxId = await ctx.db.insert("sandboxes", {
         repositoryId,
         ownerTokenIdentifier,
-        provider: 'daytona',
-        sourceAdapter: 'git_clone',
+        provider: "daytona",
+        sourceAdapter: "git_clone",
         remoteId: `remote-${slug}`,
-        status: 'ready',
-        workDir: '/workspace',
+        status: "ready",
+        workDir: "/workspace",
         repoPath: `/workspace/${slug}`,
         cpuLimit: 2,
         memoryLimitGiB: 4,
@@ -444,16 +440,16 @@ async function createRepositoryFixture(
 async function getOwnerImportCounts(t: AppTestConvex, ownerTokenIdentifier: string) {
   return await t.run(async (ctx) => {
     const repositories = await ctx.db
-      .query('repositories')
-      .withIndex('by_ownerTokenIdentifier', (q) => q.eq('ownerTokenIdentifier', ownerTokenIdentifier))
+      .query("repositories")
+      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", ownerTokenIdentifier))
       .take(20);
     const imports = await ctx.db
-      .query('imports')
-      .withIndex('by_ownerTokenIdentifier', (q) => q.eq('ownerTokenIdentifier', ownerTokenIdentifier))
+      .query("imports")
+      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", ownerTokenIdentifier))
       .take(20);
     const jobs = await ctx.db
-      .query('jobs')
-      .withIndex('by_ownerTokenIdentifier', (q) => q.eq('ownerTokenIdentifier', ownerTokenIdentifier))
+      .query("jobs")
+      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", ownerTokenIdentifier))
       .take(20);
 
     return {
@@ -464,35 +460,35 @@ async function getOwnerImportCounts(t: AppTestConvex, ownerTokenIdentifier: stri
   });
 }
 
-async function countRepositoryJobs(t: AppTestConvex, repositoryId: Id<'repositories'>) {
+async function countRepositoryJobs(t: AppTestConvex, repositoryId: Id<"repositories">) {
   return await t.run(async (ctx) => {
     const jobs = await ctx.db
-      .query('jobs')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', repositoryId))
+      .query("jobs")
+      .withIndex("by_repositoryId", (q) => q.eq("repositoryId", repositoryId))
       .take(20);
     return jobs.length;
   });
 }
 
-async function getThreadCounts(t: AppTestConvex, threadId: Id<'threads'>) {
+async function getThreadCounts(t: AppTestConvex, threadId: Id<"threads">) {
   return await t.run(async (ctx) => {
     const jobs = await ctx.db
-      .query('jobs')
-      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .query("jobs")
+      .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
       .take(50);
     const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .query("messages")
+      .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
       .take(100);
     const streams = await ctx.db
-      .query('messageStreams')
-      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .query("messageStreams")
+      .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
       .take(50);
     let streamChunks = 0;
     for (const stream of streams) {
       const chunks = await ctx.db
-        .query('messageStreamChunks')
-        .withIndex('by_streamId_and_sequence', (q) => q.eq('streamId', stream._id))
+        .query("messageStreamChunks")
+        .withIndex("by_streamId_and_sequence", (q) => q.eq("streamId", stream._id))
         .take(100);
       streamChunks += chunks.length;
     }
@@ -506,11 +502,11 @@ async function getThreadCounts(t: AppTestConvex, threadId: Id<'threads'>) {
   });
 }
 
-async function completeJob(t: AppTestConvex, jobId: Id<'jobs'>) {
+async function completeJob(t: AppTestConvex, jobId: Id<"jobs">) {
   await t.run(async (ctx) => {
     await ctx.db.patch(jobId, {
-      status: 'completed',
-      stage: 'completed',
+      status: "completed",
+      stage: "completed",
       progress: 1,
       completedAt: Date.now(),
       leaseExpiresAt: undefined,
@@ -520,16 +516,16 @@ async function completeJob(t: AppTestConvex, jobId: Id<'jobs'>) {
 
 function expectStructuredError(
   error: any,
-  code: 'RATE_LIMIT_EXCEEDED' | 'OPERATION_ALREADY_IN_PROGRESS',
+  code: "RATE_LIMIT_EXCEEDED" | "OPERATION_ALREADY_IN_PROGRESS",
   bucket: string,
 ) {
-  const data = typeof error?.data === 'string' ? JSON.parse(error.data) : error?.data;
+  const data = typeof error?.data === "string" ? JSON.parse(error.data) : error?.data;
   expect(data).toMatchObject({
     code,
     bucket,
   });
   expect(data.message).toEqual(expect.any(String));
-  if (code === 'RATE_LIMIT_EXCEEDED') {
+  if (code === "RATE_LIMIT_EXCEEDED") {
     expect(data.retryAfterMs).toEqual(expect.any(Number));
   }
 }

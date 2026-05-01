@@ -1,30 +1,26 @@
-import { v } from 'convex/values';
-import { internal } from './_generated/api';
-import type { Doc, Id } from './_generated/dataModel';
-import { internalMutation, internalQuery, mutation, type MutationCtx } from './_generated/server';
-import { requireViewerIdentity } from './lib/auth';
-import { CASCADE_BATCH_SIZE } from './lib/constants';
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, mutation, type MutationCtx } from "./_generated/server";
+import { requireViewerIdentity } from "./lib/auth";
+import { CASCADE_BATCH_SIZE } from "./lib/constants";
 
 async function listActiveCleanupJobs(
   ctx: MutationCtx,
-  repositoryId: Id<'repositories'>,
-): Promise<Map<Id<'sandboxes'>, Id<'jobs'>>> {
+  repositoryId: Id<"repositories">,
+): Promise<Map<Id<"sandboxes">, Id<"jobs">>> {
   const queuedJobs = await ctx.db
-    .query('jobs')
-    .withIndex('by_repositoryId_and_status', (q) =>
-      q.eq('repositoryId', repositoryId).eq('status', 'queued'),
-    )
+    .query("jobs")
+    .withIndex("by_repositoryId_and_status", (q) => q.eq("repositoryId", repositoryId).eq("status", "queued"))
     .take(CASCADE_BATCH_SIZE);
   const runningJobs = await ctx.db
-    .query('jobs')
-    .withIndex('by_repositoryId_and_status', (q) =>
-      q.eq('repositoryId', repositoryId).eq('status', 'running'),
-    )
+    .query("jobs")
+    .withIndex("by_repositoryId_and_status", (q) => q.eq("repositoryId", repositoryId).eq("status", "running"))
     .take(CASCADE_BATCH_SIZE);
 
-  const activeCleanupJobs = new Map<Id<'sandboxes'>, Id<'jobs'>>();
+  const activeCleanupJobs = new Map<Id<"sandboxes">, Id<"jobs">>();
   for (const job of [...queuedJobs, ...runningJobs]) {
-    if (job.kind !== 'cleanup' || !job.sandboxId) {
+    if (job.kind !== "cleanup" || !job.sandboxId) {
       continue;
     }
     activeCleanupJobs.set(job.sandboxId, job._id);
@@ -35,30 +31,29 @@ async function listActiveCleanupJobs(
 
 async function queueSandboxCleanupJob(
   ctx: MutationCtx,
-  sandbox: Doc<'sandboxes'>,
-  triggerSource: 'user' | 'system',
-  activeCleanupJobs?: Map<Id<'sandboxes'>, Id<'jobs'>>,
-): Promise<Id<'jobs'> | null> {
-  if (sandbox.status === 'archived') {
+  sandbox: Doc<"sandboxes">,
+  triggerSource: "user" | "system",
+  activeCleanupJobs?: Map<Id<"sandboxes">, Id<"jobs">>,
+): Promise<Id<"jobs"> | null> {
+  if (sandbox.status === "archived") {
     return null;
   }
 
-  const jobsBySandbox =
-    activeCleanupJobs ?? (await listActiveCleanupJobs(ctx, sandbox.repositoryId));
+  const jobsBySandbox = activeCleanupJobs ?? (await listActiveCleanupJobs(ctx, sandbox.repositoryId));
   const existingJobId = jobsBySandbox.get(sandbox._id);
   if (existingJobId) {
     return existingJobId;
   }
 
-  const jobId = await ctx.db.insert('jobs', {
+  const jobId = await ctx.db.insert("jobs", {
     repositoryId: sandbox.repositoryId,
     ownerTokenIdentifier: sandbox.ownerTokenIdentifier,
     sandboxId: sandbox._id,
-    kind: 'cleanup',
-    status: 'queued',
-    stage: 'queued',
+    kind: "cleanup",
+    status: "queued",
+    stage: "queued",
     progress: 0,
-    costCategory: 'ops',
+    costCategory: "ops",
     triggerSource,
   });
 
@@ -73,28 +68,28 @@ async function queueSandboxCleanupJob(
 
 export const requestSandboxCleanup = mutation({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const repository = await ctx.db.get(args.repositoryId);
     if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     if (!repository.latestSandboxId) {
-      throw new Error('This repository does not have an active sandbox.');
+      throw new Error("This repository does not have an active sandbox.");
     }
 
     const sandbox = await ctx.db.get(repository.latestSandboxId);
     if (!sandbox) {
-      throw new Error('Sandbox not found.');
+      throw new Error("Sandbox not found.");
     }
 
     const activeCleanupJobs = await listActiveCleanupJobs(ctx, args.repositoryId);
-    const jobId = await queueSandboxCleanupJob(ctx, sandbox, 'user', activeCleanupJobs);
+    const jobId = await queueSandboxCleanupJob(ctx, sandbox, "user", activeCleanupJobs);
     if (!jobId) {
-      throw new Error('Sandbox is already archived.');
+      throw new Error("Sandbox is already archived.");
     }
 
     return { jobId };
@@ -103,23 +98,23 @@ export const requestSandboxCleanup = mutation({
 
 export const scheduleRepositorySandboxCleanup = internalMutation({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const sandboxes = await ctx.db
-      .query('sandboxes')
-      .withIndex('by_repositoryId', (q) => q.eq('repositoryId', args.repositoryId))
-      .order('desc')
+      .query("sandboxes")
+      .withIndex("by_repositoryId", (q) => q.eq("repositoryId", args.repositoryId))
+      .order("desc")
       .take(CASCADE_BATCH_SIZE);
     const activeCleanupJobs = await listActiveCleanupJobs(ctx, args.repositoryId);
 
     let pendingCleanupCount = 0;
     for (const sandbox of sandboxes) {
-      if (sandbox.status === 'archived') {
+      if (sandbox.status === "archived") {
         continue;
       }
       pendingCleanupCount += 1;
-      await queueSandboxCleanupJob(ctx, sandbox, 'system', activeCleanupJobs);
+      await queueSandboxCleanupJob(ctx, sandbox, "system", activeCleanupJobs);
     }
 
     return { pendingCleanupCount };
@@ -128,18 +123,18 @@ export const scheduleRepositorySandboxCleanup = internalMutation({
 
 export const markSandboxCleanupRunning = internalMutation({
   args: {
-    sandboxId: v.id('sandboxes'),
-    jobId: v.id('jobs'),
+    sandboxId: v.id("sandboxes"),
+    jobId: v.id("jobs"),
   },
   handler: async (ctx, args) => {
     const sandbox = await ctx.db.get(args.sandboxId);
     if (!sandbox) {
-      throw new Error('Sandbox not found.');
+      throw new Error("Sandbox not found.");
     }
 
     await ctx.db.patch(args.jobId, {
-      status: 'running',
-      stage: 'deleting_remote_sandbox',
+      status: "running",
+      stage: "deleting_remote_sandbox",
       progress: 0.3,
       startedAt: Date.now(),
     });
@@ -152,38 +147,38 @@ export const markSandboxCleanupRunning = internalMutation({
 
 export const completeSandboxCleanup = internalMutation({
   args: {
-    sandboxId: v.id('sandboxes'),
-    jobId: v.id('jobs'),
+    sandboxId: v.id("sandboxes"),
+    jobId: v.id("jobs"),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.sandboxId, {
-      status: 'archived',
+      status: "archived",
       lastUsedAt: Date.now(),
     });
     await ctx.db.patch(args.jobId, {
-      status: 'completed',
-      stage: 'completed',
+      status: "completed",
+      stage: "completed",
       progress: 1,
       completedAt: Date.now(),
-      outputSummary: 'Sandbox deleted and archived.',
+      outputSummary: "Sandbox deleted and archived.",
     });
   },
 });
 
 export const failSandboxCleanup = internalMutation({
   args: {
-    sandboxId: v.id('sandboxes'),
-    jobId: v.id('jobs'),
+    sandboxId: v.id("sandboxes"),
+    jobId: v.id("jobs"),
     errorMessage: v.string(),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.sandboxId, {
-      status: 'failed',
+      status: "failed",
       lastErrorMessage: args.errorMessage,
     });
     await ctx.db.patch(args.jobId, {
-      status: 'failed',
-      stage: 'failed',
+      status: "failed",
+      stage: "failed",
       progress: 1,
       completedAt: Date.now(),
       errorMessage: args.errorMessage,
@@ -203,18 +198,14 @@ export const getExpiredSandboxes = internalQuery({
     // A started sandbox may be transitioned to `stopped` first, then deleted
     // on a later sweep once Daytona confirms it is no longer running.
     const readyCandidates = await ctx.db
-      .query('sandboxes')
-      .withIndex('by_status_and_ttlExpiresAt', (q) =>
-        q.eq('status', 'ready').lt('ttlExpiresAt', now),
-      )
+      .query("sandboxes")
+      .withIndex("by_status_and_ttlExpiresAt", (q) => q.eq("status", "ready").lt("ttlExpiresAt", now))
       .take(20);
     const stoppedCandidates =
       readyCandidates.length < 20
         ? await ctx.db
-            .query('sandboxes')
-            .withIndex('by_status_and_ttlExpiresAt', (q) =>
-              q.eq('status', 'stopped').lt('ttlExpiresAt', now),
-            )
+            .query("sandboxes")
+            .withIndex("by_status_and_ttlExpiresAt", (q) => q.eq("status", "stopped").lt("ttlExpiresAt", now))
             .take(20 - readyCandidates.length)
         : [];
     const candidates = [...readyCandidates, ...stoppedCandidates];
@@ -234,8 +225,8 @@ export const getSandboxByRemoteId = internalQuery({
   },
   handler: async (ctx, args) => {
     const sandbox = await ctx.db
-      .query('sandboxes')
-      .withIndex('by_remoteId', (q) => q.eq('remoteId', args.remoteId))
+      .query("sandboxes")
+      .withIndex("by_remoteId", (q) => q.eq("remoteId", args.remoteId))
       .unique();
 
     if (!sandbox) {
@@ -254,20 +245,16 @@ export const listStaleInteractiveJobs = internalQuery({
   handler: async (ctx) => {
     const now = Date.now();
     const queuedJobs = await ctx.db
-      .query('jobs')
-      .withIndex('by_status_and_leaseExpiresAt', (q) =>
-        q.eq('status', 'queued').lt('leaseExpiresAt', now),
-      )
+      .query("jobs")
+      .withIndex("by_status_and_leaseExpiresAt", (q) => q.eq("status", "queued").lt("leaseExpiresAt", now))
       .take(25);
     const runningJobs = await ctx.db
-      .query('jobs')
-      .withIndex('by_status_and_leaseExpiresAt', (q) =>
-        q.eq('status', 'running').lt('leaseExpiresAt', now),
-      )
+      .query("jobs")
+      .withIndex("by_status_and_leaseExpiresAt", (q) => q.eq("status", "running").lt("leaseExpiresAt", now))
       .take(25);
 
     return [...queuedJobs, ...runningJobs]
-      .filter((job) => job.kind === 'chat' || job.kind === 'deep_analysis')
+      .filter((job) => job.kind === "chat" || job.kind === "deep_analysis")
       .map((job) => ({
         jobId: job._id,
         kind: job.kind,
@@ -278,12 +265,12 @@ export const listStaleInteractiveJobs = internalQuery({
 
 export const markSandboxSwept = internalMutation({
   args: {
-    sandboxId: v.id('sandboxes'),
-    newStatus: v.union(v.literal('stopped'), v.literal('archived')),
+    sandboxId: v.id("sandboxes"),
+    newStatus: v.union(v.literal("stopped"), v.literal("archived")),
   },
   handler: async (ctx, args) => {
     const sandbox = await ctx.db.get(args.sandboxId);
-    if (!sandbox || sandbox.status === 'archived') {
+    if (!sandbox || sandbox.status === "archived") {
       return;
     }
     await ctx.db.patch(args.sandboxId, {

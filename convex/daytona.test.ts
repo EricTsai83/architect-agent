@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const { getMock, MockDaytonaError, MockDaytonaNotFoundError } = vi.hoisted(() => {
   class HoistedMockDaytonaError extends Error {
@@ -7,14 +7,14 @@ const { getMock, MockDaytonaError, MockDaytonaNotFoundError } = vi.hoisted(() =>
       readonly statusCode?: number,
     ) {
       super(message);
-      this.name = 'DaytonaError';
+      this.name = "DaytonaError";
     }
   }
 
   class HoistedMockDaytonaNotFoundError extends Error {
-    constructor(message = 'Not found') {
+    constructor(message = "Not found") {
       super(message);
-      this.name = 'DaytonaNotFoundError';
+      this.name = "DaytonaNotFoundError";
     }
   }
 
@@ -25,9 +25,9 @@ const { getMock, MockDaytonaError, MockDaytonaNotFoundError } = vi.hoisted(() =>
   };
 });
 
-vi.mock('@daytona/sdk', () => ({
+vi.mock("@daytona/sdk", () => ({
   CodeLanguage: {
-    TYPESCRIPT: 'typescript',
+    TYPESCRIPT: "typescript",
   },
   Daytona: class MockDaytona {
     constructor(_options: unknown) {}
@@ -40,11 +40,11 @@ vi.mock('@daytona/sdk', () => ({
   DaytonaNotFoundError: MockDaytonaNotFoundError,
 }));
 
-import { getSandboxState, getRemoteSandboxDetails } from './daytona';
+import { getSandboxState, getRemoteSandboxDetails } from "./daytona";
 
-describe('daytona state normalization', () => {
+describe("daytona state normalization", () => {
   beforeEach(() => {
-    process.env.DAYTONA_API_KEY = 'test-api-key';
+    process.env.DAYTONA_API_KEY = "test-api-key";
     getMock.mockReset();
   });
 
@@ -53,39 +53,39 @@ describe('daytona state normalization', () => {
   });
 
   test.each([
-    ['deleted', 'destroyed'],
-    ['destroyed', 'destroyed'],
-    ['failed', 'error'],
-  ] as const)('normalizes %s when reading sandbox state', async (remoteState, expectedState) => {
+    ["deleted", "destroyed"],
+    ["destroyed", "destroyed"],
+    ["failed", "error"],
+  ] as const)("normalizes %s when reading sandbox state", async (remoteState, expectedState) => {
     getMock.mockResolvedValue({
-      id: 'remote-1',
+      id: "remote-1",
       state: remoteState,
-      labels: { app: 'systify' },
+      labels: { app: "systify" },
       refreshData: vi.fn().mockResolvedValue(undefined),
     });
 
-    await expect(getSandboxState('remote-1')).resolves.toBe(expectedState);
+    await expect(getSandboxState("remote-1")).resolves.toBe(expectedState);
   });
 
-  test('returns normalized labels and state from remote sandbox details', async () => {
+  test("returns normalized labels and state from remote sandbox details", async () => {
     getMock.mockResolvedValue({
-      id: 'remote-2',
-      organizationId: 'org-1',
-      createdAt: '2026-04-24T00:00:00.000Z',
-      updatedAt: '2026-04-24T00:00:01.000Z',
-      state: 'failed',
-      labels: { app: 'systify' },
+      id: "remote-2",
+      organizationId: "org-1",
+      createdAt: "2026-04-24T00:00:00.000Z",
+      updatedAt: "2026-04-24T00:00:01.000Z",
+      state: "failed",
+      labels: { app: "systify" },
       refreshData: vi.fn().mockResolvedValue(undefined),
     });
 
-    await expect(getRemoteSandboxDetails('remote-2')).resolves.toEqual({
+    await expect(getRemoteSandboxDetails("remote-2")).resolves.toEqual({
       exists: true,
-      remoteId: 'remote-2',
-      organizationId: 'org-1',
-      createdAt: '2026-04-24T00:00:00.000Z',
-      updatedAt: '2026-04-24T00:00:01.000Z',
-      labels: { app: 'systify' },
-      state: 'error',
+      remoteId: "remote-2",
+      organizationId: "org-1",
+      createdAt: "2026-04-24T00:00:00.000Z",
+      updatedAt: "2026-04-24T00:00:01.000Z",
+      labels: { app: "systify" },
+      state: "error",
     });
   });
 });

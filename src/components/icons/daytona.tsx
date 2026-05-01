@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react';
+import type { SVGProps } from "react";
 
 /**
  * Daytona logo: a 7-blade pinwheel of bold rectangles arranged ~51.4° apart
@@ -8,22 +8,9 @@ import type { SVGProps } from 'react';
  */
 export function DaytonaIcon(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="10 10 80 80"
-      fill="currentColor"
-      aria-hidden="true"
-      {...props}
-    >
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="10 10 80 80" fill="currentColor" aria-hidden="true" {...props}>
       {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-        <rect
-          key={i}
-          x="54"
-          y="36"
-          width="30"
-          height="10"
-          transform={`rotate(${i * (360 / 7)} 50 50)`}
-        />
+        <rect key={i} x="54" y="36" width="30" height="10" transform={`rotate(${i * (360 / 7)} 50 50)`} />
       ))}
     </svg>
   );

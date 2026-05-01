@@ -1,17 +1,8 @@
-import {
-  Component,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ErrorInfo,
-  type ReactNode,
-} from 'react';
-import { WarningCircleIcon } from '@phosphor-icons/react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useTheme } from '@/providers/theme-provider';
-import { cn } from '@/lib/utils';
+import { Component, useEffect, useId, useMemo, useRef, useState, type ErrorInfo, type ReactNode } from "react";
+import { WarningCircleIcon } from "@phosphor-icons/react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTheme } from "@/providers/theme-provider";
+import { cn } from "@/lib/utils";
 
 /**
  * MermaidRenderer — safe in-app renderer for Mermaid diagrams.
@@ -35,13 +26,7 @@ import { cn } from '@/lib/utils';
  * Mermaid is loaded via `import('mermaid')` so its ~700KB bundle stays out of
  * the initial route chunk; right-rail artifacts are not on the critical path.
  */
-export function MermaidRenderer({
-  source,
-  className,
-}: {
-  source: string;
-  className?: string;
-}) {
+export function MermaidRenderer({ source, className }: { source: string; className?: string }) {
   return (
     <MermaidErrorBoundary source={source}>
       <MermaidRendererImpl source={source} className={className} />
@@ -54,7 +39,7 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
   // Mermaid ids must be CSS-safe identifiers (no `:`, no leading digit). The
   // `useId` value is namespaced with `:r0:`-style braces by React, so we strip
   // anything that isn't alphanumeric.
-  const elementId = useMemo(() => `mermaid-${reactId.replace(/[^a-zA-Z0-9]/g, '')}`, [reactId]);
+  const elementId = useMemo(() => `mermaid-${reactId.replace(/[^a-zA-Z0-9]/g, "")}`, [reactId]);
   const { theme } = useTheme();
   const resolvedTheme = useResolvedTheme(theme);
 
@@ -69,7 +54,7 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
 
     void (async () => {
       try {
-        const mermaidModule = await import('mermaid');
+        const mermaidModule = await import("mermaid");
         const mermaid = mermaidModule.default;
 
         // `initialize` is idempotent for the same theme key, but calling it
@@ -77,9 +62,9 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
         // initialize yet?" flag elsewhere.
         mermaid.initialize({
           startOnLoad: false,
-          securityLevel: 'strict',
-          theme: resolvedTheme === 'dark' ? 'dark' : 'default',
-          fontFamily: 'inherit',
+          securityLevel: "strict",
+          theme: resolvedTheme === "dark" ? "dark" : "default",
+          fontFamily: "inherit",
         });
 
         // `parse` validates the source synchronously and throws on syntax
@@ -96,7 +81,7 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
         if (cancelled) {
           return;
         }
-        setError(err instanceof Error ? err.message : 'Failed to render diagram.');
+        setError(err instanceof Error ? err.message : "Failed to render diagram.");
       }
     })();
 
@@ -111,12 +96,7 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
 
   if (!svg) {
     return (
-      <div
-        className={cn('flex flex-col gap-3', className)}
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-      >
+      <div className={cn("flex flex-col gap-3", className)} role="status" aria-live="polite" aria-busy="true">
         <span className="sr-only">Rendering diagram…</span>
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-4 w-1/2" />
@@ -132,8 +112,8 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
       // generator on the backend, not from arbitrary user typing.
       dangerouslySetInnerHTML={{ __html: svg }}
       className={cn(
-        'mermaid-render w-full overflow-x-auto rounded-md border border-border bg-background p-3',
-        '[&>svg]:mx-auto [&>svg]:h-auto [&>svg]:max-w-full',
+        "mermaid-render w-full overflow-x-auto rounded-md border border-border bg-background p-3",
+        "[&>svg]:mx-auto [&>svg]:h-auto [&>svg]:max-w-full",
         className,
       )}
       role="img"
@@ -142,20 +122,12 @@ function MermaidRendererImpl({ source, className }: { source: string; className?
   );
 }
 
-function MermaidFallback({
-  message,
-  source,
-  className,
-}: {
-  message: string;
-  source: string;
-  className?: string;
-}) {
+function MermaidFallback({ message, source, className }: { message: string; source: string; className?: string }) {
   return (
     <div
       role="alert"
       className={cn(
-        'flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs',
+        "flex flex-col gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs",
         className,
       )}
     >
@@ -180,26 +152,24 @@ function MermaidFallback({
  * applies to `<html class>` so the diagram and the surrounding chrome stay in
  * lockstep when the system preference flips at runtime.
  */
-function useResolvedTheme(theme: ReturnType<typeof useTheme>['theme']): 'light' | 'dark' {
-  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() =>
-    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light',
+function useResolvedTheme(theme: ReturnType<typeof useTheme>["theme"]): "light" | "dark" {
+  const [systemTheme, setSystemTheme] = useState<"light" | "dark">(() =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
   );
 
   useEffect(() => {
-    if (theme !== 'system' || typeof window === 'undefined') {
+    if (theme !== "system" || typeof window === "undefined") {
       return;
     }
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (event: MediaQueryListEvent) => {
-      setSystemTheme(event.matches ? 'dark' : 'light');
+      setSystemTheme(event.matches ? "dark" : "light");
     };
-    media.addEventListener('change', handler);
-    return () => media.removeEventListener('change', handler);
+    media.addEventListener("change", handler);
+    return () => media.removeEventListener("change", handler);
   }, [theme]);
 
-  if (theme === 'system') {
+  if (theme === "system") {
     return systemTheme;
   }
   return theme;
@@ -215,10 +185,7 @@ interface MermaidErrorBoundaryState {
  * `dangerouslySetInnerHTML` or future custom node renderers needs the React
  * error boundary lifecycle to reach.
  */
-class MermaidErrorBoundary extends Component<
-  { children: ReactNode; source: string },
-  MermaidErrorBoundaryState
-> {
+class MermaidErrorBoundary extends Component<{ children: ReactNode; source: string }, MermaidErrorBoundaryState> {
   state: MermaidErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): MermaidErrorBoundaryState {
@@ -229,8 +196,8 @@ class MermaidErrorBoundary extends Component<
     // Log via console.warn intentionally — the parent ArtifactPanel doesn't
     // need to know about every render failure, but we want a breadcrumb in
     // dev tools when a generator regression slips out.
-    if (typeof console !== 'undefined' && typeof console.warn === 'function') {
-      console.warn('MermaidRenderer error boundary caught', error);
+    if (typeof console !== "undefined" && typeof console.warn === "function") {
+      console.warn("MermaidRenderer error boundary caught", error);
     }
   }
 
@@ -244,10 +211,7 @@ class MermaidErrorBoundary extends Component<
   render() {
     if (this.state.error) {
       return (
-        <MermaidFallback
-          message={this.state.error.message || 'Failed to render diagram.'}
-          source={this.props.source}
-        />
+        <MermaidFallback message={this.state.error.message || "Failed to render diagram."} source={this.props.source} />
       );
     }
     return this.props.children;

@@ -1,20 +1,20 @@
-import { Webhook, WebhookVerificationError } from 'svix';
+import { Webhook, WebhookVerificationError } from "svix";
 
 export type NormalizedDaytonaWebhookEvent = {
   providerDeliveryId?: string;
   dedupeKey: string;
-  eventType: 'sandbox.created' | 'sandbox.state.updated';
+  eventType: "sandbox.created" | "sandbox.state.updated";
   remoteId: string;
   organizationId: string;
   eventTimestamp: number;
-  normalizedState?: 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
+  normalizedState?: "started" | "stopped" | "archived" | "destroyed" | "error" | "unknown";
   payloadJson: string;
 };
 
 type DaytonaWebhookSignatureHeaders = {
-  'svix-id': string;
-  'svix-timestamp': string;
-  'svix-signature': string;
+  "svix-id": string;
+  "svix-timestamp": string;
+  "svix-signature": string;
 };
 
 export type DaytonaWebhookVerificationContext = {
@@ -26,11 +26,11 @@ export const DAYTONA_WEBHOOK_MAX_BODY_BYTES = 64 * 1024;
 
 export class DaytonaWebhookBodyReadError extends Error {
   constructor(
-    message: 'Daytona webhook payload too large.' | 'Invalid Daytona webhook content length.',
+    message: "Daytona webhook payload too large." | "Invalid Daytona webhook content length.",
     readonly status: 400 | 413,
   ) {
     super(message);
-    this.name = 'DaytonaWebhookBodyReadError';
+    this.name = "DaytonaWebhookBodyReadError";
   }
 }
 
@@ -45,28 +45,28 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 function normalizeDaytonaSandboxState(
   value: unknown,
-): 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown' {
-  if (typeof value !== 'string' || value.length === 0) {
-    return 'unknown';
+): "started" | "stopped" | "archived" | "destroyed" | "error" | "unknown" {
+  if (typeof value !== "string" || value.length === 0) {
+    return "unknown";
   }
 
   const normalized = value.toLowerCase();
-  if (normalized === 'started') {
-    return 'started';
+  if (normalized === "started") {
+    return "started";
   }
-  if (normalized === 'stopped') {
-    return 'stopped';
+  if (normalized === "stopped") {
+    return "stopped";
   }
-  if (normalized === 'archived') {
-    return 'archived';
+  if (normalized === "archived") {
+    return "archived";
   }
-  if (normalized === 'destroyed' || normalized === 'deleted') {
-    return 'destroyed';
+  if (normalized === "destroyed" || normalized === "deleted") {
+    return "destroyed";
   }
-  if (normalized === 'error' || normalized === 'failed') {
-    return 'error';
+  if (normalized === "error" || normalized === "failed") {
+    return "error";
   }
-  return 'unknown';
+  return "unknown";
 }
 
 function parseDaytonaWebhookPayload(
@@ -74,41 +74,41 @@ function parseDaytonaWebhookPayload(
   rawBody: string,
   providerDeliveryId?: string,
 ): NormalizedDaytonaWebhookEvent {
-  if (!payload || typeof payload !== 'object') {
-    throw new Error('Webhook payload must be an object.');
+  if (!payload || typeof payload !== "object") {
+    throw new Error("Webhook payload must be an object.");
   }
 
-  const event = 'event' in payload ? payload.event : undefined;
-  const timestamp = 'timestamp' in payload ? payload.timestamp : undefined;
-  const remoteId = 'id' in payload ? payload.id : undefined;
-  const organizationId = 'organizationId' in payload ? payload.organizationId : undefined;
+  const event = "event" in payload ? payload.event : undefined;
+  const timestamp = "timestamp" in payload ? payload.timestamp : undefined;
+  const remoteId = "id" in payload ? payload.id : undefined;
+  const organizationId = "organizationId" in payload ? payload.organizationId : undefined;
 
-  if (event !== 'sandbox.created' && event !== 'sandbox.state.updated') {
-    throw new Error('Unsupported Daytona webhook event.');
+  if (event !== "sandbox.created" && event !== "sandbox.state.updated") {
+    throw new Error("Unsupported Daytona webhook event.");
   }
-  if (typeof remoteId !== 'string' || remoteId.length === 0) {
-    throw new Error('Missing sandbox id.');
+  if (typeof remoteId !== "string" || remoteId.length === 0) {
+    throw new Error("Missing sandbox id.");
   }
-  if (typeof organizationId !== 'string' || organizationId.length === 0) {
-    throw new Error('Missing organization id.');
+  if (typeof organizationId !== "string" || organizationId.length === 0) {
+    throw new Error("Missing organization id.");
   }
-  if (typeof timestamp !== 'string') {
-    throw new Error('Missing event timestamp.');
+  if (typeof timestamp !== "string") {
+    throw new Error("Missing event timestamp.");
   }
 
   const eventTimestamp = Date.parse(timestamp);
   if (!Number.isFinite(eventTimestamp)) {
-    throw new Error('Invalid event timestamp.');
+    throw new Error("Invalid event timestamp.");
   }
 
   const normalizedState =
-    event === 'sandbox.created'
-      ? normalizeDaytonaSandboxState('state' in payload ? payload.state : undefined)
-      : normalizeDaytonaSandboxState('newState' in payload ? payload.newState : undefined);
+    event === "sandbox.created"
+      ? normalizeDaytonaSandboxState("state" in payload ? payload.state : undefined)
+      : normalizeDaytonaSandboxState("newState" in payload ? payload.newState : undefined);
 
   return {
     providerDeliveryId,
-    dedupeKey: providerDeliveryId ?? [event, remoteId, eventTimestamp, normalizedState].join(':'),
+    dedupeKey: providerDeliveryId ?? [event, remoteId, eventTimestamp, normalizedState].join(":"),
     eventType: event,
     remoteId,
     organizationId,
@@ -119,25 +119,23 @@ function parseDaytonaWebhookPayload(
 }
 
 function readRequiredSvixHeaders(request: Request): DaytonaWebhookSignatureHeaders {
-  const messageId = request.headers.get('svix-id');
-  const timestamp = request.headers.get('svix-timestamp');
-  const signature = request.headers.get('svix-signature');
+  const messageId = request.headers.get("svix-id");
+  const timestamp = request.headers.get("svix-timestamp");
+  const signature = request.headers.get("svix-signature");
   if (!messageId || !timestamp || !signature) {
-    throw new Error('Missing Svix signature headers.');
+    throw new Error("Missing Svix signature headers.");
   }
   return {
-    'svix-id': messageId,
-    'svix-timestamp': timestamp,
-    'svix-signature': signature,
+    "svix-id": messageId,
+    "svix-timestamp": timestamp,
+    "svix-signature": signature,
   };
 }
 
-export function prepareDaytonaWebhookVerification(
-  request: Request,
-): DaytonaWebhookVerificationContext {
+export function prepareDaytonaWebhookVerification(request: Request): DaytonaWebhookVerificationContext {
   const signingSecret = process.env.DAYTONA_WEBHOOK_SIGNING_SECRET;
   if (!signingSecret) {
-    throw new Error('DAYTONA_WEBHOOK_SIGNING_SECRET is not set.');
+    throw new Error("DAYTONA_WEBHOOK_SIGNING_SECRET is not set.");
   }
 
   return {
@@ -150,25 +148,25 @@ export async function readDaytonaWebhookRawBody(
   request: Request,
   maxBytes = DAYTONA_WEBHOOK_MAX_BODY_BYTES,
 ): Promise<string> {
-  const contentLength = request.headers.get('content-length');
+  const contentLength = request.headers.get("content-length");
   if (contentLength !== null) {
     const parsedContentLength = Number(contentLength);
     if (!Number.isInteger(parsedContentLength) || parsedContentLength < 0) {
-      throw new DaytonaWebhookBodyReadError('Invalid Daytona webhook content length.', 400);
+      throw new DaytonaWebhookBodyReadError("Invalid Daytona webhook content length.", 400);
     }
     if (parsedContentLength > maxBytes) {
-      throw new DaytonaWebhookBodyReadError('Daytona webhook payload too large.', 413);
+      throw new DaytonaWebhookBodyReadError("Daytona webhook payload too large.", 413);
     }
   }
 
   if (!request.body) {
-    return '';
+    return "";
   }
 
   const reader = request.body.getReader();
   const decoder = new TextDecoder();
   let totalBytes = 0;
-  let rawBody = '';
+  let rawBody = "";
 
   try {
     while (true) {
@@ -182,8 +180,8 @@ export async function readDaytonaWebhookRawBody(
 
       totalBytes += value.byteLength;
       if (totalBytes > maxBytes) {
-        await reader.cancel('Daytona webhook payload too large.');
-        throw new DaytonaWebhookBodyReadError('Daytona webhook payload too large.', 413);
+        await reader.cancel("Daytona webhook payload too large.");
+        throw new DaytonaWebhookBodyReadError("Daytona webhook payload too large.", 413);
       }
 
       rawBody += decoder.decode(value, { stream: true });
@@ -212,10 +210,10 @@ export function verifyDaytonaWebhookRequest(
     throw error;
   }
 
-  const event = parseDaytonaWebhookPayload(payload, rawBody, headers['svix-id']);
+  const event = parseDaytonaWebhookPayload(payload, rawBody, headers["svix-id"]);
   const allowedOrganizationId = process.env.DAYTONA_WEBHOOK_ORGANIZATION_ID;
   if (allowedOrganizationId && !constantTimeEqual(allowedOrganizationId, event.organizationId)) {
-    throw new Error('Unexpected Daytona webhook organization.');
+    throw new Error("Unexpected Daytona webhook organization.");
   }
 
   return {

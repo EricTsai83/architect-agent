@@ -1,9 +1,9 @@
-import { Button } from '@/components/ui/button';
-import { ModeToggle } from '@/components/mode-toggle';
-import { Logo } from '@/components/logo';
-import { AuthButton } from '@/components/auth-button';
-import { GitHubIcon } from '@/components/icons';
-import { HEADER_NAV_LINKS, REPO_URL } from '../data';
+import { Button } from "@/components/ui/button";
+import { ModeToggle } from "@/components/mode-toggle";
+import { Logo } from "@/components/logo";
+import { AuthButton } from "@/components/auth-button";
+import { GitHubIcon } from "@/components/icons";
+import { HEADER_NAV_LINKS, REPO_URL } from "../data";
 
 /**
  * Sticky top bar for the signed-out shell. Lives outside `<main>` so the

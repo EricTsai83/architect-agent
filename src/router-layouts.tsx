@@ -1,5 +1,5 @@
-import { Suspense, useEffect, useState } from 'react';
-import { useConvexAuth } from 'convex/react';
+import { Suspense, useEffect, useState } from "react";
+import { useConvexAuth } from "convex/react";
 import {
   Navigate,
   Outlet,
@@ -8,18 +8,13 @@ import {
   useLocation,
   useRouteError,
   useSearchParams,
-} from 'react-router-dom';
-import { AppNotice } from '@/components/app-notice';
-import { ScreenState } from '@/components/screen-state';
-import { Button } from '@/components/ui/button';
-import { useConvexAuthStatus } from '@/providers/convex-provider-with-auth-kit';
-import {
-  AUTH_CALLBACK_PATH,
-  DEFAULT_AUTHENTICATED_PATH,
-  LANDING_PATH,
-  isProtectedReturnTo,
-} from '@/route-paths';
-import { HomePage } from '@/pages/home';
+} from "react-router-dom";
+import { AppNotice } from "@/components/app-notice";
+import { ScreenState } from "@/components/screen-state";
+import { Button } from "@/components/ui/button";
+import { useConvexAuthStatus } from "@/providers/convex-provider-with-auth-kit";
+import { AUTH_CALLBACK_PATH, DEFAULT_AUTHENTICATED_PATH, LANDING_PATH, isProtectedReturnTo } from "@/route-paths";
+import { HomePage } from "@/pages/home";
 
 const MAX_CALLBACK_ERROR_DESCRIPTION_LENGTH = 240;
 
@@ -29,7 +24,7 @@ const MAX_CALLBACK_ERROR_DESCRIPTION_LENGTH = 240;
  * sign-in. Exported so tests assert against the same constant the
  * implementation uses (no magic-string drift).
  */
-export const AUTH_RETURN_TO_KEY = 'systify.auth.returnTo';
+export const AUTH_RETURN_TO_KEY = "systify.auth.returnTo";
 
 export function AppLayout() {
   const { authError } = useConvexAuthStatus();
@@ -108,8 +103,8 @@ export function AuthCallbackRoute() {
   const [searchParams] = useSearchParams();
   const [loadingStartedAt] = useState(() => Date.now());
   const [elapsedMs, setElapsedMs] = useState(0);
-  const callbackError = searchParams.get('error');
-  const callbackErrorDescription = searchParams.get('error_description');
+  const callbackError = searchParams.get("error");
+  const callbackErrorDescription = searchParams.get("error_description");
   // Read the stored destination exactly once at mount. `useState`'s lazy
   // initializer (unlike `useMemo`) is guaranteed not to re-run, so the value
   // is stable for the component's lifetime even if React decides to discard
@@ -136,10 +131,10 @@ export function AuthCallbackRoute() {
     const isSlow = elapsedMs >= 8_000;
     const description =
       elapsedMs < 2_000
-        ? 'Finishing sign-in and validating your session.'
+        ? "Finishing sign-in and validating your session."
         : elapsedMs < 8_000
-          ? 'Still syncing your workspace and permissions. This usually takes a few more seconds.'
-          : 'This is taking longer than expected. You can retry or return home.';
+          ? "Still syncing your workspace and permissions. This usually takes a few more seconds."
+          : "This is taking longer than expected. You can retry or return home.";
 
     return (
       <div className="flex h-full w-full items-center justify-center px-6">
@@ -199,7 +194,7 @@ export function RouteErrorBoundary() {
     return (
       <ScreenState
         title={`Request failed (${error.status})`}
-        description={error.statusText || 'Something unexpected happened while loading this page.'}
+        description={error.statusText || "Something unexpected happened while loading this page."}
       />
     );
   }
@@ -258,37 +253,37 @@ function mapCallbackErrorToCopy({
 }) {
   const safeCallbackErrorDescription = normalizeCallbackErrorDescription(callbackErrorDescription);
 
-  if (callbackError === 'access_denied') {
+  if (callbackError === "access_denied") {
     return {
-      title: 'Sign-in was cancelled',
-      description: 'You closed or denied the sign-in request. Try again when you are ready.',
+      title: "Sign-in was cancelled",
+      description: "You closed or denied the sign-in request. Try again when you are ready.",
     };
   }
 
-  if (callbackError === 'temporarily_unavailable' || callbackError === 'server_error') {
+  if (callbackError === "temporarily_unavailable" || callbackError === "server_error") {
     return {
-      title: 'Sign-in service is temporarily unavailable',
-      description: 'Please retry in a moment. If this keeps happening, return home and start sign-in again.',
+      title: "Sign-in service is temporarily unavailable",
+      description: "Please retry in a moment. If this keeps happening, return home and start sign-in again.",
     };
   }
 
   if (safeCallbackErrorDescription) {
     return {
-      title: 'We could not complete your sign-in',
+      title: "We could not complete your sign-in",
       description: safeCallbackErrorDescription,
     };
   }
 
   if (callbackError) {
     return {
-      title: 'We could not complete your sign-in',
+      title: "We could not complete your sign-in",
       description: `Sign-in returned an unexpected response (${callbackError}). Please retry.`,
     };
   }
 
   return {
-    title: 'Your sign-in session expired',
-    description: 'Please return home and start sign-in again.',
+    title: "Your sign-in session expired",
+    description: "Please return home and start sign-in again.",
   };
 }
 
@@ -303,7 +298,7 @@ function persistAuthReturnTo(path: string) {
 function normalizeReturnTo(path: string) {
   // Reject schemeless or protocol-relative URLs (e.g. `//evil.com`) before
   // parsing — they could otherwise resolve to a different origin.
-  if (!path.startsWith('/') || path.startsWith('//')) {
+  if (!path.startsWith("/") || path.startsWith("//")) {
     return null;
   }
 

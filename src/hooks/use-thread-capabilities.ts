@@ -1,10 +1,10 @@
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { getDefaultThreadMode, type ChatMode, type ChatModeResolution } from '../../convex/chatModeResolver';
-import type { RepositoryId, SandboxModeStatus, ThreadId } from '@/lib/types';
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { getDefaultThreadMode, type ChatMode, type ChatModeResolution } from "../../convex/chatModeResolver";
+import type { RepositoryId, SandboxModeStatus, ThreadId } from "@/lib/types";
 
-export type SandboxLifecycleStatus = Doc<'sandboxes'>['status'];
+export type SandboxLifecycleStatus = Doc<"sandboxes">["status"];
 
 export interface AttachedRepositorySummary {
   id: RepositoryId;
@@ -28,7 +28,7 @@ export interface ThreadCapabilities {
   /** Mode the UI should preselect when the thread first loads. */
   defaultMode: ChatMode;
   /** Tooltip text keyed by mode for the greyed-out options. */
-  disabledReasons: ChatModeResolution['disabledReasons'];
+  disabledReasons: ChatModeResolution["disabledReasons"];
 }
 
 /**
@@ -37,10 +37,9 @@ export interface ThreadCapabilities {
  * has not even started a thread yet — the unlock instructions need to nudge
  * them to start a conversation first, then attach a repo.
  */
-const NO_THREAD_DISABLED_REASONS: ChatModeResolution['disabledReasons'] = {
-  docs: 'Start a thread and attach a repository to use Docs mode.',
-  sandbox:
-    'Start a thread, attach a repository, and provision a sandbox to use Sandbox mode.',
+const NO_THREAD_DISABLED_REASONS: ChatModeResolution["disabledReasons"] = {
+  docs: "Start a thread and attach a repository to use Docs mode.",
+  sandbox: "Start a thread, attach a repository, and provision a sandbox to use Sandbox mode.",
 };
 
 const NO_THREAD_CAPABILITIES: ThreadCapabilities = {
@@ -49,7 +48,7 @@ const NO_THREAD_CAPABILITIES: ThreadCapabilities = {
   attachedRepository: null,
   sandboxStatus: null,
   sandboxModeStatus: null,
-  availableModes: ['discuss'],
+  availableModes: ["discuss"],
   defaultMode: getDefaultThreadMode(false),
   disabledReasons: NO_THREAD_DISABLED_REASONS,
 };
@@ -83,10 +82,7 @@ const MISSING_THREAD_CAPABILITIES: ThreadCapabilities = {
  *   attached repository's display fields and the sandbox lifecycle status.
  */
 export function useThreadCapabilities(threadId: ThreadId | null): ThreadCapabilities {
-  const ctx = useQuery(
-    api.threadContext.getThreadContext,
-    threadId ? { threadId } : 'skip',
-  );
+  const ctx = useQuery(api.threadContext.getThreadContext, threadId ? { threadId } : "skip");
   if (threadId === null) {
     return NO_THREAD_CAPABILITIES;
   }

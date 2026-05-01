@@ -1,6 +1,6 @@
-import { v } from 'convex/values';
-import { internal } from './_generated/api';
-import { action, internalMutation, internalQuery } from './_generated/server';
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { action, internalMutation, internalQuery } from "./_generated/server";
 
 // ---------------------------------------------------------------------------
 // Public action — called by the frontend on visibility-change / repo-switch
@@ -15,28 +15,27 @@ import { action, internalMutation, internalQuery } from './_generated/server';
  */
 export const checkForUpdates = action({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error('Not authenticated.');
+    if (!identity) throw new Error("Not authenticated.");
 
     // Fetch the repo record to get owner/repo/branch
-    const repo: RepoForCheck | null = await ctx.runQuery(
-      internal.githubCheck.getRepoForCheck,
-      { repositoryId: args.repositoryId },
-    );
+    const repo: RepoForCheck | null = await ctx.runQuery(internal.githubCheck.getRepoForCheck, {
+      repositoryId: args.repositoryId,
+    });
     if (!repo) return;
 
     // Verify ownership: caller must own this repo
     if (identity.tokenIdentifier !== repo.ownerTokenIdentifier) {
-      throw new Error('Not authorized to check this repository.');
+      throw new Error("Not authorized to check this repository.");
     }
 
     // Must have been synced at least once, must not be mid-sync or deleting
     if (!repo.lastSyncedCommitSha || !repo.defaultBranch) return;
     if (repo.deletionRequestedAt) return;
-    if (repo.importStatus === 'queued' || repo.importStatus === 'running') return;
+    if (repo.importStatus === "queued" || repo.importStatus === "running") return;
 
     // Throttle: skip if we checked within the last 60 seconds
     if (repo.lastCheckedForUpdatesAt && Date.now() - repo.lastCheckedForUpdatesAt < 60_000) {
@@ -57,10 +56,7 @@ export const checkForUpdates = action({
         });
       } catch (error) {
         // Non-fatal — fall back to unauthenticated (60 req/hr).
-        console.warn(
-          '[github-check] Failed to get GitHub token:',
-          error instanceof Error ? error.message : error,
-        );
+        console.warn("[github-check] Failed to get GitHub token:", error instanceof Error ? error.message : error);
       }
     }
 
@@ -87,11 +83,11 @@ type RepoForCheck = {
   importStatus: string;
   deletionRequestedAt: number | null;
   ownerTokenIdentifier: string;
-  accessMode: 'public' | 'private';
+  accessMode: "public" | "private";
 };
 
 export const getRepoForCheck = internalQuery({
-  args: { repositoryId: v.id('repositories') },
+  args: { repositoryId: v.id("repositories") },
   handler: async (ctx, args) => {
     const repo = await ctx.db.get(args.repositoryId);
     if (!repo) return null;
@@ -111,7 +107,7 @@ export const getRepoForCheck = internalQuery({
 
 export const updateRemoteSha = internalMutation({
   args: {
-    repositoryId: v.id('repositories'),
+    repositoryId: v.id("repositories"),
     latestRemoteSha: v.string(),
   },
   handler: async (ctx, args) => {
@@ -143,8 +139,8 @@ async function fetchLatestRemoteSha(
 
   try {
     const headers: HeadersInit = {
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'systify',
+      "Accept": "application/vnd.github.v3+json",
+      "User-Agent": "systify",
     };
 
     if (token) {
@@ -154,19 +150,14 @@ async function fetchLatestRemoteSha(
     const response = await fetch(url, { headers });
 
     if (!response.ok) {
-      console.warn(
-        `[github-check] ${owner}/${repo}#${branch}: ${response.status} ${response.statusText}`,
-      );
+      console.warn(`[github-check] ${owner}/${repo}#${branch}: ${response.status} ${response.statusText}`);
       return null;
     }
 
     const data = (await response.json()) as { object?: { sha?: string } };
     return data.object?.sha ?? null;
   } catch (error) {
-    console.warn(
-      '[github-check] Network error:',
-      error instanceof Error ? error.message : error,
-    );
+    console.warn("[github-check] Network error:", error instanceof Error ? error.message : error);
     return null;
   }
 }

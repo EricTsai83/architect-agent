@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 function parseStoredBoolean(value: string | null): boolean | null {
-  if (value === 'true') {
+  if (value === "true") {
     return true;
   }
-  if (value === 'false') {
+  if (value === "false") {
     return false;
   }
   return null;
@@ -26,7 +26,7 @@ export function useLocalStorageBoolean(
   const hydratedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       setIsHydrated(true);
       return;
     }
@@ -64,7 +64,7 @@ export function useLocalStorageBoolean(
   }, [defaultValue, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated || typeof window === 'undefined') {
+    if (!isHydrated || typeof window === "undefined") {
       return;
     }
     let parsedStoredValue: boolean | null = null;
@@ -84,7 +84,7 @@ export function useLocalStorageBoolean(
   }, [isHydrated, key, value]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
     const onStorage = (event: StorageEvent) => {
@@ -100,17 +100,14 @@ export function useLocalStorageBoolean(
       followsDefaultRef.current = false;
       setValue(parsed);
     };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, [defaultValue, key]);
 
-  const setPersistedValue = useCallback(
-    (next: boolean | ((prev: boolean) => boolean)) => {
-      followsDefaultRef.current = false;
-      setValue((prev) => (typeof next === 'function' ? next(prev) : next));
-    },
-    [],
-  );
+  const setPersistedValue = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    followsDefaultRef.current = false;
+    setValue((prev) => (typeof next === "function" ? next(prev) : next));
+  }, []);
 
   return [value, setPersistedValue, isHydrated] as const;
 }

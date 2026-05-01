@@ -27,7 +27,7 @@
  * Spread `{ [REPLAY_ON_MOUNT_ATTR]: '' }` onto any element with a one-shot
  * entry animation that the hero "Replay" button should re-trigger.
  */
-export const REPLAY_ON_MOUNT_ATTR = 'data-replay-on-mount';
+export const REPLAY_ON_MOUNT_ATTR = "data-replay-on-mount";
 
 /**
  * Restart every replayable CSS animation inside `container` without
@@ -45,14 +45,14 @@ export function replayAnimationsIn(container: HTMLElement): number {
   if (animated.length === 0) return 0;
 
   animated.forEach((el) => {
-    el.style.animationName = 'none';
+    el.style.animationName = "none";
   });
   // Force a reflow so the browser registers the reset before the next paint.
   // Reading `offsetHeight` is the cheapest synchronous-layout trigger
   // available; the result is intentionally discarded.
   void container.offsetHeight;
   animated.forEach((el) => {
-    el.style.animationName = '';
+    el.style.animationName = "";
   });
   return animated.length;
 }

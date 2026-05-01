@@ -1,10 +1,10 @@
-import { LAYERS, type Mode } from '../types';
-import { MODES } from '../data';
-import { MODE_TONE_CLASSES } from '../mode-tones';
-import { Reveal } from '../primitives/reveal';
-import { CornerMarks } from '../primitives/corner-marks';
+import { LAYERS, type Mode } from "../types";
+import { MODES } from "../data";
+import { MODE_TONE_CLASSES } from "../mode-tones";
+import { Reveal } from "../primitives/reveal";
+import { CornerMarks } from "../primitives/corner-marks";
 
-const HEADING_ID = 'modes-heading';
+const HEADING_ID = "modes-heading";
 
 /**
  * Three terminal panels, one per depth. Each panel owns its color via
@@ -58,7 +58,7 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
             Each row is a knowledge layer: lit row = consulted, dim row = not consulted. */}
         <div className="mt-5 flex flex-col gap-2 border-t border-border/60 px-4 pt-4 sm:px-5">
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/80">
-            sources{' '}
+            sources{" "}
             <span className="text-muted-foreground/50">
               — {mode.depth} of {LAYERS.length}
             </span>
@@ -70,10 +70,10 @@ function ModePanel({ mode, index }: { mode: Mode; index: number }) {
                 <li
                   key={layer}
                   className={`flex items-center gap-2.5 font-mono text-[12px] ${
-                    lit ? 'text-foreground/90' : 'text-muted-foreground/45 line-through decoration-muted-foreground/40'
+                    lit ? "text-foreground/90" : "text-muted-foreground/45 line-through decoration-muted-foreground/40"
                   }`}
                 >
-                  <span aria-hidden className={`size-2 shrink-0 ${lit ? tone.fill : 'bg-foreground/12'}`} />
+                  <span aria-hidden className={`size-2 shrink-0 ${lit ? tone.fill : "bg-foreground/12"}`} />
                   <span className="min-w-0 wrap-break-word">{layer}</span>
                 </li>
               );

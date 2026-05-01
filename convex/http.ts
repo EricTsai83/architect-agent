@@ -1,6 +1,6 @@
-import { httpRouter } from 'convex/server';
-import { internal } from './_generated/api';
-import { httpAction } from './_generated/server';
+import { httpRouter } from "convex/server";
+import { internal } from "./_generated/api";
+import { httpAction } from "./_generated/server";
 import {
   DaytonaWebhookBodyReadError,
   prepareDaytonaWebhookVerification,
@@ -8,9 +8,9 @@ import {
   verifyDaytonaWebhookRequest,
   type NormalizedDaytonaWebhookEvent,
   type DaytonaWebhookVerificationContext,
-} from './lib/daytonaWebhookVerification';
-import { createOpaqueErrorId, logErrorWithId, logInfo, logWarn } from './lib/observability';
-import { normalizeReturnToUrl } from './lib/returnTo';
+} from "./lib/daytonaWebhookVerification";
+import { createOpaqueErrorId, logErrorWithId, logInfo, logWarn } from "./lib/observability";
+import { normalizeReturnToUrl } from "./lib/returnTo";
 
 const http = httpRouter();
 
@@ -23,10 +23,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
-function buildRedirectUrl(
-  baseUrl: string,
-  params: Record<string, string>,
-): string {
+function buildRedirectUrl(baseUrl: string, params: Record<string, string>): string {
   const redirectUrl = new URL(baseUrl);
   for (const [key, value] of Object.entries(params)) {
     redirectUrl.searchParams.set(key, value);
@@ -36,18 +33,14 @@ function buildRedirectUrl(
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
-function githubCallbackPageResponse(
-  status: number,
-  title: string,
-  message: string,
-): Response {
+function githubCallbackPageResponse(status: number, title: string, message: string): Response {
   const body = `<!doctype html>
 <html lang="en">
   <head>
@@ -92,17 +85,13 @@ function githubCallbackPageResponse(
   return new Response(body, {
     status,
     headers: {
-      'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'no-store',
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
     },
   });
 }
 
-function githubCallbackErrorResponse(
-  status: number,
-  title: string,
-  message: string,
-): Response {
+function githubCallbackErrorResponse(status: number, title: string, message: string): Response {
   return githubCallbackPageResponse(status, title, message);
 }
 
@@ -120,7 +109,7 @@ function redirectOrReturnPage(
       const sanitizedRedirectTarget = normalizeReturnToUrl(redirectTarget);
       return Response.redirect(buildRedirectUrl(sanitizedRedirectTarget, params), 302);
     } catch (error) {
-      logWarn('http', 'github_callback_redirect_target_rejected', {
+      logWarn("http", "github_callback_redirect_target_rejected", {
         redirectTarget,
         reason: error instanceof Error ? error.message : String(error),
       });
@@ -137,11 +126,7 @@ function redirectOrReturnError(
   title: string,
   message: string,
 ): Response {
-  return redirectOrReturnPage(
-    redirectTarget,
-    params,
-    githubCallbackErrorResponse(status, title, message),
-  );
+  return redirectOrReturnPage(redirectTarget, params, githubCallbackErrorResponse(status, title, message));
 }
 
 function redirectOrReturnSuccess(
@@ -150,11 +135,7 @@ function redirectOrReturnSuccess(
   title: string,
   message: string,
 ): Response {
-  return redirectOrReturnPage(
-    redirectTarget,
-    params,
-    githubCallbackSuccessResponse(title, message),
-  );
+  return redirectOrReturnPage(redirectTarget, params, githubCallbackSuccessResponse(title, message));
 }
 
 // ---------------------------------------------------------------------------
@@ -173,12 +154,12 @@ function redirectOrReturnSuccess(
  * installation record in Convex, then redirect the user to the frontend.
  */
 http.route({
-  path: '/api/github/callback',
-  method: 'GET',
+  path: "/api/github/callback",
+  method: "GET",
   handler: httpAction(async (ctx, request) => {
     const url = new URL(request.url);
-    const installationIdParam = url.searchParams.get('installation_id');
-    const state = url.searchParams.get('state');
+    const installationIdParam = url.searchParams.get("installation_id");
+    const state = url.searchParams.get("state");
     let redirectTarget: string | null = state
       ? await ctx.runQuery(internal.github.getOAuthReturnToByState, { state })
       : null;
@@ -186,10 +167,10 @@ http.route({
     if (!installationIdParam || !state) {
       return redirectOrReturnError(
         redirectTarget,
-        { github_error: 'missing_params' },
+        { github_error: "missing_params" },
         400,
-        'GitHub connection could not be completed.',
-        'GitHub did not send the parameters needed to complete the installation flow.',
+        "GitHub connection could not be completed.",
+        "GitHub did not send the parameters needed to complete the installation flow.",
       );
     }
 
@@ -197,10 +178,10 @@ http.route({
     if (isNaN(installationId)) {
       return redirectOrReturnError(
         redirectTarget,
-        { github_error: 'invalid_installation' },
+        { github_error: "invalid_installation" },
         400,
-        'GitHub connection could not be completed.',
-        'GitHub returned an invalid installation identifier.',
+        "GitHub connection could not be completed.",
+        "GitHub returned an invalid installation identifier.",
       );
     }
 
@@ -209,25 +190,22 @@ http.route({
       const oauthState: {
         ownerTokenIdentifier: string;
         returnTo: string | null;
-      } = await ctx.runMutation(
-        internal.github.consumeOAuthState,
-        { state },
-      );
+      } = await ctx.runMutation(internal.github.consumeOAuthState, { state });
       redirectTarget = oauthState.returnTo;
 
       // Fetch installation details from GitHub API
       const details: {
         accountLogin: string;
-        accountType: 'User' | 'Organization';
-        repositorySelection: 'all' | 'selected';
+        accountType: "User" | "Organization";
+        repositorySelection: "all" | "selected";
       } = await ctx.runAction(internal.githubAppNode.fetchInstallationDetails, {
         installationId,
       });
 
       const saveResult:
-        | { kind: 'connected'; installationId: number }
+        | { kind: "connected"; installationId: number }
         | {
-            kind: 'conflict';
+            kind: "conflict";
             existingInstallationId: number;
             existingAccountLogin: string;
           } = await ctx.runMutation(internal.github.saveInstallation, {
@@ -238,42 +216,42 @@ http.route({
         repositorySelection: details.repositorySelection,
       });
 
-      if (saveResult.kind === 'conflict') {
-        logInfo('http', 'github_callback_conflict', {
+      if (saveResult.kind === "conflict") {
+        logInfo("http", "github_callback_conflict", {
           installationId,
           existingInstallationId: saveResult.existingInstallationId,
           existingAccountLogin: saveResult.existingAccountLogin,
         });
         return redirectOrReturnError(
           redirectTarget,
-          { github_error: 'already_connected' },
+          { github_error: "already_connected" },
           409,
-          'GitHub connection could not be completed.',
-          'This GitHub account is already connected to a different installation in Systify.',
+          "GitHub connection could not be completed.",
+          "This GitHub account is already connected to a different installation in Systify.",
         );
       }
 
-      logInfo('http', 'github_callback_completed', {
+      logInfo("http", "github_callback_completed", {
         installationId,
       });
       return redirectOrReturnSuccess(
         redirectTarget,
-        { github_connected: 'true' },
-        'GitHub connection completed.',
-        'GitHub finished the installation flow. You can close this tab and return to Systify.',
+        { github_connected: "true" },
+        "GitHub connection completed.",
+        "GitHub finished the installation flow. You can close this tab and return to Systify.",
       );
     } catch (error) {
-      const errorId = logErrorWithId('http', 'github_callback_failed', error, {
+      const errorId = logErrorWithId("http", "github_callback_failed", error, {
         installationId: installationIdParam,
       });
       return redirectOrReturnError(
         redirectTarget,
         {
-          github_error: 'callback_failed',
+          github_error: "callback_failed",
           error_id: errorId,
         },
         500,
-        'GitHub connection could not be completed.',
+        "GitHub connection could not be completed.",
         `GitHub callback processing failed. Reference: ${errorId}`,
       );
     }
@@ -294,18 +272,18 @@ http.route({
  *   - installation.unsuspend -> marks installation as active
  */
 http.route({
-  path: '/api/github/webhook',
-  method: 'POST',
+  path: "/api/github/webhook",
+  method: "POST",
   handler: httpAction(async (ctx, request) => {
     const webhookSecret = process.env.GITHUB_APP_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      logErrorWithId('webhook', 'missing_webhook_secret', new Error('GITHUB_APP_WEBHOOK_SECRET is not set.'));
-      return new Response('Server misconfigured', { status: 500 });
+      logErrorWithId("webhook", "missing_webhook_secret", new Error("GITHUB_APP_WEBHOOK_SECRET is not set."));
+      return new Response("Server misconfigured", { status: 500 });
     }
 
-    const signature = request.headers.get('X-Hub-Signature-256');
+    const signature = request.headers.get("X-Hub-Signature-256");
     if (!signature) {
-      return new Response('Missing signature', { status: 401 });
+      return new Response("Missing signature", { status: 401 });
     }
 
     const body = await request.text();
@@ -313,27 +291,26 @@ http.route({
     // Verify HMAC-SHA256 signature using Web Crypto API
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
-      'raw',
+      "raw",
       encoder.encode(webhookSecret),
-      { name: 'HMAC', hash: 'SHA-256' },
+      { name: "HMAC", hash: "SHA-256" },
       false,
-      ['sign'],
+      ["sign"],
     );
-    const signatureBytes = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+    const signatureBytes = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
     const computed =
-      'sha256=' +
-      Array.from(new Uint8Array(signatureBytes), (b) => b.toString(16).padStart(2, '0')).join('');
+      "sha256=" + Array.from(new Uint8Array(signatureBytes), (b) => b.toString(16).padStart(2, "0")).join("");
 
     // Constant-time comparison to prevent timing attacks
     if (!constantTimeEqual(computed, signature)) {
-      logWarn('webhook', 'signature_verification_failed', {
-        errorId: createOpaqueErrorId('webhook_signature'),
+      logWarn("webhook", "signature_verification_failed", {
+        errorId: createOpaqueErrorId("webhook_signature"),
       });
-      return new Response('Invalid signature', { status: 401 });
+      return new Response("Invalid signature", { status: 401 });
     }
 
     // Parse the event
-    const event = request.headers.get('X-GitHub-Event');
+    const event = request.headers.get("X-GitHub-Event");
     let payload: {
       action: string;
       installation?: { id: number };
@@ -344,38 +321,38 @@ http.route({
         installation?: { id: number };
       };
     } catch {
-      return new Response('Invalid JSON payload', { status: 400 });
+      return new Response("Invalid JSON payload", { status: 400 });
     }
 
-    if (event === 'installation' && payload.installation) {
+    if (event === "installation" && payload.installation) {
       const installationId = payload.installation.id;
 
       switch (payload.action) {
-        case 'deleted':
+        case "deleted":
           await ctx.runMutation(internal.github.markInstallationDeleted, {
             installationId,
           });
           break;
-        case 'suspend':
+        case "suspend":
           await ctx.runMutation(internal.github.markInstallationSuspended, {
             installationId,
           });
           break;
-        case 'unsuspend':
+        case "unsuspend":
           await ctx.runMutation(internal.github.markInstallationActive, {
             installationId,
           });
           break;
       }
 
-      logInfo('webhook', 'installation_event_processed', {
+      logInfo("webhook", "installation_event_processed", {
         event,
         action: payload.action,
         installationId,
       });
     }
 
-    return new Response('OK', { status: 200 });
+    return new Response("OK", { status: 200 });
   }),
 });
 
@@ -384,17 +361,17 @@ http.route({
 // ---------------------------------------------------------------------------
 
 http.route({
-  path: '/api/daytona/webhook',
-  method: 'POST',
+  path: "/api/daytona/webhook",
+  method: "POST",
   handler: httpAction(async (ctx, request) => {
     let verificationContext: DaytonaWebhookVerificationContext;
     try {
       verificationContext = prepareDaytonaWebhookVerification(request);
     } catch (error) {
-      logWarn('webhook', 'daytona_webhook_signature_failed', {
-        error: error instanceof Error ? error.message : 'Unknown verification error',
+      logWarn("webhook", "daytona_webhook_signature_failed", {
+        error: error instanceof Error ? error.message : "Unknown verification error",
       });
-      return new Response('Unauthorized', { status: 401 });
+      return new Response("Unauthorized", { status: 401 });
     }
 
     let rawBody: string;
@@ -402,11 +379,11 @@ http.route({
       rawBody = await readDaytonaWebhookRawBody(request);
     } catch (error) {
       if (error instanceof DaytonaWebhookBodyReadError) {
-        logWarn('webhook', 'daytona_webhook_invalid_body', {
+        logWarn("webhook", "daytona_webhook_invalid_body", {
           error: error.message,
           status: error.status,
         });
-        return new Response(error.status === 413 ? 'Payload too large' : 'Bad Request', {
+        return new Response(error.status === 413 ? "Payload too large" : "Bad Request", {
           status: error.status,
         });
       }
@@ -418,34 +395,26 @@ http.route({
       const result = verifyDaytonaWebhookRequest(verificationContext, rawBody);
       verifiedEvent = result.event;
     } catch (error) {
-      logWarn('webhook', 'daytona_webhook_signature_failed', {
-        error: error instanceof Error ? error.message : 'Unknown verification error',
+      logWarn("webhook", "daytona_webhook_signature_failed", {
+        error: error instanceof Error ? error.message : "Unknown verification error",
       });
-      return new Response('Unauthorized', { status: 401 });
+      return new Response("Unauthorized", { status: 401 });
     }
 
     try {
-      const ingestResult:
-        | { kind: 'duplicate'; eventId: string }
-        | { kind: 'enqueued'; eventId: string } = await ctx.runMutation(
-        internal.daytonaWebhooks.ingestValidatedEvent,
-        verifiedEvent,
-      );
+      const ingestResult: { kind: "duplicate"; eventId: string } | { kind: "enqueued"; eventId: string } =
+        await ctx.runMutation(internal.daytonaWebhooks.ingestValidatedEvent, verifiedEvent);
 
-      logInfo(
-        'webhook',
-        ingestResult.kind === 'duplicate' ? 'daytona_webhook_duplicate' : 'daytona_webhook_received',
-        {
-          eventId: ingestResult.eventId,
-          remoteId: verifiedEvent.remoteId,
-          eventType: verifiedEvent.eventType,
-          organizationId: verifiedEvent.organizationId,
-        },
-      );
+      logInfo("webhook", ingestResult.kind === "duplicate" ? "daytona_webhook_duplicate" : "daytona_webhook_received", {
+        eventId: ingestResult.eventId,
+        remoteId: verifiedEvent.remoteId,
+        eventType: verifiedEvent.eventType,
+        organizationId: verifiedEvent.organizationId,
+      });
 
-      return new Response('OK', { status: 200 });
+      return new Response("OK", { status: 200 });
     } catch (error) {
-      const errorId = logErrorWithId('webhook', 'daytona_webhook_ingest_failed', error, {
+      const errorId = logErrorWithId("webhook", "daytona_webhook_ingest_failed", error, {
         remoteId: verifiedEvent.remoteId,
         eventType: verifiedEvent.eventType,
         organizationId: verifiedEvent.organizationId,

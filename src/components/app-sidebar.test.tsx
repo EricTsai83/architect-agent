@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 
-import type React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { AppSidebar } from './app-sidebar';
-import type { RepositoryId, ThreadId } from '@/lib/types';
+import type React from "react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { AppSidebar } from "./app-sidebar";
+import type { RepositoryId, ThreadId } from "@/lib/types";
 
 const { createThreadMutationMock, useMutationMock, useQueryMock } = vi.hoisted(() => ({
   createThreadMutationMock: vi.fn(),
@@ -13,29 +13,28 @@ const { createThreadMutationMock, useMutationMock, useQueryMock } = vi.hoisted((
   useQueryMock: vi.fn(),
 }));
 
-vi.mock('convex/react', () => ({
+vi.mock("convex/react", () => ({
   useMutation: useMutationMock,
   useQuery: useQueryMock,
 }));
 
-vi.mock('@/components/profile-card', () => ({
+vi.mock("@/components/profile-card", () => ({
   ProfileCard: () => <div>profile</div>,
 }));
 
-vi.mock('@/components/ui/button', () => ({
-  Button: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => <button {...props}>{children}</button>,
+vi.mock("@/components/ui/button", () => ({
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
+    <button {...props}>{children}</button>
+  ),
 }));
 
-vi.mock('@/components/ui/collapsible', () => ({
+vi.mock("@/components/ui/collapsible", () => ({
   Collapsible: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CollapsibleContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CollapsibleTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
 }));
 
-vi.mock('@/components/ui/sidebar', () => ({
+vi.mock("@/components/ui/sidebar", () => ({
   Sidebar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SidebarContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   SidebarFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -43,39 +42,41 @@ vi.mock('@/components/ui/sidebar', () => ({
   SidebarMenuButton: ({
     children,
     ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode; selected?: boolean }) => <button {...props}>{children}</button>,
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode; selected?: boolean }) => (
+    <button {...props}>{children}</button>
+  ),
 }));
 
-vi.mock('@/components/logo', () => ({
+vi.mock("@/components/logo", () => ({
   Logo: () => <div>logo</div>,
 }));
 
-vi.mock('@/components/import-repo-dialog', () => ({
+vi.mock("@/components/import-repo-dialog", () => ({
   ImportRepoDialog: () => <div>import repo</div>,
 }));
 
 const threadOne = {
-  _id: 'thread_1',
-  title: 'First thread',
+  _id: "thread_1",
+  title: "First thread",
   repositoryId: null,
   lastMessageAt: 1,
-} as unknown as Doc<'threads'>;
+} as unknown as Doc<"threads">;
 
 const threadTwo = {
-  _id: 'thread_2',
-  title: 'Second thread',
+  _id: "thread_2",
+  title: "Second thread",
   repositoryId: null,
   lastMessageAt: 2,
-} as unknown as Doc<'threads'>;
+} as unknown as Doc<"threads">;
 
 const threadThree = {
-  _id: 'thread_3',
-  title: 'Third thread',
+  _id: "thread_3",
+  title: "Third thread",
   repositoryId: null,
   lastMessageAt: 3,
-} as unknown as Doc<'threads'>;
+} as unknown as Doc<"threads">;
 
-let threadsResult: Doc<'threads'>[] | undefined;
+let threadsResult: Doc<"threads">[] | undefined;
 
 beforeEach(() => {
   threadsResult = [];
@@ -91,33 +92,33 @@ afterEach(() => {
   cleanup();
 });
 
-describe('AppSidebar', () => {
-  test('surfaces create-thread failures through the shared error callback', async () => {
+describe("AppSidebar", () => {
+  test("surfaces create-thread failures through the shared error callback", async () => {
     const onError = vi.fn();
-    createThreadMutationMock.mockRejectedValueOnce(new Error('Rate limit exceeded.'));
+    createThreadMutationMock.mockRejectedValueOnce(new Error("Rate limit exceeded."));
 
     renderSidebar({ onError });
 
-    fireEvent.click(screen.getByRole('button', { name: /new design conversation/i }));
+    fireEvent.click(screen.getByRole("button", { name: /new design conversation/i }));
 
     await waitFor(() => {
-      expect(onError).toHaveBeenLastCalledWith('Rate limit exceeded.');
+      expect(onError).toHaveBeenLastCalledWith("Rate limit exceeded.");
     });
   });
 
-  test('announces thread-count deltas with distinct live-region text', () => {
+  test("announces thread-count deltas with distinct live-region text", () => {
     threadsResult = [threadOne];
     const { rerender } = renderSidebar();
 
-    expect(screen.getByRole('status')).toHaveTextContent('');
+    expect(screen.getByRole("status")).toHaveTextContent("");
 
     threadsResult = [threadOne, threadTwo];
     rerender(createSidebarElement());
-    expect(screen.getByRole('status')).toHaveTextContent('1 new conversation. 2 total.');
+    expect(screen.getByRole("status")).toHaveTextContent("1 new conversation. 2 total.");
 
     threadsResult = [threadOne, threadTwo, threadThree];
     rerender(createSidebarElement());
-    expect(screen.getByRole('status')).toHaveTextContent('1 new conversation. 3 total.');
+    expect(screen.getByRole("status")).toHaveTextContent("1 new conversation. 3 total.");
   });
 });
 
@@ -136,7 +137,7 @@ function createSidebarElement({
 } = {}) {
   return (
     <AppSidebar
-      repositories={[] as Doc<'repositories'>[]}
+      repositories={[] as Doc<"repositories">[]}
       selectedRepositoryId={null as RepositoryId | null}
       onSelectRepository={vi.fn()}
       selectedThreadId={null as ThreadId | null}

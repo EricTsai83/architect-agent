@@ -1,13 +1,13 @@
-import { matchRoutes, type RouteObject } from 'react-router-dom';
+import { matchRoutes, type RouteObject } from "react-router-dom";
 
-export const LANDING_PATH = '/';
-export const AUTH_CALLBACK_ROUTE_SEGMENT = 'callback';
+export const LANDING_PATH = "/";
+export const AUTH_CALLBACK_ROUTE_SEGMENT = "callback";
 export const AUTH_CALLBACK_PATH = `/${AUTH_CALLBACK_ROUTE_SEGMENT}` as const;
 
 export const PROTECTED_ROUTE_SEGMENTS = {
-  chat: 'chat',
-  thread: 't/:threadId',
-  repository: 'r/:repoId',
+  chat: "chat",
+  thread: "t/:threadId",
+  repository: "r/:repoId",
 } as const;
 
 export const DEFAULT_AUTHENTICATED_PATH = `/${PROTECTED_ROUTE_SEGMENTS.chat}` as const;

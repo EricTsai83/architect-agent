@@ -1,12 +1,12 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, test } from 'vitest';
-import { register as registerRateLimiter } from '@convex-dev/rate-limiter/test';
-import { convexTest } from 'convex-test';
-import { api } from './_generated/api';
-import schema from './schema';
+import { describe, expect, test } from "vitest";
+import { register as registerRateLimiter } from "@convex-dev/rate-limiter/test";
+import { convexTest } from "convex-test";
+import { api } from "./_generated/api";
+import schema from "./schema";
 
-const modules = import.meta.glob('./**/*.ts');
+const modules = import.meta.glob("./**/*.ts");
 
 function createTestConvex() {
   const t = convexTest(schema, modules);
@@ -14,23 +14,23 @@ function createTestConvex() {
   return t;
 }
 
-describe('repository detail metadata', () => {
-  test('getRepositoryDetail reads denormalized file counts and caps oversized labels as 400+', async () => {
-    const ownerTokenIdentifier = 'user|repo-detail';
+describe("repository detail metadata", () => {
+  test("getRepositoryDetail reads denormalized file counts and caps oversized labels as 400+", async () => {
+    const ownerTokenIdentifier = "user|repo-detail";
     const t = createTestConvex();
 
     const repositoryId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/huge-repo',
-        sourceRepoFullName: 'acme/huge-repo',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'huge-repo',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/huge-repo",
+        sourceRepoFullName: "acme/huge-repo",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "huge-repo",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
@@ -44,63 +44,63 @@ describe('repository detail metadata', () => {
     const detail = await viewer.query(api.repositories.getRepositoryDetail, { repositoryId });
 
     expect(detail.fileCount).toBe(401);
-    expect(detail.fileCountLabel).toBe('400+');
+    expect(detail.fileCountLabel).toBe("400+");
   });
 
-  test('syncRepository keeps the last completed snapshot until the new sync finishes', async () => {
-    const ownerTokenIdentifier = 'user|sync-pointer';
+  test("syncRepository keeps the last completed snapshot until the new sync finishes", async () => {
+    const ownerTokenIdentifier = "user|sync-pointer";
     const t = createTestConvex();
     const lastImportedAt = Date.now() - 60_000;
 
     const repositoryId = await t.run(async (ctx) => {
-      await ctx.db.insert('githubInstallations', {
+      await ctx.db.insert("githubInstallations", {
         ownerTokenIdentifier,
         installationId: 123,
-        accountLogin: 'acme',
-        accountType: 'User',
-        status: 'active',
-        repositorySelection: 'all',
+        accountLogin: "acme",
+        accountType: "User",
+        status: "active",
+        repositorySelection: "all",
         connectedAt: Date.now(),
       });
 
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/sync-me',
-        sourceRepoFullName: 'acme/sync-me',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'sync-me',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/sync-me",
+        sourceRepoFullName: "acme/sync-me",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "sync-me",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 12,
         lastImportedAt,
-        lastSyncedCommitSha: 'abc123',
-        latestRemoteSha: 'def456',
+        lastSyncedCommitSha: "abc123",
+        latestRemoteSha: "def456",
       });
 
-      const previousJobId = await ctx.db.insert('jobs', {
+      const previousJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
 
-      const previousImportId = await ctx.db.insert('imports', {
+      const previousImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/sync-me',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/sync-me",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: previousJobId,
       });
 
@@ -116,7 +116,7 @@ describe('repository detail metadata', () => {
     await viewer.mutation(api.repositories.syncRepository, { repositoryId });
 
     const repository = await t.run(async (ctx) => await ctx.db.get(repositoryId));
-    expect(repository?.importStatus).toBe('queued');
+    expect(repository?.importStatus).toBe("queued");
     expect(repository?.lastImportedAt).toBe(lastImportedAt);
     expect(repository?.fileCount).toBe(12);
     expect(repository?.latestRemoteSha).toBeUndefined();
@@ -124,37 +124,37 @@ describe('repository detail metadata', () => {
     expect(repository?.latestImportJobId).toBeDefined();
   });
 
-  test('getRepositoryDetail limits artifacts to 20 without thread fan-out lookups', async () => {
-    const ownerTokenIdentifier = 'user|repo-detail-artifacts';
+  test("getRepositoryDetail limits artifacts to 20 without thread fan-out lookups", async () => {
+    const ownerTokenIdentifier = "user|repo-detail-artifacts";
     const t = createTestConvex();
 
     const repositoryId = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/artifact-heavy',
-        sourceRepoFullName: 'acme/artifact-heavy',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'artifact-heavy',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/artifact-heavy",
+        sourceRepoFullName: "acme/artifact-heavy",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "artifact-heavy",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 24,
       });
 
-      const importJobId = await ctx.db.insert('jobs', {
+      const importJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
 
       await ctx.db.patch(repositoryId, {
@@ -162,28 +162,28 @@ describe('repository detail metadata', () => {
       });
 
       for (let index = 0; index < 10; index += 1) {
-        await ctx.db.insert('artifacts', {
+        await ctx.db.insert("artifacts", {
           repositoryId,
           ownerTokenIdentifier,
           jobId: importJobId,
-          kind: 'manifest',
+          kind: "manifest",
           title: `import-artifact-${index}`,
           summary: `Import artifact ${index}`,
-          contentMarkdown: 'import content',
-          source: 'heuristic',
+          contentMarkdown: "import content",
+          source: "heuristic",
           version: 1,
         });
       }
 
       for (let index = 0; index < 40; index += 1) {
-        await ctx.db.insert('artifacts', {
+        await ctx.db.insert("artifacts", {
           repositoryId,
           ownerTokenIdentifier,
-          kind: 'deep_analysis',
+          kind: "deep_analysis",
           title: `deep-artifact-${index}`,
           summary: `Deep artifact ${index}`,
-          contentMarkdown: 'deep content',
-          source: 'llm',
+          contentMarkdown: "deep content",
+          source: "llm",
           version: 1,
         });
       }
@@ -200,33 +200,33 @@ describe('repository detail metadata', () => {
   });
 });
 
-describe('repository import guards', () => {
-  test('createRepositoryImport rejects duplicate imports while one is already running', async () => {
-    const ownerTokenIdentifier = 'user|duplicate-import';
+describe("repository import guards", () => {
+  test("createRepositoryImport rejects duplicate imports while one is already running", async () => {
+    const ownerTokenIdentifier = "user|duplicate-import";
     const t = createTestConvex();
 
     await t.run(async (ctx) => {
-      await ctx.db.insert('githubInstallations', {
+      await ctx.db.insert("githubInstallations", {
         ownerTokenIdentifier,
         installationId: 456,
-        accountLogin: 'acme',
-        accountType: 'User',
-        status: 'active',
-        repositorySelection: 'all',
+        accountLogin: "acme",
+        accountType: "User",
+        status: "active",
+        repositorySelection: "all",
         connectedAt: Date.now(),
       });
 
-      await ctx.db.insert('repositories', {
+      await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/duplicate',
-        sourceRepoFullName: 'acme/duplicate',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'duplicate',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'running',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/duplicate",
+        sourceRepoFullName: "acme/duplicate",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "duplicate",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "running",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
@@ -238,8 +238,8 @@ describe('repository import guards', () => {
 
     await expect(
       viewer.mutation(api.repositories.createRepositoryImport, {
-        url: 'https://github.com/acme/duplicate',
+        url: "https://github.com/acme/duplicate",
       }),
-    ).rejects.toThrow('already in progress');
+    ).rejects.toThrow("already in progress");
   });
 });

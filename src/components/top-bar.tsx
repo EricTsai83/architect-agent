@@ -1,27 +1,22 @@
-import {
-  DotsThreeVerticalIcon,
-  SparkleIcon,
-  TrashIcon,
-  ArrowsClockwiseIcon,
-} from '@phosphor-icons/react';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { Button } from '@/components/ui/button';
+import { DotsThreeVerticalIcon, SparkleIcon, TrashIcon, ArrowsClockwiseIcon } from "@phosphor-icons/react";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useRelativeTime } from '@/hooks/use-relative-time';
-import { RepoInfoPopover } from '@/components/repo-info-popover';
-import { RepoStatusIndicator } from '@/components/repo-status-indicator';
-import { JobsPopoverButton } from '@/components/jobs-popover-button';
-import { AttachRepoMenu } from '@/components/attach-repo-menu';
-import type { AttachedRepositorySummary } from '@/hooks/use-thread-capabilities';
-import type { SandboxModeStatus, ThreadId } from '@/lib/types';
+} from "@/components/ui/dropdown-menu";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRelativeTime } from "@/hooks/use-relative-time";
+import { RepoInfoPopover } from "@/components/repo-info-popover";
+import { RepoStatusIndicator } from "@/components/repo-status-indicator";
+import { JobsPopoverButton } from "@/components/jobs-popover-button";
+import { AttachRepoMenu } from "@/components/attach-repo-menu";
+import type { AttachedRepositorySummary } from "@/hooks/use-thread-capabilities";
+import type { SandboxModeStatus, ThreadId } from "@/lib/types";
 
 export type TopBarRepoDetail = {
   repository: {
@@ -37,7 +32,7 @@ export type TopBarRepoDetail = {
   hasRemoteUpdates: boolean;
   fileCount: number;
   fileCountLabel: string;
-  jobs?: Doc<'jobs'>[];
+  jobs?: Doc<"jobs">[];
 };
 
 export function TopBar({
@@ -65,7 +60,7 @@ export function TopBar({
   /** Repository currently attached to {@link threadId}, if any. */
   attachedRepository: AttachedRepositorySummary | null;
   /** All repositories the viewer owns, used to populate the swap menu. */
-  availableRepositories: ReadonlyArray<Doc<'repositories'>>;
+  availableRepositories: ReadonlyArray<Doc<"repositories">>;
   isSyncing: boolean;
   onSync: () => void;
   onDeleteRepo: () => void;
@@ -87,15 +82,10 @@ export function TopBar({
           {repoDetail ? (
             <RepoInfoPopover repoDetail={repoDetail} title={title} />
           ) : (
-            <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight md:text-base">
-              {title}
-            </h1>
+            <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight md:text-base">{title}</h1>
           )}
           {repoDetail ? (
-            <RepoStatusIndicator
-              importStatus={repoDetail.repository.importStatus}
-              sandbox={repoDetail.sandbox}
-            />
+            <RepoStatusIndicator importStatus={repoDetail.repository.importStatus} sandbox={repoDetail.sandbox} />
           ) : null}
         </div>
       ) : null}
@@ -118,11 +108,7 @@ export function TopBar({
         <JobsPopoverButton jobs={repoDetail?.jobs} />
 
         <TooltipProvider delayDuration={150}>
-          <SyncButton
-            repoDetail={repoDetail}
-            isSyncing={isSyncing}
-            onSync={onSync}
-          />
+          <SyncButton repoDetail={repoDetail} isSyncing={isSyncing} onSync={onSync} />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -175,8 +161,7 @@ function SyncButton({
 }) {
   const syncedLabel = useRelativeTime(repoDetail?.repository.lastImportedAt);
   const repositoryImportStatus = repoDetail?.repository.importStatus;
-  const isRepositorySyncing =
-    repositoryImportStatus === 'queued' || repositoryImportStatus === 'running';
+  const isRepositorySyncing = repositoryImportStatus === "queued" || repositoryImportStatus === "running";
   const isBusy = isSyncing || isRepositorySyncing;
   const hasUpdates = repoDetail?.hasRemoteUpdates && !isBusy;
   const isExpanded = isBusy || hasUpdates;
@@ -184,21 +169,21 @@ function SyncButton({
   // Derive the text shown inside the button
   let label: string | null = null;
   if (isBusy) {
-    label = 'Syncing…';
+    label = "Syncing…";
   } else if (hasUpdates) {
-    label = 'Update available';
+    label = "Update available";
   } else if (syncedLabel) {
     label = `Synced ${syncedLabel}`;
   } else if (repoDetail) {
-    label = 'Sync';
+    label = "Sync";
   }
 
-  const syncedTooltipLabel = syncedLabel ? `Synced ${syncedLabel}` : 'Synced recently';
-  const updateTooltipLabel = 'New commits available on remote - click to sync';
+  const syncedTooltipLabel = syncedLabel ? `Synced ${syncedLabel}` : "Synced recently";
+  const updateTooltipLabel = "New commits available on remote - click to sync";
 
   const buttonClassName = hasUpdates
-    ? 'relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300'
-    : 'justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground';
+    ? "relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+    : "justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground";
 
   if (label === null && !repoDetail && !isBusy) {
     return (
@@ -217,7 +202,7 @@ function SyncButton({
             size="icon"
             disabled={!repoDetail}
             onClick={onSync}
-            aria-label={label ?? 'Sync'}
+            aria-label={label ?? "Sync"}
             className="text-muted-foreground hover:text-foreground"
           >
             <ArrowsClockwiseIcon weight="bold" />
@@ -231,13 +216,7 @@ function SyncButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={!repoDetail || isBusy}
-          onClick={onSync}
-          className={buttonClassName}
-        >
+        <Button variant="ghost" size="sm" disabled={!repoDetail || isBusy} onClick={onSync} className={buttonClassName}>
           {hasUpdates && (
             <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
@@ -246,15 +225,13 @@ function SyncButton({
           )}
           {label ? (
             <span className="inline-flex items-center gap-1.5 animate-in fade-in duration-300">
-              <ArrowsClockwiseIcon weight="bold" className={isBusy ? 'animate-spin' : ''} />
+              <ArrowsClockwiseIcon weight="bold" className={isBusy ? "animate-spin" : ""} />
               {label}
             </span>
           ) : null}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {hasUpdates ? updateTooltipLabel : syncedTooltipLabel}
-      </TooltipContent>
+      <TooltipContent side="bottom">{hasUpdates ? updateTooltipLabel : syncedTooltipLabel}</TooltipContent>
     </Tooltip>
   );
 }

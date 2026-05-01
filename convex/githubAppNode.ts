@@ -1,13 +1,13 @@
 "use node";
 
-import { v } from 'convex/values';
-import jwt from 'jsonwebtoken';
-import { createPrivateKey, type KeyObject } from 'node:crypto';
-import { action, internalAction } from './_generated/server';
-import { internal } from './_generated/api';
-import { requireViewerIdentity } from './lib/auth';
-import { parseGitHubUrl } from './lib/github';
-import { normalizeReturnToUrl } from './lib/returnTo';
+import { v } from "convex/values";
+import jwt from "jsonwebtoken";
+import { createPrivateKey, type KeyObject } from "node:crypto";
+import { action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import { requireViewerIdentity } from "./lib/auth";
+import { parseGitHubUrl } from "./lib/github";
+import { normalizeReturnToUrl } from "./lib/returnTo";
 
 // ---------------------------------------------------------------------------
 // GitHub App JWT helper
@@ -39,7 +39,7 @@ function createAppJwt(): string {
       iss: appId,
     },
     privateKey,
-    { algorithm: 'RS256' },
+    { algorithm: "RS256" },
   );
 }
 
@@ -52,18 +52,18 @@ function getGitHubAppCredentials(): GitHubAppCredentials {
   const configuredPrivateKey = process.env.GITHUB_APP_PRIVATE_KEY;
 
   if (!appId) {
-    throw new Error('GITHUB_APP_ID is required. Set it in your Convex dashboard environment variables.');
+    throw new Error("GITHUB_APP_ID is required. Set it in your Convex dashboard environment variables.");
   }
   if (!configuredPrivateKey?.trim()) {
     throw new Error(
-      'GITHUB_APP_PRIVATE_KEY is required. Set it as the raw PEM private key in your Convex dashboard environment variables.',
+      "GITHUB_APP_PRIVATE_KEY is required. Set it as the raw PEM private key in your Convex dashboard environment variables.",
     );
   }
 
   const privateKeyPem = normalizePem(configuredPrivateKey);
   if (!looksLikePemPrivateKey(privateKeyPem)) {
     throw new Error(
-      'GITHUB_APP_PRIVATE_KEY must be the raw PEM private key, including the BEGIN/END PRIVATE KEY lines.',
+      "GITHUB_APP_PRIVATE_KEY must be the raw PEM private key, including the BEGIN/END PRIVATE KEY lines.",
     );
   }
   let privateKey: KeyObject;
@@ -71,11 +71,11 @@ function getGitHubAppCredentials(): GitHubAppCredentials {
   try {
     privateKey = createPrivateKey({
       key: privateKeyPem,
-      format: 'pem',
+      format: "pem",
     });
   } catch (error) {
     throw new Error(
-      `GITHUB_APP_PRIVATE_KEY is not a valid PEM private key: ${error instanceof Error ? error.message : 'Unknown error.'}`,
+      `GITHUB_APP_PRIVATE_KEY is not a valid PEM private key: ${error instanceof Error ? error.message : "Unknown error."}`,
     );
   }
 
@@ -88,7 +88,7 @@ function getGitHubAppCredentials(): GitHubAppCredentials {
 }
 
 function normalizePem(value: string): string {
-  return value.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim();
+  return value.replace(/\\n/g, "\n").replace(/\r\n/g, "\n").trim();
 }
 
 function looksLikePemPrivateKey(value: string): boolean {
@@ -110,23 +110,18 @@ function looksLikePemPrivateKey(value: string): boolean {
 export async function getInstallationAccessToken(installationId: number): Promise<string> {
   const appJwt = createAppJwt();
 
-  const response = await fetch(
-    `https://api.github.com/app/installations/${installationId}/access_tokens`,
-    {
-      method: 'POST',
-      headers: {
-        Accept: 'application/vnd.github.v3+json',
-        Authorization: `Bearer ${appJwt}`,
-        'User-Agent': 'systify',
-      },
+  const response = await fetch(`https://api.github.com/app/installations/${installationId}/access_tokens`, {
+    method: "POST",
+    headers: {
+      "Accept": "application/vnd.github.v3+json",
+      "Authorization": `Bearer ${appJwt}`,
+      "User-Agent": "systify",
     },
-  );
+  });
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
-      `Failed to get installation access token (${response.status}): ${body}`,
-    );
+    throw new Error(`Failed to get installation access token (${response.status}): ${body}`);
   }
 
   const data = (await response.json()) as { token: string };
@@ -171,15 +166,13 @@ export const initiateGitHubInstall = action({
 
     const slug = process.env.GITHUB_APP_SLUG;
     if (!slug) {
-      throw new Error(
-        'GITHUB_APP_SLUG is required. Set it in your Convex dashboard environment variables.',
-      );
+      throw new Error("GITHUB_APP_SLUG is required. Set it in your Convex dashboard environment variables.");
     }
 
     // Generate a cryptographically random state parameter
     const stateBytes = new Uint8Array(32);
     crypto.getRandomValues(stateBytes);
-    const state = Array.from(stateBytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    const state = Array.from(stateBytes, (b) => b.toString(16).padStart(2, "0")).join("");
     const normalizedReturnTo = args.returnTo ? normalizeReturnToUrl(args.returnTo) : undefined;
 
     // Store the state for later validation (10-minute expiry)
@@ -214,29 +207,23 @@ export const verifyRepoAccess = action({
     const identity = await requireViewerIdentity(ctx);
     const parsed = parseGitHubUrl(args.url);
 
-    const installationId: number | null = await ctx.runQuery(
-      internal.github.getInstallationIdForOwner,
-      { ownerTokenIdentifier: identity.tokenIdentifier },
-    );
+    const installationId: number | null = await ctx.runQuery(internal.github.getInstallationIdForOwner, {
+      ownerTokenIdentifier: identity.tokenIdentifier,
+    });
 
     if (!installationId) {
-      throw new Error(
-        'No active GitHub App installation found. Please connect your GitHub account first.',
-      );
+      throw new Error("No active GitHub App installation found. Please connect your GitHub account first.");
     }
 
     const token = await getInstallationAccessToken(installationId);
 
-    const response = await fetch(
-      `https://api.github.com/repos/${parsed.owner}/${parsed.repo}`,
-      {
-        headers: {
-          Accept: 'application/vnd.github.v3+json',
-          Authorization: `token ${token}`,
-          'User-Agent': 'systify',
-        },
+    const response = await fetch(`https://api.github.com/repos/${parsed.owner}/${parsed.repo}`, {
+      headers: {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": `token ${token}`,
+        "User-Agent": "systify",
       },
-    );
+    });
 
     if (response.ok) {
       return { accessible: true as const };
@@ -276,16 +263,13 @@ export const checkRepoAccess = internalAction({
   handler: async (_ctx, args) => {
     const token = await getInstallationAccessToken(args.installationId);
 
-    const response = await fetch(
-      `https://api.github.com/repos/${args.owner}/${args.repo}`,
-      {
-        headers: {
-          Accept: 'application/vnd.github.v3+json',
-          Authorization: `token ${token}`,
-          'User-Agent': 'systify',
-        },
+    const response = await fetch(`https://api.github.com/repos/${args.owner}/${args.repo}`, {
+      headers: {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": `token ${token}`,
+        "User-Agent": "systify",
       },
-    );
+    });
 
     if (response.ok) {
       const data = (await response.json()) as {
@@ -333,10 +317,9 @@ export const listInstallationRepos = action({
   handler: async (ctx) => {
     const identity = await requireViewerIdentity(ctx);
 
-    const installationId: number | null = await ctx.runQuery(
-      internal.github.getInstallationIdForOwner,
-      { ownerTokenIdentifier: identity.tokenIdentifier },
-    );
+    const installationId: number | null = await ctx.runQuery(internal.github.getInstallationIdForOwner, {
+      ownerTokenIdentifier: identity.tokenIdentifier,
+    });
 
     if (!installationId) {
       return { repos: [], totalCount: 0 };
@@ -354,14 +337,14 @@ export const listInstallationRepos = action({
       owner: { avatar_url: string; login: string };
     }> = [];
     let totalCount = 0;
-    let nextUrl: string | null = 'https://api.github.com/installation/repositories?per_page=100';
+    let nextUrl: string | null = "https://api.github.com/installation/repositories?per_page=100";
 
     while (nextUrl) {
       const response: Response = await fetch(nextUrl, {
         headers: {
-          Accept: 'application/vnd.github.v3+json',
-          Authorization: `token ${token}`,
-          'User-Agent': 'systify',
+          "Accept": "application/vnd.github.v3+json",
+          "Authorization": `token ${token}`,
+          "User-Agent": "systify",
         },
       });
 
@@ -379,10 +362,10 @@ export const listInstallationRepos = action({
       allRepos.push(...data.repositories);
 
       // Parse the Link header for pagination
-      const linkHeader = response.headers.get('link');
+      const linkHeader = response.headers.get("link");
       nextUrl = null;
       if (linkHeader) {
-        const links = linkHeader.split(',');
+        const links = linkHeader.split(",");
         for (const link of links) {
           const match = link.match(/<([^>]+)>;\s*rel="next"/);
           if (match) {
@@ -426,10 +409,9 @@ export const searchGitHubRepos = action({
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
 
-    const installationId: number | null = await ctx.runQuery(
-      internal.github.getInstallationIdForOwner,
-      { ownerTokenIdentifier: identity.tokenIdentifier },
-    );
+    const installationId: number | null = await ctx.runQuery(internal.github.getInstallationIdForOwner, {
+      ownerTokenIdentifier: identity.tokenIdentifier,
+    });
 
     if (!installationId) {
       return { repos: [], totalCount: 0 };
@@ -441,9 +423,9 @@ export const searchGitHubRepos = action({
 
     const response = await fetch(url, {
       headers: {
-        Accept: 'application/vnd.github.v3+json',
-        Authorization: `token ${token}`,
-        'User-Agent': 'systify',
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": `token ${token}`,
+        "User-Agent": "systify",
       },
     });
 
@@ -495,22 +477,17 @@ export const fetchInstallationDetails = internalAction({
   handler: async (_ctx, args) => {
     const appJwt = createAppJwt();
 
-    const response = await fetch(
-      `https://api.github.com/app/installations/${args.installationId}`,
-      {
-        headers: {
-          Accept: 'application/vnd.github.v3+json',
-          Authorization: `Bearer ${appJwt}`,
-          'User-Agent': 'systify',
-        },
+    const response = await fetch(`https://api.github.com/app/installations/${args.installationId}`, {
+      headers: {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": `Bearer ${appJwt}`,
+        "User-Agent": "systify",
       },
-    );
+    });
 
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(
-        `Failed to fetch installation details (${response.status}): ${body}`,
-      );
+      throw new Error(`Failed to fetch installation details (${response.status}): ${body}`);
     }
 
     const data = (await response.json()) as {
@@ -523,8 +500,8 @@ export const fetchInstallationDetails = internalAction({
 
     return {
       accountLogin: data.account.login,
-      accountType: data.account.type as 'User' | 'Organization',
-      repositorySelection: data.repository_selection as 'all' | 'selected',
+      accountType: data.account.type as "User" | "Organization",
+      repositorySelection: data.repository_selection as "all" | "selected",
     };
   },
 });

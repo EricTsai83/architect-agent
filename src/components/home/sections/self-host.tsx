@@ -1,12 +1,12 @@
-import { Check, Copy } from '@phosphor-icons/react';
+import { Check, Copy } from "@phosphor-icons/react";
 
-import { Button } from '@/components/ui/button';
-import { useClipboard } from '@/hooks/use-clipboard';
-import { CLONE_COMMAND_TEXT, CLONE_STEPS, REPO_URL, SELF_HOST_FEATURES } from '../data';
-import { Reveal } from '../primitives/reveal';
-import { CornerMarks } from '../primitives/corner-marks';
+import { Button } from "@/components/ui/button";
+import { useClipboard } from "@/hooks/use-clipboard";
+import { CLONE_COMMAND_TEXT, CLONE_STEPS, REPO_URL, SELF_HOST_FEATURES } from "../data";
+import { Reveal } from "../primitives/reveal";
+import { CornerMarks } from "../primitives/corner-marks";
 
-const HEADING_ID = 'self-host-heading';
+const HEADING_ID = "self-host-heading";
 
 export function SelfHost() {
   return (
@@ -18,16 +18,16 @@ export function SelfHost() {
       >
         <div className="flex min-w-0 flex-col gap-6">
           <h2 id={HEADING_ID} className="text-balance text-2xl font-semibold leading-tight tracking-tight sm:text-4xl">
-            Run it on{' '}
+            Run it on{" "}
             <span className="relative">
               <span className="relative z-10">your</span>
               <span aria-hidden className="absolute inset-x-0 bottom-0.5 z-0 h-3 bg-primary/60 sm:h-3.5" />
-            </span>{' '}
+            </span>{" "}
             machine.
           </h2>
           <p className="max-w-md text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
             Systify is MIT-licensed and dependency-clear. Clone the repo, plug in your own Convex and WorkOS keys, and
-            you have a private, grounded codebase Q&amp;A surface you fully own.
+            you have a private, grounded Q&amp;A and system-design analysis surface you fully own.
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -72,7 +72,7 @@ function CloneTerminal() {
         aria-hidden
         className="absolute -inset-6 -z-10 opacity-60 blur-3xl"
         style={{
-          backgroundImage: 'radial-gradient(60% 60% at 70% 30%, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 65%)',
+          backgroundImage: "radial-gradient(60% 60% at 70% 30%, rgba(56,189,248,0.22) 0%, rgba(56,189,248,0) 65%)",
         }}
       />
 
@@ -120,7 +120,7 @@ function CopyAllButton() {
     <button
       type="button"
       onClick={() => void copy(CLONE_COMMAND_TEXT)}
-      aria-label={copied ? 'Quickstart commands copied' : 'Copy quickstart commands to clipboard'}
+      aria-label={copied ? "Quickstart commands copied" : "Copy quickstart commands to clipboard"}
       className="group/copy inline-flex items-center gap-1.5 border border-border bg-background/70 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
     >
       {copied ? (
@@ -137,7 +137,7 @@ function CopyAllButton() {
       {/* Visually-hidden status ensures the state change is announced once,
           regardless of how the surrounding label is rendered. */}
       <span role="status" aria-live="polite" className="sr-only">
-        {copied ? 'Quickstart commands copied to clipboard' : ''}
+        {copied ? "Quickstart commands copied to clipboard" : ""}
       </span>
     </button>
   );

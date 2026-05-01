@@ -1,9 +1,9 @@
-import { v } from 'convex/values';
-import type { Doc, Id } from './_generated/dataModel';
-import { internal } from './_generated/api';
-import { internalMutation, internalQuery, mutation } from './_generated/server';
-import type { MutationCtx } from './_generated/server';
-import { requireViewerIdentity } from './lib/auth';
+import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import { requireViewerIdentity } from "./lib/auth";
 import {
   consumeDaytonaGlobalRateLimit,
   consumeDeepAnalysisRateLimit,
@@ -11,41 +11,41 @@ import {
   getLeaseRetryAfterMs,
   isLeaseActive,
   throwOperationAlreadyInProgress,
-} from './lib/rateLimit';
-import { createOpaqueErrorId } from './lib/observability';
+} from "./lib/rateLimit";
+import { createOpaqueErrorId } from "./lib/observability";
 
 const MAX_ADR_SOURCE_MESSAGES = 10;
 
 export const captureAdr = mutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
     title: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{ artifactId: Id<'artifacts'> }> => {
+  handler: async (ctx, args): Promise<{ artifactId: Id<"artifacts"> }> => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread || thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
-      .order('desc')
+      .query("messages")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .order("desc")
       .take(MAX_ADR_SOURCE_MESSAGES);
 
-    const completedMessages = messages.filter((message) => message.status === 'completed');
+    const completedMessages = messages.filter((message) => message.status === "completed");
     const adr = synthesizeAdrFromThreadMessages([...completedMessages].reverse());
     const title = args.title?.trim() || adr.title;
-    const artifactId: Id<'artifacts'> = await ctx.runMutation(internal.artifactStore.createArtifact, {
+    const artifactId: Id<"artifacts"> = await ctx.runMutation(internal.artifactStore.createArtifact, {
       threadId: args.threadId,
       repositoryId: thread.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
-      kind: 'adr',
+      kind: "adr",
       title,
       summary: adr.summary,
       contentMarkdown: adr.contentMarkdown,
-      source: 'heuristic',
+      source: "heuristic",
     });
 
     return { artifactId };
@@ -54,26 +54,26 @@ export const captureAdr = mutation({
 
 export const requestFailureModeAnalysis = mutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
     subsystem: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread || thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
     if (!thread.repositoryId) {
-      throw new Error('Failure mode analysis requires an attached repository.');
+      throw new Error("Failure mode analysis requires an attached repository.");
     }
 
     const repository = await ctx.db.get(thread.repositoryId);
     if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
-    if (!sandbox || sandbox.status !== 'ready') {
+    if (!sandbox || sandbox.status !== "ready") {
       throw new Error("Failure mode analysis requires the repository's sandbox to be in 'ready' state.");
     }
 
@@ -81,31 +81,31 @@ export const requestFailureModeAnalysis = mutation({
     const activeJob = await getActiveFailureModeJob(ctx, args.threadId, now);
     if (activeJob) {
       throwOperationAlreadyInProgress(
-        'repositoryDeepAnalysisInFlight',
-        'A failure mode analysis is already in progress for this thread.',
+        "repositoryDeepAnalysisInFlight",
+        "A failure mode analysis is already in progress for this thread.",
         getLeaseRetryAfterMs(activeJob.leaseExpiresAt, now),
       );
     }
 
     const trimmedSubsystem = args.subsystem.trim();
     if (!trimmedSubsystem) {
-      throw new Error('Please provide a subsystem to analyze.');
+      throw new Error("Please provide a subsystem to analyze.");
     }
 
     await consumeDeepAnalysisRateLimit(ctx, identity.tokenIdentifier);
     await consumeDaytonaGlobalRateLimit(ctx);
 
-    const jobId = await ctx.db.insert('jobs', {
+    const jobId = await ctx.db.insert("jobs", {
       repositoryId: repository._id,
       ownerTokenIdentifier: identity.tokenIdentifier,
       sandboxId: sandbox._id,
       threadId: args.threadId,
-      kind: 'deep_analysis',
-      status: 'queued',
-      stage: 'queued',
+      kind: "deep_analysis",
+      status: "queued",
+      stage: "queued",
       progress: 0,
-      costCategory: 'deep_analysis',
-      triggerSource: 'user',
+      costCategory: "deep_analysis",
+      triggerSource: "user",
       requestedCommand: `failure_mode_analysis:${trimmedSubsystem}`,
       leaseExpiresAt: now + DEEP_ANALYSIS_JOB_LEASE_MS,
     });
@@ -122,19 +122,19 @@ export const requestFailureModeAnalysis = mutation({
 
 export const getFailureModeContext = internalQuery({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const thread = await ctx.db.get(args.threadId);
     if (!thread || !thread.repositoryId) {
-      throw new Error('Thread is missing its attached repository.');
+      throw new Error("Thread is missing its attached repository.");
     }
     const repository = await ctx.db.get(thread.repositoryId);
     if (!repository) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
     const sandbox = repository.latestSandboxId ? await ctx.db.get(repository.latestSandboxId) : null;
-    if (!sandbox || sandbox.status !== 'ready') {
+    if (!sandbox || sandbox.status !== "ready") {
       throw new Error("Failure mode analysis requires a sandbox in 'ready' state.");
     }
 
@@ -151,12 +151,12 @@ export const getFailureModeContext = internalQuery({
 
 export const markFailureModeRunning = internalMutation({
   args: {
-    jobId: v.id('jobs'),
+    jobId: v.id("jobs"),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.jobId, {
-      status: 'running',
-      stage: 'failure_mode_analysis',
+      status: "running",
+      stage: "failure_mode_analysis",
       progress: 0.25,
       startedAt: Date.now(),
       leaseExpiresAt: Date.now() + DEEP_ANALYSIS_JOB_LEASE_MS,
@@ -166,9 +166,9 @@ export const markFailureModeRunning = internalMutation({
 
 export const completeFailureModeAnalysis = internalMutation({
   args: {
-    jobId: v.id('jobs'),
-    threadId: v.id('threads'),
-    repositoryId: v.id('repositories'),
+    jobId: v.id("jobs"),
+    threadId: v.id("threads"),
+    repositoryId: v.id("repositories"),
     ownerTokenIdentifier: v.string(),
     subsystem: v.string(),
     summary: v.string(),
@@ -180,16 +180,16 @@ export const completeFailureModeAnalysis = internalMutation({
       repositoryId: args.repositoryId,
       jobId: args.jobId,
       ownerTokenIdentifier: args.ownerTokenIdentifier,
-      kind: 'failure_mode_analysis',
+      kind: "failure_mode_analysis",
       title: `Failure mode analysis: ${args.subsystem}`,
       summary: args.summary,
       contentMarkdown: args.contentMarkdown,
-      source: 'sandbox',
+      source: "sandbox",
     });
 
     await ctx.db.patch(args.jobId, {
-      status: 'completed',
-      stage: 'completed',
+      status: "completed",
+      stage: "completed",
       progress: 1,
       completedAt: Date.now(),
       outputSummary: args.summary,
@@ -200,13 +200,13 @@ export const completeFailureModeAnalysis = internalMutation({
 
 export const failFailureModeAnalysis = internalMutation({
   args: {
-    jobId: v.id('jobs'),
+    jobId: v.id("jobs"),
     errorMessage: v.string(),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.jobId, {
-      status: 'failed',
-      stage: 'failed',
+      status: "failed",
+      stage: "failed",
       progress: 1,
       completedAt: Date.now(),
       errorMessage: args.errorMessage,
@@ -216,11 +216,11 @@ export const failFailureModeAnalysis = internalMutation({
 });
 
 const STALE_FAILURE_MODE_JOB_ERROR_MESSAGE =
-  'The failure mode analysis stalled and was automatically marked as failed.';
+  "The failure mode analysis stalled and was automatically marked as failed.";
 
 export const recoverStaleFailureModeJob = internalMutation({
   args: {
-    jobId: v.id('jobs'),
+    jobId: v.id("jobs"),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -228,17 +228,17 @@ export const recoverStaleFailureModeJob = internalMutation({
     const now = Date.now();
     if (
       !job ||
-      job.kind !== 'deep_analysis' ||
-      (job.status !== 'queued' && job.status !== 'running') ||
-      !job.requestedCommand?.startsWith('failure_mode_analysis:') ||
-      typeof job.leaseExpiresAt !== 'number' ||
+      job.kind !== "deep_analysis" ||
+      (job.status !== "queued" && job.status !== "running") ||
+      !job.requestedCommand?.startsWith("failure_mode_analysis:") ||
+      typeof job.leaseExpiresAt !== "number" ||
       job.leaseExpiresAt > now
     ) {
       return;
     }
 
     const message = args.errorMessage ?? STALE_FAILURE_MODE_JOB_ERROR_MESSAGE;
-    const errorId = createOpaqueErrorId('design_artifacts');
+    const errorId = createOpaqueErrorId("design_artifacts");
     await ctx.runMutation(internal.designArtifacts.failFailureModeAnalysis, {
       jobId: args.jobId,
       errorMessage: `${message}\n\nReference: ${errorId}`,
@@ -246,23 +246,23 @@ export const recoverStaleFailureModeJob = internalMutation({
   },
 });
 
-function synthesizeAdrFromThreadMessages(messages: Doc<'messages'>[]) {
+function synthesizeAdrFromThreadMessages(messages: Doc<"messages">[]) {
   const userPoints = messages
-    .filter((message) => message.role === 'user')
+    .filter((message) => message.role === "user")
     .map((message) => message.content.trim())
     .filter(Boolean);
   const assistantPoints = messages
-    .filter((message) => message.role === 'assistant')
+    .filter((message) => message.role === "assistant")
     .map((message) => message.content.trim())
     .filter(Boolean);
 
   const contextLine =
     userPoints[0] ??
-    'This ADR is captured from an in-progress thread where the team discussed architectural direction.';
+    "This ADR is captured from an in-progress thread where the team discussed architectural direction.";
   const decisionLine =
     assistantPoints[assistantPoints.length - 1] ??
     userPoints[userPoints.length - 1] ??
-    'Adopt the latest thread recommendation as the current design direction.';
+    "Adopt the latest thread recommendation as the current design direction.";
 
   const title = deriveAdrTitle(decisionLine);
   const summary = `${title} captured from thread context with explicit decision and follow-up implications.`;
@@ -270,28 +270,28 @@ function synthesizeAdrFromThreadMessages(messages: Doc<'messages'>[]) {
   const alternatives = buildAlternatives(userPoints);
 
   const contentMarkdown = [
-    '# ADR',
-    '',
-    '## Context',
+    "# ADR",
+    "",
+    "## Context",
     contextLine,
-    '',
-    '## Decision',
+    "",
+    "## Decision",
     decisionLine,
-    '',
-    '## Consequences',
+    "",
+    "## Consequences",
     ...consequences.map((line) => `- ${line}`),
-    '',
-    '## Alternatives',
+    "",
+    "## Alternatives",
     ...alternatives.map((line) => `- ${line}`),
-  ].join('\n');
+  ].join("\n");
 
   return { title, summary, contentMarkdown };
 }
 
 function deriveAdrTitle(decisionLine: string) {
-  const plain = decisionLine.replace(/\s+/g, ' ').trim();
+  const plain = decisionLine.replace(/\s+/g, " ").trim();
   if (!plain) {
-    return 'ADR: captured decision';
+    return "ADR: captured decision";
   }
   const normalized = plain.length > 72 ? `${plain.slice(0, 72).trimEnd()}…` : plain;
   return `ADR: ${normalized}`;
@@ -299,43 +299,39 @@ function deriveAdrTitle(decisionLine: string) {
 
 function buildConsequences(decisionLine: string) {
   return [
-    'The selected direction becomes the default implementation path for the current thread.',
-    'Follow-up work should validate this decision against runtime constraints and team ownership.',
-    `The team should monitor regressions related to: "${decisionLine.slice(0, 80)}${decisionLine.length > 80 ? '…' : ''}"`,
+    "The selected direction becomes the default implementation path for the current thread.",
+    "Follow-up work should validate this decision against runtime constraints and team ownership.",
+    `The team should monitor regressions related to: "${decisionLine.slice(0, 80)}${decisionLine.length > 80 ? "…" : ""}"`,
   ];
 }
 
 function buildAlternatives(userPoints: string[]) {
   if (userPoints.length === 0) {
     return [
-      'Keep current architecture unchanged and revisit after collecting more operational evidence.',
-      'Split the problem into smaller ADRs per subsystem before deciding globally.',
+      "Keep current architecture unchanged and revisit after collecting more operational evidence.",
+      "Split the problem into smaller ADRs per subsystem before deciding globally.",
     ];
   }
 
   const lastPrompt = userPoints[userPoints.length - 1]!;
   return [
-    `Preserve the status quo and defer this decision ("${lastPrompt.slice(0, 60)}${lastPrompt.length > 60 ? '…' : ''}").`,
-    'Implement a narrower incremental change to reduce migration risk.',
+    `Preserve the status quo and defer this decision ("${lastPrompt.slice(0, 60)}${lastPrompt.length > 60 ? "…" : ""}").`,
+    "Implement a narrower incremental change to reduce migration risk.",
   ];
 }
 
-async function getActiveFailureModeJob(
-  ctx: MutationCtx,
-  threadId: Id<'threads'>,
-  now: number,
-) {
+async function getActiveFailureModeJob(ctx: MutationCtx, threadId: Id<"threads">, now: number) {
   const jobs = await ctx.db
-    .query('jobs')
-    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
-    .order('desc')
+    .query("jobs")
+    .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
+    .order("desc")
     .take(20);
 
   return jobs.find(
     (job) =>
-      job.kind === 'deep_analysis' &&
-      (job.status === 'queued' || job.status === 'running') &&
-      job.requestedCommand?.startsWith('failure_mode_analysis:') &&
+      job.kind === "deep_analysis" &&
+      (job.status === "queued" || job.status === "running") &&
+      job.requestedCommand?.startsWith("failure_mode_analysis:") &&
       isLeaseActive(job.leaseExpiresAt, now),
   );
 }
