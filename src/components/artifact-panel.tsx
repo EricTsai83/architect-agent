@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { useMutation, useQuery } from 'convex/react';
+import { useState, type ReactNode } from "react";
+import { useMutation, useQuery } from "convex/react";
 import {
   CaretDownIcon,
   CircleNotchIcon,
@@ -8,22 +8,22 @@ import {
   LightningIcon,
   WarningCircleIcon,
   XIcon,
-} from '@phosphor-icons/react';
-import { api } from '../../convex/_generated/api';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MermaidRenderer } from '@/components/mermaid-renderer';
-import { useAsyncCallback } from '@/hooks/use-async-callback';
-import { toUserErrorMessage } from '@/lib/errors';
-import type { SandboxModeStatus, ThreadId } from '@/lib/types';
-import { cn } from '@/lib/utils';
+} from "@phosphor-icons/react";
+import { api } from "../../convex/_generated/api";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MermaidRenderer } from "@/components/mermaid-renderer";
+import { useAsyncCallback } from "@/hooks/use-async-callback";
+import { toUserErrorMessage } from "@/lib/errors";
+import type { SandboxModeStatus, ThreadId } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 /**
  * ArtifactPanel — slot-based right-side panel showing artifacts attached to
@@ -59,10 +59,7 @@ export function ArtifactPanel({
   // Query is scoped to thread-level artifacts. A diagram is double-parented
   // (thread + repo), so it shows up here. ADRs and failure modes will follow
   // the same pattern in Phase 4.
-  const artifacts = useQuery(
-    api.artifacts.listByThread,
-    threadId && isVisible ? { threadId } : 'skip',
-  );
+  const artifacts = useQuery(api.artifacts.listByThread, threadId && isVisible ? { threadId } : "skip");
   const artifactCount = artifacts?.length ?? 0;
   const [actionsOpen, setActionsOpen] = useState<boolean | null>(null);
   const effectiveActionsOpen = actionsOpen ?? artifactCount === 0;
@@ -70,17 +67,12 @@ export function ArtifactPanel({
   return (
     <aside
       aria-label="Thread artifacts"
-      className={cn(
-        'flex h-full min-h-0 w-80 shrink-0 flex-col border-l border-border bg-muted/20',
-        className,
-      )}
+      className={cn("flex h-full min-h-0 w-80 shrink-0 flex-col border-l border-border bg-muted/20", className)}
     >
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex flex-col">
           <span className="text-sm font-semibold">Artifacts</span>
-          <span className="text-[11px] text-muted-foreground">
-            Persistent outputs of this design conversation.
-          </span>
+          <span className="text-[11px] text-muted-foreground">Persistent outputs of this design conversation.</span>
         </div>
       </div>
 
@@ -108,14 +100,12 @@ export function ArtifactPanel({
               title="No artifacts yet"
               description={
                 hasAttachedRepository
-                  ? 'Generate an architecture diagram to start grounding this thread.'
-                  : 'Attach a repository to start producing diagrams, ADRs, and failure-mode analyses.'
+                  ? "Generate an architecture diagram to start grounding this thread."
+                  : "Attach a repository to start producing diagrams, ADRs, and failure-mode analyses."
               }
             />
           ) : (
-            artifacts.map((artifact: Doc<'artifacts'>) => (
-              <ArtifactCard key={artifact._id} artifact={artifact} />
-            ))
+            artifacts.map((artifact: Doc<"artifacts">) => <ArtifactCard key={artifact._id} artifact={artifact} />)
           )}
         </div>
       </ScrollArea>
@@ -136,12 +126,12 @@ function ArtifactActions({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [subsystem, setSubsystem] = useState('');
-  const [activeTab, setActiveTab] = useState<'diagram' | 'adr' | 'failure'>('diagram');
+  const [subsystem, setSubsystem] = useState("");
+  const [activeTab, setActiveTab] = useState<"diagram" | "adr" | "failure">("diagram");
   const captureAdr = useMutation(api.designArtifacts.captureAdr);
   const requestFailureMode = useMutation(api.designArtifacts.requestFailureModeAnalysis);
   const requestDiagram = useMutation(api.architectureDiagram.requestArchitectureDiagram);
-  const sandboxReady = sandboxModeStatus?.reasonCode === 'available';
+  const sandboxReady = sandboxModeStatus?.reasonCode === "available";
 
   const [diagramError, setDiagramError] = useState<string | null>(null);
   const [adrError, setAdrError] = useState<string | null>(null);
@@ -150,9 +140,9 @@ function ArtifactActions({
   const [isDiagramPending, runDiagram] = useAsyncCallback(async () => {
     setDiagramError(null);
     try {
-      await requestDiagram({ threadId, depth: 'module' });
+      await requestDiagram({ threadId, depth: "module" });
     } catch (err) {
-      setDiagramError(toUserErrorMessage(err, 'Failed to generate architecture diagram.'));
+      setDiagramError(toUserErrorMessage(err, "Failed to generate architecture diagram."));
     }
   });
 
@@ -161,7 +151,7 @@ function ArtifactActions({
     try {
       await captureAdr({ threadId });
     } catch (err) {
-      setAdrError(toUserErrorMessage(err, 'Failed to capture ADR.'));
+      setAdrError(toUserErrorMessage(err, "Failed to capture ADR."));
     }
   });
 
@@ -173,7 +163,7 @@ function ArtifactActions({
         subsystem: subsystem.trim(),
       });
     } catch (err) {
-      setFailureError(toUserErrorMessage(err, 'Failed to start failure mode analysis.'));
+      setFailureError(toUserErrorMessage(err, "Failed to start failure mode analysis."));
     }
   });
 
@@ -185,14 +175,14 @@ function ArtifactActions({
           <CaretDownIcon
             size={12}
             weight="bold"
-            className={cn('transition-transform duration-200', open ? 'rotate-180' : '')}
+            className={cn("transition-transform duration-200", open ? "rotate-180" : "")}
           />
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-1">
         <Tabs
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'diagram' | 'adr' | 'failure')}
+          onValueChange={(value) => setActiveTab(value as "diagram" | "adr" | "failure")}
           className="flex flex-col gap-2"
         >
           <TabsList className="grid w-full grid-cols-3">
@@ -214,7 +204,7 @@ function ArtifactActions({
               caption={
                 hasAttachedRepository
                   ? "Module-level Mermaid graph from your repo's structure."
-                  : 'Attach a repository to enable diagram generation.'
+                  : "Attach a repository to enable diagram generation."
               }
               error={diagramError}
               onDismiss={() => setDiagramError(null)}
@@ -231,8 +221,8 @@ function ArtifactActions({
               onClick={() => void runAdr()}
               caption={
                 hasAttachedRepository
-                  ? 'One-click ADR in Context / Decision / Consequences / Alternatives format.'
-                  : 'Attach a repository to enable ADR capture.'
+                  ? "One-click ADR in Context / Decision / Consequences / Alternatives format."
+                  : "Attach a repository to enable ADR capture."
               }
               error={adrError}
               onDismiss={() => setAdrError(null)}
@@ -257,9 +247,9 @@ function ArtifactActions({
                 caption={
                   hasAttachedRepository
                     ? sandboxReady
-                      ? 'Sandbox-backed scan that records component, blast radius, mitigation, and code references.'
-                      : sandboxModeStatus?.message ?? 'Sandbox is not ready yet. Sync and wait for ready state.'
-                    : 'Attach a repository to enable failure mode analysis.'
+                      ? "Sandbox-backed scan that records component, blast radius, mitigation, and code references."
+                      : (sandboxModeStatus?.message ?? "Sandbox is not ready yet. Sync and wait for ready state.")
+                    : "Attach a repository to enable failure mode analysis."
                 }
                 error={failureError}
                 onDismiss={() => setFailureError(null)}
@@ -267,9 +257,7 @@ function ArtifactActions({
                 pendingLabel="Running failure mode analysis…"
                 icon={<WarningCircleIcon size={14} weight="bold" />}
                 variant="outline"
-                disabled={
-                  !hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()
-                }
+                disabled={!hasAttachedRepository || !sandboxReady || isFailurePending || !subsystem.trim()}
               />
             </div>
           </TabsContent>
@@ -289,7 +277,7 @@ function ActionRow({
   pendingLabel,
   icon,
   disabled,
-  variant = 'default',
+  variant = "default",
 }: {
   pending: boolean;
   onClick: () => void;
@@ -300,7 +288,7 @@ function ActionRow({
   pendingLabel: string;
   icon: ReactNode;
   disabled?: boolean;
-  variant?: 'default' | 'outline';
+  variant?: "default" | "outline";
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -355,18 +343,16 @@ function InlineError({ error, onClear }: { error: string | null; onClear: () => 
   );
 }
 
-function ArtifactCard({ artifact }: { artifact: Doc<'artifacts'> }) {
+function ArtifactCard({ artifact }: { artifact: Doc<"artifacts"> }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-3 p-3 pb-2">
         <div className="min-w-0">
           <h4 className="truncate text-sm font-semibold">{artifact.title}</h4>
-          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
-            {artifact.summary}
-          </p>
+          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{artifact.summary}</p>
         </div>
         <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
-          {artifact.kind.replace(/_/g, ' ')}
+          {artifact.kind.replace(/_/g, " ")}
         </Badge>
       </CardHeader>
       <CardContent className="p-3 pt-0">
@@ -382,16 +368,16 @@ function ArtifactCard({ artifact }: { artifact: Doc<'artifacts'> }) {
  * mode analysis, etc.) plug in here so the rest of the panel — header,
  * footer, scrolling — stays uniform across kinds.
  */
-function ArtifactBody({ artifact }: { artifact: Doc<'artifacts'> }) {
+function ArtifactBody({ artifact }: { artifact: Doc<"artifacts"> }) {
   const renderer = kindRenderers[artifact.kind] ?? defaultArtifactRenderer;
   return renderer(artifact);
 }
 
-const kindRenderers: Partial<Record<Doc<'artifacts'>['kind'], (artifact: Doc<'artifacts'>) => ReactNode>> = {
+const kindRenderers: Partial<Record<Doc<"artifacts">["kind"], (artifact: Doc<"artifacts">) => ReactNode>> = {
   architecture_diagram: (artifact) => <MermaidRenderer source={artifact.contentMarkdown} />,
 };
 
-function defaultArtifactRenderer(artifact: Doc<'artifacts'>): ReactNode {
+function defaultArtifactRenderer(artifact: Doc<"artifacts">): ReactNode {
   return (
     <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[11px] leading-snug text-muted-foreground">
       {artifact.contentMarkdown}
@@ -399,7 +385,7 @@ function defaultArtifactRenderer(artifact: Doc<'artifacts'>): ReactNode {
   );
 }
 
-function ArtifactFooter({ artifact }: { artifact: Doc<'artifacts'> }) {
+function ArtifactFooter({ artifact }: { artifact: Doc<"artifacts"> }) {
   return (
     <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
       <span className="inline-flex items-center gap-1">
@@ -431,13 +417,7 @@ function formatRelative(timestamp: number) {
   return `${days}d ago`;
 }
 
-function EmptyArtifactState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+function EmptyArtifactState({ title, description }: { title: string; description: string }) {
   return (
     <div className="flex animate-in flex-col gap-1 rounded-md border border-dashed border-border bg-background/50 p-4 text-center fade-in duration-300">
       <p className="text-xs font-medium text-foreground">{title}</p>

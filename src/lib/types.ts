@@ -1,9 +1,9 @@
-import type { Id } from '../../convex/_generated/dataModel';
-import type { ChatMode } from '../../convex/chatModeResolver';
+import type { Id } from "../../convex/_generated/dataModel";
+import type { ChatMode } from "../../convex/chatModeResolver";
 
-export type RepositoryId = Id<'repositories'>;
-export type ThreadId = Id<'threads'>;
-export type MessageId = Id<'messages'>;
+export type RepositoryId = Id<"repositories">;
+export type ThreadId = Id<"threads">;
+export type MessageId = Id<"messages">;
 
 /**
  * UI-level chat mode the user picks in the ChatPanel selector. The frontend
@@ -23,11 +23,11 @@ export type ActiveMessageStream = {
 };
 
 export type SandboxModeReasonCode =
-  | 'available'
-  | 'missing_sandbox'
-  | 'sandbox_unavailable'
-  | 'sandbox_expired'
-  | 'sandbox_provisioning';
+  | "available"
+  | "missing_sandbox"
+  | "sandbox_unavailable"
+  | "sandbox_expired"
+  | "sandbox_provisioning";
 
 export type SandboxModeStatus = {
   reasonCode: SandboxModeReasonCode;

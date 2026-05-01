@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { formatRelativeTime } from '@/lib/format';
+import { useEffect, useState } from "react";
+import { formatRelativeTime } from "@/lib/format";
 
 /**
  * Returns a live-updating relative time string for the given timestamp.
@@ -24,9 +24,11 @@ export function useRelativeTime(timestamp: number | undefined): string | null {
     function scheduleInterval(): ReturnType<typeof setInterval> {
       const ageSeconds = Math.floor((Date.now() - timestamp!) / 1000);
       const ms =
-        ageSeconds < 60 ? 10_000 : // < 1 min → every 10 s
-        ageSeconds < 3600 ? 30_000 : // < 1 hour → every 30 s
-        60_000; // otherwise → every 60 s
+        ageSeconds < 60
+          ? 10_000 // < 1 min → every 10 s
+          : ageSeconds < 3600
+            ? 30_000 // < 1 hour → every 30 s
+            : 60_000; // otherwise → every 60 s
       return setInterval(tick, ms);
     }
 

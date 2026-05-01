@@ -1,9 +1,9 @@
-import { useCallback } from 'react';
-import { useMutation } from 'convex/react';
-import { api } from '../../convex/_generated/api';
-import { useAsyncCallback } from '@/hooks/use-async-callback';
-import { toUserErrorMessage } from '@/lib/errors';
-import type { ChatMode, RepositoryId, ThreadId } from '@/lib/types';
+import { useCallback } from "react";
+import { useMutation } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import { useAsyncCallback } from "@/hooks/use-async-callback";
+import { toUserErrorMessage } from "@/lib/errors";
+import type { ChatMode, RepositoryId, ThreadId } from "@/lib/types";
 
 /**
  * Aggregates all repo / thread mutations the workspace can fire and exposes
@@ -68,9 +68,9 @@ export function useRepositoryActions({
             content: chatInput,
             mode: chatMode,
           });
-          setChatInput('');
+          setChatInput("");
         } catch (error) {
-          setActionError(toUserErrorMessage(error, 'Failed to send the message.'));
+          setActionError(toUserErrorMessage(error, "Failed to send the message."));
         }
       },
       [chatInput, chatMode, selectedThreadId, sendMessageMutation, setActionError, setChatInput],
@@ -86,11 +86,18 @@ export function useRepositoryActions({
         await requestDeepAnalysis({ repositoryId: selectedRepositoryId, prompt: analysisPrompt });
         setShowAnalysisDialog(false);
       } catch (error) {
-        const message = toUserErrorMessage(error, 'Failed to start deep analysis.');
+        const message = toUserErrorMessage(error, "Failed to start deep analysis.");
         setActionError(message);
         setAnalysisError(message);
       }
-    }, [analysisPrompt, requestDeepAnalysis, selectedRepositoryId, setActionError, setAnalysisError, setShowAnalysisDialog]),
+    }, [
+      analysisPrompt,
+      requestDeepAnalysis,
+      selectedRepositoryId,
+      setActionError,
+      setAnalysisError,
+      setShowAnalysisDialog,
+    ]),
   );
 
   const [isSyncing, handleSync] = useAsyncCallback(
@@ -100,7 +107,7 @@ export function useRepositoryActions({
       try {
         await syncRepositoryMutation({ repositoryId: selectedRepositoryId });
       } catch (error) {
-        setActionError(toUserErrorMessage(error, 'Failed to sync the repository.'));
+        setActionError(toUserErrorMessage(error, "Failed to sync the repository."));
       }
     }, [selectedRepositoryId, setActionError, syncRepositoryMutation]),
   );
@@ -119,7 +126,7 @@ export function useRepositoryActions({
           onAfterDeleteThread(deletedId);
         }
       } catch (error) {
-        setActionError(toUserErrorMessage(error, 'Failed to delete the thread.'));
+        setActionError(toUserErrorMessage(error, "Failed to delete the thread."));
       }
     }, [
       deleteThreadMutation,
@@ -140,15 +147,9 @@ export function useRepositoryActions({
         setShowDeleteRepoDialog(false);
         onAfterDeleteRepo();
       } catch (error) {
-        setActionError(toUserErrorMessage(error, 'Failed to delete the repository.'));
+        setActionError(toUserErrorMessage(error, "Failed to delete the repository."));
       }
-    }, [
-      deleteRepositoryMutation,
-      onAfterDeleteRepo,
-      selectedRepositoryId,
-      setActionError,
-      setShowDeleteRepoDialog,
-    ]),
+    }, [deleteRepositoryMutation, onAfterDeleteRepo, selectedRepositoryId, setActionError, setShowDeleteRepoDialog]),
   );
 
   return {

@@ -1,7 +1,7 @@
-import { SparkleIcon } from '@phosphor-icons/react';
-import { AppNotice } from '@/components/app-notice';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { SparkleIcon } from "@phosphor-icons/react";
+import { AppNotice } from "@/components/app-notice";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-} from '@/components/ui/dialog';
-import type { SandboxModeStatus } from '@/lib/types';
+} from "@/components/ui/dialog";
+import type { SandboxModeStatus } from "@/lib/types";
 
 export function DeepAnalysisDialog({
   open,
@@ -32,7 +32,7 @@ export function DeepAnalysisDialog({
   isRunning: boolean;
   onRun: () => Promise<void>;
 }) {
-  const sandboxAvailable = sandboxModeStatus.reasonCode === 'available';
+  const sandboxAvailable = sandboxModeStatus.reasonCode === "available";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,7 +52,10 @@ export function DeepAnalysisDialog({
         {!sandboxAvailable ? (
           <AppNotice
             title="Deep analysis unavailable"
-            message={sandboxModeStatus.message ?? 'A live sandbox is unavailable right now. Sync the repository to provision a fresh sandbox.'}
+            message={
+              sandboxModeStatus.message ??
+              "A live sandbox is unavailable right now. Sync the repository to provision a fresh sandbox."
+            }
             tone="warning"
           />
         ) : null}
@@ -73,7 +76,7 @@ export function DeepAnalysisDialog({
             }}
           >
             <SparkleIcon weight="bold" />
-            {isRunning ? 'Queuing…' : 'Run deep analysis'}
+            {isRunning ? "Queuing…" : "Run deep analysis"}
           </Button>
         </DialogFooter>
       </DialogContent>

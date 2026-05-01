@@ -1,9 +1,9 @@
-import type { Doc } from '../../convex/_generated/dataModel';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formatTimestamp } from '@/lib/format';
+import type { Doc } from "../../convex/_generated/dataModel";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatTimestamp } from "@/lib/format";
 
-export function JobRow({ job }: { job: Doc<'jobs'> }) {
+export function JobRow({ job }: { job: Doc<"jobs"> }) {
   return (
     <Card className="p-3">
       <div className="flex items-center justify-between gap-3">

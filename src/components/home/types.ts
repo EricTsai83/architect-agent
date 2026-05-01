@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps } from 'react';
+import type { ComponentType, SVGProps } from "react";
 
 export type StackItem = {
   name: string;
@@ -18,7 +18,7 @@ export type NarrativeEntry = {
  * name in the panel turns the abstract idea of "depth" into a literal
  * checklist of what the mode reaches into.
  */
-export const LAYERS = ['model', 'indexed docs', 'live fs'] as const;
+export const LAYERS = ["model", "indexed docs", "live fs"] as const;
 
 export type Layer = (typeof LAYERS)[number];
 
@@ -31,7 +31,7 @@ export type Layer = (typeof LAYERS)[number];
  * Concrete Tailwind classes for each tone live in `mode-tones.ts` so
  * the data stays presentation-free.
  */
-export type ModeTone = 'emerald' | 'sky' | 'amber';
+export type ModeTone = "emerald" | "sky" | "amber";
 
 export type Mode = {
   name: string;

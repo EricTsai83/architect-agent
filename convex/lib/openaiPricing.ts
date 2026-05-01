@@ -7,11 +7,11 @@ export type OpenAIPricing = {
 // Missing entries should not break the chat flow; callers can treat
 // `undefined` as "cost unavailable for this model/version".
 const PRICING: Record<string, OpenAIPricing> = {
-  'gpt-4o-mini': {
+  "gpt-4o-mini": {
     inputPerMillion: 0.15,
     outputPerMillion: 0.6,
   },
-  'gpt-4o': {
+  "gpt-4o": {
     inputPerMillion: 2.5,
     outputPerMillion: 10,
   },
@@ -27,8 +27,5 @@ export function estimateCostUsd(
     return undefined;
   }
 
-  return (
-    (inputTokens / 1_000_000) * pricing.inputPerMillion +
-    (outputTokens / 1_000_000) * pricing.outputPerMillion
-  );
+  return (inputTokens / 1_000_000) * pricing.inputPerMillion + (outputTokens / 1_000_000) * pricing.outputPerMillion;
 }

@@ -1,25 +1,13 @@
-import { useMemo, type FormEvent } from 'react';
-import {
-  ChatCircleIcon,
-  CubeIcon,
-  FileTextIcon,
-  PaperPlaneTiltIcon,
-} from '@phosphor-icons/react';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { AppNotice } from '@/components/app-notice';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
-import type { ActiveMessageStream, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/types';
+import { useMemo, type FormEvent } from "react";
+import { ChatCircleIcon, CubeIcon, FileTextIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { AppNotice } from "@/components/app-notice";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import type { ActiveMessageStream, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
 
 /**
  * Static catalogue of every mode the selector can render. Order is stable and
@@ -38,28 +26,28 @@ const MODE_CATALOG: ReadonlyArray<{
   icon: typeof ChatCircleIcon;
 }> = [
   {
-    value: 'discuss',
-    label: 'Discuss',
-    caption: 'no code reference',
+    value: "discuss",
+    label: "Discuss",
+    caption: "no code reference",
     icon: ChatCircleIcon,
   },
   {
-    value: 'docs',
-    label: 'Docs',
-    caption: 'searches your design docs',
+    value: "docs",
+    label: "Docs",
+    caption: "searches your design docs",
     icon: FileTextIcon,
   },
   {
-    value: 'sandbox',
-    label: 'Sandbox',
-    caption: 'runs in a sandbox against live code',
+    value: "sandbox",
+    label: "Sandbox",
+    caption: "runs in a sandbox against live code",
     icon: CubeIcon,
   },
 ];
 
-const EMPTY_CHAT_OWL = ['   ^...^   ', '  / o,o \\  ', '  |):::(|  ', '====w=w===='].join('\n');
+const EMPTY_CHAT_OWL = ["   ^...^   ", "  / o,o \\  ", "  |):::(|  ", "====w=w===="].join("\n");
 
-const EMPTY_CHAT_OWL_BLINK = ['   ^...^   ', '  / -,- \\  ', '  |):::(|  ', '====w=w===='].join('\n');
+const EMPTY_CHAT_OWL_BLINK = ["   ^...^   ", "  / -,- \\  ", "  |):::(|  ", "====w=w===="].join("\n");
 
 export function ChatPanel({
   selectedThreadId,
@@ -82,7 +70,7 @@ export function ChatPanel({
   showArtifactToggle = false,
 }: {
   selectedThreadId: ThreadId | null;
-  messages: Doc<'messages'>[] | undefined;
+  messages: Doc<"messages">[] | undefined;
   activeMessageStream: ActiveMessageStream | null | undefined;
   isChatLoading: boolean;
   chatInput: string;
@@ -102,21 +90,21 @@ export function ChatPanel({
 }) {
   const hasMessages = (messages?.length ?? 0) > 0;
   const availableModeSet = useMemo(() => new Set(availableModes), [availableModes]);
-  const sandboxModeAvailable = sandboxModeStatus?.reasonCode === 'available';
+  const sandboxModeAvailable = sandboxModeStatus?.reasonCode === "available";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col gap-3 px-6 py-6">
-          {!isChatLoading && chatMode === 'sandbox' && sandboxModeStatus && !sandboxModeAvailable ? (
+          {!isChatLoading && chatMode === "sandbox" && sandboxModeStatus && !sandboxModeAvailable ? (
             <AppNotice
               title={getSandboxStatusTitle(sandboxModeStatus.reasonCode)}
               message={
                 sandboxModeStatus.message ??
-                'Sandbox mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to a lighter mode.'
+                "Sandbox mode is unavailable right now. Sync the repository to provision a fresh sandbox, or switch to a lighter mode."
               }
               tone="warning"
-              actionLabel={isSyncing ? 'Syncing…' : 'Sync now'}
+              actionLabel={isSyncing ? "Syncing…" : "Sync now"}
               actionDisabled={isSyncing}
               onAction={onSync}
             />
@@ -151,7 +139,7 @@ export function ChatPanel({
               {showArtifactToggle && onToggleArtifactPanel ? (
                 <Button
                   type="button"
-                  variant={isArtifactPanelOpen ? 'secondary' : 'ghost'}
+                  variant={isArtifactPanelOpen ? "secondary" : "ghost"}
                   size="sm"
                   onClick={onToggleArtifactPanel}
                   aria-label="Toggle artifacts panel"
@@ -177,10 +165,10 @@ export function ChatPanel({
                       aria-label="Toggle artifacts panel"
                       aria-pressed={isArtifactPanelOpen}
                       className={cn(
-                        'inline-flex h-7 items-center gap-1.5 rounded-sm bg-transparent px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                        "inline-flex h-7 items-center gap-1.5 rounded-sm bg-transparent px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                         isArtifactPanelOpen
-                          ? 'bg-muted text-foreground'
-                          : 'text-muted-foreground/80 hover:bg-muted hover:text-foreground',
+                          ? "bg-muted text-foreground"
+                          : "text-muted-foreground/80 hover:bg-muted hover:text-foreground",
                       )}
                     >
                       <FileTextIcon size={14} weight="bold" />
@@ -205,7 +193,7 @@ export function ChatPanel({
               disabled={isSending || !selectedThreadId || !chatInput.trim()}
             >
               <PaperPlaneTiltIcon weight="bold" />
-              {isSending ? 'Sending…' : 'Send'}
+              {isSending ? "Sending…" : "Send"}
             </Button>
           </div>
         </form>
@@ -242,12 +230,7 @@ function ModeDesktopSelect({
       >
         <SelectValue placeholder="Answer mode" />
       </SelectTrigger>
-      <SelectContent
-        align="end"
-        sideOffset={6}
-        collisionPadding={12}
-        className="w-[min(15rem,calc(100vw-1.5rem))]"
-      >
+      <SelectContent align="end" sideOffset={6} collisionPadding={12} className="w-[min(15rem,calc(100vw-1.5rem))]">
         <SelectGroup>
           {MODE_CATALOG.map((option) => {
             const isAvailable = availableModeSet.has(option.value);
@@ -300,22 +283,13 @@ function ModeCompactSelect({
         >
           <SelectValue placeholder="Answer mode" />
         </SelectTrigger>
-        <SelectContent
-          align="start"
-          sideOffset={6}
-          collisionPadding={12}
-          className="w-[min(15rem,calc(100vw-1.5rem))]"
-        >
+        <SelectContent align="start" sideOffset={6} collisionPadding={12} className="w-[min(15rem,calc(100vw-1.5rem))]">
           <SelectGroup>
             {MODE_CATALOG.map((option) => {
               const isAvailable = availableModeSet.has(option.value);
               const disabledReason = disabledModeReasons[option.value];
               return (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                  disabled={!isAvailable}
-                >
+                <SelectItem key={option.value} value={option.value} disabled={!isAvailable}>
                   {isAvailable
                     ? option.label
                     : disabledReason
@@ -362,51 +336,51 @@ function MessageBubble({
   message,
   activeMessageStream,
 }: {
-  message: Doc<'messages'>;
+  message: Doc<"messages">;
   activeMessageStream: ActiveMessageStream | null;
 }) {
-  const isUser = message.role === 'user';
+  const isUser = message.role === "user";
   const statusLabel = getMessageStatusLabel(message.status);
   const displayContent =
-    message.role === 'assistant' && activeMessageStream?.assistantMessageId === message._id
+    message.role === "assistant" && activeMessageStream?.assistantMessageId === message._id
       ? activeMessageStream.content || message.content
       : message.content;
   return (
-    <Card className={cn('p-4', isUser ? 'bg-muted border-transparent' : 'border-transparent bg-transparent px-0')}>
+    <Card className={cn("p-4", isUser ? "bg-muted border-transparent" : "border-transparent bg-transparent px-0")}>
       <div className="mb-1 flex items-center justify-between gap-3">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{message.role}</p>
         <p className="text-[10px] text-muted-foreground">{statusLabel}</p>
       </div>
-      <p className="whitespace-pre-wrap text-sm leading-6">{displayContent || '…'}</p>
+      <p className="whitespace-pre-wrap text-sm leading-6">{displayContent || "…"}</p>
       {message.errorMessage ? <p className="mt-2 text-xs text-destructive">{message.errorMessage}</p> : null}
     </Card>
   );
 }
 
-function getSandboxStatusTitle(reasonCode: SandboxModeStatus['reasonCode'] | undefined) {
+function getSandboxStatusTitle(reasonCode: SandboxModeStatus["reasonCode"] | undefined) {
   switch (reasonCode) {
-    case 'sandbox_provisioning':
-      return 'Sandbox still provisioning';
-    case 'missing_sandbox':
-      return 'Sandbox not ready yet';
-    case 'sandbox_unavailable':
-      return 'Sandbox no longer available';
-    case 'sandbox_expired':
+    case "sandbox_provisioning":
+      return "Sandbox still provisioning";
+    case "missing_sandbox":
+      return "Sandbox not ready yet";
+    case "sandbox_unavailable":
+      return "Sandbox no longer available";
+    case "sandbox_expired":
     default:
-      return 'Sandbox expired';
+      return "Sandbox expired";
   }
 }
 
-function getMessageStatusLabel(status: Doc<'messages'>['status']) {
+function getMessageStatusLabel(status: Doc<"messages">["status"]) {
   switch (status) {
-    case 'pending':
-      return 'Queued';
-    case 'streaming':
-      return 'Generating';
-    case 'completed':
-      return 'Ready';
-    case 'failed':
-      return 'Failed';
+    case "pending":
+      return "Queued";
+    case "streaming":
+      return "Generating";
+    case "completed":
+      return "Ready";
+    case "failed":
+      return "Failed";
     default:
       return status;
   }

@@ -1,18 +1,18 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, test, vi } from 'vitest';
-import { convexTest } from 'convex-test';
-import { internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import schema from './schema';
+import { describe, expect, test, vi } from "vitest";
+import { convexTest } from "convex-test";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
 
-const modules = import.meta.glob('./**/*.ts');
+const modules = import.meta.glob("./**/*.ts");
 const PERSIST_BATCH_SIZE = 200;
 
 type PersistFlowArgs = {
-  importId: Id<'imports'>;
-  jobId: Id<'jobs'>;
-  sandboxId: Id<'sandboxes'>;
+  importId: Id<"imports">;
+  jobId: Id<"jobs">;
+  sandboxId: Id<"sandboxes">;
   commitSha: string;
   branch?: string;
   detectedLanguages: string[];
@@ -24,7 +24,7 @@ type PersistFlowArgs = {
   repoFiles: Array<{
     path: string;
     parentPath: string;
-    fileType: 'file' | 'dir';
+    fileType: "file" | "dir";
     extension?: string;
     language?: string;
     sizeBytes: number;
@@ -38,7 +38,7 @@ type PersistFlowArgs = {
     chunkIndex: number;
     startLine: number;
     endLine: number;
-    chunkKind: 'code' | 'summary' | 'readme';
+    chunkKind: "code" | "summary" | "readme";
     symbolName?: string;
     symbolKind?: string;
     summary: string;
@@ -46,17 +46,17 @@ type PersistFlowArgs = {
   }>;
   artifacts: Array<{
     kind:
-      | 'manifest'
-      | 'readme_summary'
-      | 'architecture_overview'
-      | 'entrypoints'
-      | 'dependency_overview'
-      | 'deep_analysis'
-      | 'risk_report';
+      | "manifest"
+      | "readme_summary"
+      | "architecture_overview"
+      | "entrypoints"
+      | "dependency_overview"
+      | "deep_analysis"
+      | "risk_report";
     title: string;
     summary: string;
     contentMarkdown: string;
-    source: 'heuristic' | 'llm' | 'sandbox';
+    source: "heuristic" | "llm" | "sandbox";
   }>;
 };
 
@@ -68,7 +68,7 @@ async function runPersistFlow(t: ReturnType<typeof convexTest>, args: PersistFlo
     branch: args.branch,
     artifacts: args.artifacts,
   });
-  if (headerResult.kind !== 'ready') {
+  if (headerResult.kind !== "ready") {
     return headerResult;
   }
 
@@ -78,7 +78,7 @@ async function runPersistFlow(t: ReturnType<typeof convexTest>, args: PersistFlo
       jobId: args.jobId,
       files: batch,
     });
-    if (fileBatchResult.kind !== 'ready') {
+    if (fileBatchResult.kind !== "ready") {
       return fileBatchResult;
     }
   }
@@ -89,7 +89,7 @@ async function runPersistFlow(t: ReturnType<typeof convexTest>, args: PersistFlo
       jobId: args.jobId,
       chunks: batch,
     });
-    if (chunkBatchResult.kind !== 'ready') {
+    if (chunkBatchResult.kind !== "ready") {
       return chunkBatchResult;
     }
   }
@@ -118,142 +118,142 @@ function toBatches<T>(items: T[], batchSize: number): T[][] {
   return batches;
 }
 
-describe('import snapshot cleanup', () => {
-  test('removes superseded files, chunks, and import-generated artifacts', async () => {
-    const ownerTokenIdentifier = 'user|import-cleanup';
+describe("import snapshot cleanup", () => {
+  test("removes superseded files, chunks, and import-generated artifacts", async () => {
+    const ownerTokenIdentifier = "user|import-cleanup";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/cleanup-repo',
-        sourceRepoFullName: 'acme/cleanup-repo',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'cleanup-repo',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/cleanup-repo",
+        sourceRepoFullName: "acme/cleanup-repo",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "cleanup-repo",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const oldJobId = await ctx.db.insert('jobs', {
+      const oldJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const oldImportId = await ctx.db.insert('imports', {
+      const oldImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/cleanup-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/cleanup-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: oldJobId,
       });
-      const oldFileId = await ctx.db.insert('repoFiles', {
+      const oldFileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId: oldImportId,
-        path: 'src/old.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/old.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 100,
         isEntryPoint: false,
         isConfig: false,
         isImportant: false,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId: oldImportId,
         fileId: oldFileId,
-        path: 'src/old.ts',
+        path: "src/old.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 3,
-        chunkKind: 'code',
-        summary: 'Old chunk',
-        content: 'old',
+        chunkKind: "code",
+        summary: "Old chunk",
+        content: "old",
       });
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         jobId: oldJobId,
         ownerTokenIdentifier,
-        kind: 'manifest',
-        title: 'Old Manifest',
-        summary: 'Old summary',
-        contentMarkdown: 'old',
-        source: 'heuristic',
+        kind: "manifest",
+        title: "Old Manifest",
+        summary: "Old summary",
+        contentMarkdown: "old",
+        source: "heuristic",
         version: 1,
       });
 
-      const currentJobId = await ctx.db.insert('jobs', {
+      const currentJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const currentImportId = await ctx.db.insert('imports', {
+      const currentImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/cleanup-repo',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/cleanup-repo",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: currentJobId,
       });
-      const currentFileId = await ctx.db.insert('repoFiles', {
+      const currentFileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId: currentImportId,
-        path: 'src/current.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/current.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 120,
         isEntryPoint: true,
         isConfig: false,
         isImportant: true,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId: currentImportId,
         fileId: currentFileId,
-        path: 'src/current.ts',
+        path: "src/current.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 3,
-        chunkKind: 'code',
-        summary: 'Current chunk',
-        content: 'current',
+        chunkKind: "code",
+        summary: "Current chunk",
+        content: "current",
       });
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         jobId: currentJobId,
         ownerTokenIdentifier,
-        kind: 'manifest',
-        title: 'Current Manifest',
-        summary: 'Current summary',
-        contentMarkdown: 'current',
-        source: 'heuristic',
+        kind: "manifest",
+        title: "Current Manifest",
+        summary: "Current summary",
+        contentMarkdown: "current",
+        source: "heuristic",
         version: 1,
       });
 
@@ -267,28 +267,28 @@ describe('import snapshot cleanup', () => {
 
     const snapshot = await t.run(async (ctx) => ({
       files: await ctx.db
-        .query('repoFiles')
-        .withIndex('by_importId', (q) => q.eq('importId', ids.oldImportId))
+        .query("repoFiles")
+        .withIndex("by_importId", (q) => q.eq("importId", ids.oldImportId))
         .take(10),
       chunks: await ctx.db
-        .query('repoChunks')
-        .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', ids.oldImportId))
+        .query("repoChunks")
+        .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", ids.oldImportId))
         .take(10),
       artifacts: await ctx.db
-        .query('artifacts')
-        .withIndex('by_jobId', (q) => q.eq('jobId', ids.oldJobId))
+        .query("artifacts")
+        .withIndex("by_jobId", (q) => q.eq("jobId", ids.oldJobId))
         .take(10),
       currentFiles: await ctx.db
-        .query('repoFiles')
-        .withIndex('by_importId', (q) => q.eq('importId', ids.currentImportId))
+        .query("repoFiles")
+        .withIndex("by_importId", (q) => q.eq("importId", ids.currentImportId))
         .take(10),
       currentChunks: await ctx.db
-        .query('repoChunks')
-        .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', ids.currentImportId))
+        .query("repoChunks")
+        .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", ids.currentImportId))
         .take(10),
       currentArtifacts: await ctx.db
-        .query('artifacts')
-        .withIndex('by_jobId', (q) => q.eq('jobId', ids.currentJobId))
+        .query("artifacts")
+        .withIndex("by_jobId", (q) => q.eq("jobId", ids.currentJobId))
         .take(10),
     }));
 
@@ -301,61 +301,61 @@ describe('import snapshot cleanup', () => {
   });
 });
 
-describe('batched import persistence', () => {
-  test('retries do not duplicate files, chunks, or artifacts', async () => {
-    const ownerTokenIdentifier = 'user|persist-idempotent';
+describe("batched import persistence", () => {
+  test("retries do not duplicate files, chunks, or artifacts", async () => {
+    const ownerTokenIdentifier = "user|persist-idempotent";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/persist-idempotent',
-        sourceRepoFullName: 'acme/persist-idempotent',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'persist-idempotent',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'running',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/persist-idempotent",
+        sourceRepoFullName: "acme/persist-idempotent",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "persist-idempotent",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "running",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'running',
-        stage: 'indexing',
+        kind: "import",
+        status: "running",
+        stage: "indexing",
         progress: 0.6,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
         startedAt: Date.now() - 5_000,
       });
 
-      const importId = await ctx.db.insert('imports', {
+      const importId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/persist-idempotent',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'running',
+        sourceUrl: "https://github.com/acme/persist-idempotent",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "running",
         jobId,
         startedAt: Date.now() - 5_000,
       });
 
-      const sandboxId = await ctx.db.insert('sandboxes', {
+      const sandboxId = await ctx.db.insert("sandboxes", {
         repositoryId,
         ownerTokenIdentifier,
-        provider: 'daytona',
-        sourceAdapter: 'git_clone',
-        remoteId: 'remote-persist-idempotent',
-        status: 'ready',
-        workDir: '/workspace',
-        repoPath: '/workspace/repo',
+        provider: "daytona",
+        sourceAdapter: "git_clone",
+        remoteId: "remote-persist-idempotent",
+        status: "ready",
+        workDir: "/workspace",
+        repoPath: "/workspace/repo",
         cpuLimit: 2,
         memoryLimitGiB: 4,
         diskLimitGiB: 10,
@@ -371,7 +371,7 @@ describe('batched import persistence', () => {
       });
       await ctx.db.patch(importId, {
         sandboxId,
-        remoteSandboxId: 'remote-persist-idempotent',
+        remoteSandboxId: "remote-persist-idempotent",
       });
 
       return { repositoryId, jobId, importId, sandboxId };
@@ -381,179 +381,179 @@ describe('batched import persistence', () => {
       importId: ids.importId,
       jobId: ids.jobId,
       sandboxId: ids.sandboxId,
-      commitSha: 'abc123',
-      branch: 'main',
-      detectedLanguages: ['typescript'],
-      packageManagers: ['npm'],
-      entrypoints: ['src/main.ts'],
-      summary: 'Import summary',
-      readmeSummary: 'README summary',
-      architectureSummary: 'Architecture summary',
+      commitSha: "abc123",
+      branch: "main",
+      detectedLanguages: ["typescript"],
+      packageManagers: ["npm"],
+      entrypoints: ["src/main.ts"],
+      summary: "Import summary",
+      readmeSummary: "README summary",
+      architectureSummary: "Architecture summary",
       repoFiles: [
         {
-          path: 'src/main.ts',
-          parentPath: 'src',
-          fileType: 'file',
-          extension: 'ts',
-          language: 'typescript',
+          path: "src/main.ts",
+          parentPath: "src",
+          fileType: "file",
+          extension: "ts",
+          language: "typescript",
           sizeBytes: 128,
           isEntryPoint: true,
           isConfig: false,
           isImportant: true,
-          summary: 'Entry point',
+          summary: "Entry point",
         },
         {
-          path: 'src/lib/util.ts',
-          parentPath: 'src/lib',
-          fileType: 'file',
-          extension: 'ts',
-          language: 'typescript',
+          path: "src/lib/util.ts",
+          parentPath: "src/lib",
+          fileType: "file",
+          extension: "ts",
+          language: "typescript",
           sizeBytes: 96,
           isEntryPoint: false,
           isConfig: false,
           isImportant: false,
-          summary: 'Utility file',
+          summary: "Utility file",
         },
       ],
       repoChunks: [
         {
-          path: 'src/main.ts',
+          path: "src/main.ts",
           chunkIndex: 0,
           startLine: 1,
           endLine: 3,
-          chunkKind: 'code',
-          summary: 'Main chunk',
+          chunkKind: "code",
+          summary: "Main chunk",
           content: 'console.log("hello");',
         },
         {
-          path: 'src/main.ts',
+          path: "src/main.ts",
           chunkIndex: 1,
           startLine: 4,
           endLine: 6,
-          chunkKind: 'summary',
-          summary: 'Main summary',
-          content: 'Exports the bootstrap logic.',
+          chunkKind: "summary",
+          summary: "Main summary",
+          content: "Exports the bootstrap logic.",
         },
         {
-          path: 'src/lib/util.ts',
+          path: "src/lib/util.ts",
           chunkIndex: 0,
           startLine: 1,
           endLine: 4,
-          chunkKind: 'code',
-          summary: 'Utility chunk',
-          content: 'export function util() { return 1; }',
+          chunkKind: "code",
+          summary: "Utility chunk",
+          content: "export function util() { return 1; }",
         },
       ],
       artifacts: [
         {
-          kind: 'manifest',
-          title: 'Repository Manifest',
-          summary: 'Manifest summary',
-          contentMarkdown: '# Manifest',
-          source: 'heuristic',
+          kind: "manifest",
+          title: "Repository Manifest",
+          summary: "Manifest summary",
+          contentMarkdown: "# Manifest",
+          source: "heuristic",
         },
         {
-          kind: 'readme_summary',
-          title: 'README Summary',
-          summary: 'README summary',
-          contentMarkdown: '# README',
-          source: 'heuristic',
+          kind: "readme_summary",
+          title: "README Summary",
+          summary: "README summary",
+          contentMarkdown: "# README",
+          source: "heuristic",
         },
         {
-          kind: 'architecture_overview',
-          title: 'Architecture Overview',
-          summary: 'Architecture summary',
-          contentMarkdown: '# Architecture',
-          source: 'heuristic',
+          kind: "architecture_overview",
+          title: "Architecture Overview",
+          summary: "Architecture summary",
+          contentMarkdown: "# Architecture",
+          source: "heuristic",
         },
       ],
     };
 
-    expect(await runPersistFlow(t, payload)).toEqual({ kind: 'completed' });
-    expect(await runPersistFlow(t, payload)).toEqual({ kind: 'completed' });
+    expect(await runPersistFlow(t, payload)).toEqual({ kind: "completed" });
+    expect(await runPersistFlow(t, payload)).toEqual({ kind: "completed" });
 
     const state = await t.run(async (ctx) => ({
       repository: await ctx.db.get(ids.repositoryId),
       importRecord: await ctx.db.get(ids.importId),
       job: await ctx.db.get(ids.jobId),
       files: await ctx.db
-        .query('repoFiles')
-        .withIndex('by_importId', (q) => q.eq('importId', ids.importId))
+        .query("repoFiles")
+        .withIndex("by_importId", (q) => q.eq("importId", ids.importId))
         .take(10),
       chunks: await ctx.db
-        .query('repoChunks')
-        .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', ids.importId))
+        .query("repoChunks")
+        .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", ids.importId))
         .take(10),
       artifacts: await ctx.db
-        .query('artifacts')
-        .withIndex('by_jobId', (q) => q.eq('jobId', ids.jobId))
+        .query("artifacts")
+        .withIndex("by_jobId", (q) => q.eq("jobId", ids.jobId))
         .take(10),
     }));
 
-    expect(state.repository?.importStatus).toBe('completed');
+    expect(state.repository?.importStatus).toBe("completed");
     expect(state.repository?.latestImportId).toBe(ids.importId);
     expect(state.repository?.fileCount).toBe(2);
-    expect(state.importRecord?.status).toBe('completed');
-    expect(state.job?.status).toBe('completed');
+    expect(state.importRecord?.status).toBe("completed");
+    expect(state.job?.status).toBe("completed");
     expect(state.files).toHaveLength(2);
     expect(state.chunks).toHaveLength(3);
     expect(state.artifacts).toHaveLength(3);
   });
 
-  test('cancellation after partial persistence cleans staged rows', async () => {
-    const ownerTokenIdentifier = 'user|delete-mid-import';
+  test("cancellation after partial persistence cleans staged rows", async () => {
+    const ownerTokenIdentifier = "user|delete-mid-import";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/delete-mid-import',
-        sourceRepoFullName: 'acme/delete-mid-import',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'delete-mid-import',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'running',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/delete-mid-import",
+        sourceRepoFullName: "acme/delete-mid-import",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "delete-mid-import",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "running",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'running',
-        stage: 'indexing',
+        kind: "import",
+        status: "running",
+        stage: "indexing",
         progress: 0.6,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
         startedAt: Date.now() - 5_000,
       });
 
-      const importId = await ctx.db.insert('imports', {
+      const importId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/delete-mid-import',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'running',
+        sourceUrl: "https://github.com/acme/delete-mid-import",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "running",
         jobId,
         startedAt: Date.now() - 5_000,
       });
 
-      const sandboxId = await ctx.db.insert('sandboxes', {
+      const sandboxId = await ctx.db.insert("sandboxes", {
         repositoryId,
         ownerTokenIdentifier,
-        provider: 'daytona',
-        sourceAdapter: 'git_clone',
-        remoteId: 'remote-delete-mid-import',
-        status: 'ready',
-        workDir: '/workspace',
-        repoPath: '/workspace/repo',
+        provider: "daytona",
+        sourceAdapter: "git_clone",
+        remoteId: "remote-delete-mid-import",
+        status: "ready",
+        workDir: "/workspace",
+        repoPath: "/workspace/repo",
         cpuLimit: 2,
         memoryLimitGiB: 4,
         diskLimitGiB: 10,
@@ -569,7 +569,7 @@ describe('batched import persistence', () => {
       });
       await ctx.db.patch(importId, {
         sandboxId,
-        remoteSandboxId: 'remote-delete-mid-import',
+        remoteSandboxId: "remote-delete-mid-import",
       });
 
       return { repositoryId, jobId, importId, sandboxId };
@@ -579,19 +579,19 @@ describe('batched import persistence', () => {
       await t.mutation(internal.imports.persistImportHeader, {
         importId: ids.importId,
         jobId: ids.jobId,
-        commitSha: 'abc123',
-        branch: 'main',
+        commitSha: "abc123",
+        branch: "main",
         artifacts: [
           {
-            kind: 'manifest',
-            title: 'Repository Manifest',
-            summary: 'Manifest summary',
-            contentMarkdown: '# Manifest',
-            source: 'heuristic',
+            kind: "manifest",
+            title: "Repository Manifest",
+            summary: "Manifest summary",
+            contentMarkdown: "# Manifest",
+            source: "heuristic",
           },
         ],
       }),
-    ).toEqual({ kind: 'ready' });
+    ).toEqual({ kind: "ready" });
 
     expect(
       await t.mutation(internal.imports.persistRepoFilesBatch, {
@@ -599,20 +599,20 @@ describe('batched import persistence', () => {
         jobId: ids.jobId,
         files: [
           {
-            path: 'src/main.ts',
-            parentPath: 'src',
-            fileType: 'file',
-            extension: 'ts',
-            language: 'typescript',
+            path: "src/main.ts",
+            parentPath: "src",
+            fileType: "file",
+            extension: "ts",
+            language: "typescript",
             sizeBytes: 128,
             isEntryPoint: true,
             isConfig: false,
             isImportant: true,
-            summary: 'Entry point',
+            summary: "Entry point",
           },
         ],
       }),
-    ).toEqual({ kind: 'ready' });
+    ).toEqual({ kind: "ready" });
 
     await t.run(async (ctx) => {
       await ctx.db.patch(ids.repositoryId, {
@@ -626,20 +626,20 @@ describe('batched import persistence', () => {
         jobId: ids.jobId,
         files: [
           {
-            path: 'src/extra.ts',
-            parentPath: 'src',
-            fileType: 'file',
-            extension: 'ts',
-            language: 'typescript',
+            path: "src/extra.ts",
+            parentPath: "src",
+            fileType: "file",
+            extension: "ts",
+            language: "typescript",
             sizeBytes: 64,
             isEntryPoint: false,
             isConfig: false,
             isImportant: false,
-            summary: 'Extra file',
+            summary: "Extra file",
           },
         ],
       }),
-    ).toEqual({ kind: 'cancelled' });
+    ).toEqual({ kind: "cancelled" });
 
     vi.useFakeTimers();
     await t.finishAllScheduledFunctions(vi.runAllTimers);
@@ -649,137 +649,137 @@ describe('batched import persistence', () => {
       importRecord: await ctx.db.get(ids.importId),
       job: await ctx.db.get(ids.jobId),
       files: await ctx.db
-        .query('repoFiles')
-        .withIndex('by_importId', (q) => q.eq('importId', ids.importId))
+        .query("repoFiles")
+        .withIndex("by_importId", (q) => q.eq("importId", ids.importId))
         .take(10),
       chunks: await ctx.db
-        .query('repoChunks')
-        .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', ids.importId))
+        .query("repoChunks")
+        .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", ids.importId))
         .take(10),
       artifacts: await ctx.db
-        .query('artifacts')
-        .withIndex('by_jobId', (q) => q.eq('jobId', ids.jobId))
+        .query("artifacts")
+        .withIndex("by_jobId", (q) => q.eq("jobId", ids.jobId))
         .take(10),
     }));
 
-    expect(state.importRecord?.status).toBe('cancelled');
-    expect(state.job?.status).toBe('cancelled');
+    expect(state.importRecord?.status).toBe("cancelled");
+    expect(state.job?.status).toBe("cancelled");
     expect(state.files).toHaveLength(0);
     expect(state.chunks).toHaveLength(0);
     expect(state.artifacts).toHaveLength(0);
   });
 });
 
-describe('repository deletion during import', () => {
-  test('markImportFailed keeps the last completed snapshot active and cleans partial rows', async () => {
-    const ownerTokenIdentifier = 'user|completed-repo-stays-completed';
+describe("repository deletion during import", () => {
+  test("markImportFailed keeps the last completed snapshot active and cleans partial rows", async () => {
+    const ownerTokenIdentifier = "user|completed-repo-stays-completed";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/completed-repo-stays-completed',
-        sourceRepoFullName: 'acme/completed-repo-stays-completed',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'completed-repo-stays-completed',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'completed',
-        detectedLanguages: ['typescript'],
-        packageManagers: ['npm'],
-        entrypoints: ['src/current.ts'],
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/completed-repo-stays-completed",
+        sourceRepoFullName: "acme/completed-repo-stays-completed",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "completed-repo-stays-completed",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
+        detectedLanguages: ["typescript"],
+        packageManagers: ["npm"],
+        entrypoints: ["src/current.ts"],
         fileCount: 1,
       });
 
-      const completedJobId = await ctx.db.insert('jobs', {
+      const completedJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'completed',
-        stage: 'completed',
+        kind: "import",
+        status: "completed",
+        stage: "completed",
         progress: 1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const completedImportId = await ctx.db.insert('imports', {
+      const completedImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/completed-repo-stays-completed',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'completed',
+        sourceUrl: "https://github.com/acme/completed-repo-stays-completed",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
         jobId: completedJobId,
-        commitSha: 'old-sha',
+        commitSha: "old-sha",
       });
-      const completedFileId = await ctx.db.insert('repoFiles', {
+      const completedFileId = await ctx.db.insert("repoFiles", {
         repositoryId,
         ownerTokenIdentifier,
         importId: completedImportId,
-        path: 'src/current.ts',
-        parentPath: 'src',
-        fileType: 'file',
-        extension: 'ts',
-        language: 'typescript',
+        path: "src/current.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
         sizeBytes: 120,
         isEntryPoint: true,
         isConfig: false,
         isImportant: true,
       });
-      await ctx.db.insert('repoChunks', {
+      await ctx.db.insert("repoChunks", {
         repositoryId,
         ownerTokenIdentifier,
         importId: completedImportId,
         fileId: completedFileId,
-        path: 'src/current.ts',
+        path: "src/current.ts",
         chunkIndex: 0,
         startLine: 1,
         endLine: 4,
-        chunkKind: 'code',
-        summary: 'Current chunk',
-        content: 'current',
+        chunkKind: "code",
+        summary: "Current chunk",
+        content: "current",
       });
-      await ctx.db.insert('artifacts', {
+      await ctx.db.insert("artifacts", {
         repositoryId,
         jobId: completedJobId,
         ownerTokenIdentifier,
-        kind: 'manifest',
-        title: 'Current Manifest',
-        summary: 'Current summary',
-        contentMarkdown: 'current',
-        source: 'heuristic',
+        kind: "manifest",
+        title: "Current Manifest",
+        summary: "Current summary",
+        contentMarkdown: "current",
+        source: "heuristic",
         version: 1,
       });
 
-      const failedJobId = await ctx.db.insert('jobs', {
+      const failedJobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'running',
-        stage: 'persisting_files',
+        kind: "import",
+        status: "running",
+        stage: "persisting_files",
         progress: 0.5,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
-      const failedImportId = await ctx.db.insert('imports', {
+      const failedImportId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/completed-repo-stays-completed',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'running',
+        sourceUrl: "https://github.com/acme/completed-repo-stays-completed",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "running",
         jobId: failedJobId,
       });
-      const sandboxId = await ctx.db.insert('sandboxes', {
+      const sandboxId = await ctx.db.insert("sandboxes", {
         repositoryId,
         ownerTokenIdentifier,
-        provider: 'daytona',
-        sourceAdapter: 'git_clone',
-        remoteId: 'remote-failed-import',
-        status: 'ready',
-        workDir: '/workspace',
-        repoPath: '/workspace/repo',
+        provider: "daytona",
+        sourceAdapter: "git_clone",
+        remoteId: "remote-failed-import",
+        status: "ready",
+        workDir: "/workspace",
+        repoPath: "/workspace/repo",
         cpuLimit: 2,
         memoryLimitGiB: 4,
         diskLimitGiB: 10,
@@ -797,7 +797,7 @@ describe('repository deletion during import', () => {
       });
       await ctx.db.patch(failedImportId, {
         sandboxId,
-        remoteSandboxId: 'remote-failed-import',
+        remoteSandboxId: "remote-failed-import",
       });
 
       return { repositoryId, completedImportId, completedJobId, failedImportId, failedJobId, sandboxId };
@@ -807,19 +807,19 @@ describe('repository deletion during import', () => {
       await t.mutation(internal.imports.persistImportHeader, {
         importId: ids.failedImportId,
         jobId: ids.failedJobId,
-        commitSha: 'new-sha',
-        branch: 'main',
+        commitSha: "new-sha",
+        branch: "main",
         artifacts: [
           {
-            kind: 'manifest',
-            title: 'New Manifest',
-            summary: 'New summary',
-            contentMarkdown: '# Manifest',
-            source: 'heuristic',
+            kind: "manifest",
+            title: "New Manifest",
+            summary: "New summary",
+            contentMarkdown: "# Manifest",
+            source: "heuristic",
           },
         ],
       }),
-    ).toEqual({ kind: 'ready' });
+    ).toEqual({ kind: "ready" });
 
     expect(
       await t.mutation(internal.imports.persistRepoFilesBatch, {
@@ -827,20 +827,20 @@ describe('repository deletion during import', () => {
         jobId: ids.failedJobId,
         files: [
           {
-            path: 'src/new.ts',
-            parentPath: 'src',
-            fileType: 'file',
-            extension: 'ts',
-            language: 'typescript',
+            path: "src/new.ts",
+            parentPath: "src",
+            fileType: "file",
+            extension: "ts",
+            language: "typescript",
             sizeBytes: 110,
             isEntryPoint: false,
             isConfig: false,
             isImportant: true,
-            summary: 'New file',
+            summary: "New file",
           },
         ],
       }),
-    ).toEqual({ kind: 'ready' });
+    ).toEqual({ kind: "ready" });
 
     expect(
       await t.mutation(internal.imports.persistRepoChunksBatch, {
@@ -848,23 +848,23 @@ describe('repository deletion during import', () => {
         jobId: ids.failedJobId,
         chunks: [
           {
-            path: 'src/new.ts',
+            path: "src/new.ts",
             chunkIndex: 0,
             startLine: 1,
             endLine: 3,
-            chunkKind: 'code',
-            summary: 'New chunk',
-            content: 'export const value = 1;',
+            chunkKind: "code",
+            summary: "New chunk",
+            content: "export const value = 1;",
           },
         ],
       }),
-    ).toEqual({ kind: 'ready' });
+    ).toEqual({ kind: "ready" });
 
     vi.useFakeTimers();
     await t.mutation(internal.imports.markImportFailed, {
       importId: ids.failedImportId,
       jobId: ids.failedJobId,
-      errorMessage: 'Chunk persistence failed',
+      errorMessage: "Chunk persistence failed",
     });
     await t.finishAllScheduledFunctions(vi.runAllTimers);
     vi.useRealTimers();
@@ -874,32 +874,32 @@ describe('repository deletion during import', () => {
       failedImport: await ctx.db.get(ids.failedImportId),
       failedJob: await ctx.db.get(ids.failedJobId),
       failedFiles: await ctx.db
-        .query('repoFiles')
-        .withIndex('by_importId', (q) => q.eq('importId', ids.failedImportId))
+        .query("repoFiles")
+        .withIndex("by_importId", (q) => q.eq("importId", ids.failedImportId))
         .take(10),
       failedChunks: await ctx.db
-        .query('repoChunks')
-        .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', ids.failedImportId))
+        .query("repoChunks")
+        .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", ids.failedImportId))
         .take(10),
       failedArtifacts: await ctx.db
-        .query('artifacts')
-        .withIndex('by_jobId', (q) => q.eq('jobId', ids.failedJobId))
+        .query("artifacts")
+        .withIndex("by_jobId", (q) => q.eq("jobId", ids.failedJobId))
         .take(10),
       completedFiles: await ctx.db
-        .query('repoFiles')
-        .withIndex('by_importId', (q) => q.eq('importId', ids.completedImportId))
+        .query("repoFiles")
+        .withIndex("by_importId", (q) => q.eq("importId", ids.completedImportId))
         .take(10),
       completedArtifacts: await ctx.db
-        .query('artifacts')
-        .withIndex('by_jobId', (q) => q.eq('jobId', ids.completedJobId))
+        .query("artifacts")
+        .withIndex("by_jobId", (q) => q.eq("jobId", ids.completedJobId))
         .take(10),
     }));
 
-    expect(state.repository?.importStatus).toBe('completed');
+    expect(state.repository?.importStatus).toBe("completed");
     expect(state.repository?.latestImportId).toBe(ids.completedImportId);
     expect(state.repository?.fileCount).toBe(1);
-    expect(state.failedImport?.status).toBe('failed');
-    expect(state.failedJob?.status).toBe('failed');
+    expect(state.failedImport?.status).toBe("failed");
+    expect(state.failedJob?.status).toBe("failed");
     expect(state.failedFiles).toHaveLength(0);
     expect(state.failedChunks).toHaveLength(0);
     expect(state.failedArtifacts).toHaveLength(0);
@@ -907,46 +907,46 @@ describe('repository deletion during import', () => {
     expect(state.completedArtifacts).toHaveLength(1);
   });
 
-  test('markImportFailed does not throw when the repository row is already gone', async () => {
-    const ownerTokenIdentifier = 'user|missing-repo-failure';
+  test("markImportFailed does not throw when the repository row is already gone", async () => {
+    const ownerTokenIdentifier = "user|missing-repo-failure";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/missing-repo-failure',
-        sourceRepoFullName: 'acme/missing-repo-failure',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'missing-repo-failure',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'running',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/missing-repo-failure",
+        sourceRepoFullName: "acme/missing-repo-failure",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "missing-repo-failure",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "running",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'running',
-        stage: 'indexing',
+        kind: "import",
+        status: "running",
+        stage: "indexing",
         progress: 0.4,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
 
-      const importId = await ctx.db.insert('imports', {
+      const importId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/missing-repo-failure',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'running',
+        sourceUrl: "https://github.com/acme/missing-repo-failure",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "running",
         jobId,
       });
 
@@ -961,7 +961,7 @@ describe('repository deletion during import', () => {
       t.mutation(internal.imports.markImportFailed, {
         importId: ids.importId,
         jobId: ids.jobId,
-        errorMessage: 'Clone failed',
+        errorMessage: "Clone failed",
       }),
     ).resolves.toBeNull();
 
@@ -970,52 +970,52 @@ describe('repository deletion during import', () => {
       job: await ctx.db.get(ids.jobId),
     }));
 
-    expect(state.importRecord?.status).toBe('cancelled');
-    expect(state.job?.status).toBe('cancelled');
+    expect(state.importRecord?.status).toBe("cancelled");
+    expect(state.job?.status).toBe("cancelled");
   });
 });
 
-describe('sandbox reservation during import', () => {
-  test('reserveSandboxRow creates a placeholder row and attachSandboxRemoteInfo updates it in place', async () => {
-    const ownerTokenIdentifier = 'user|reserve-sandbox';
+describe("sandbox reservation during import", () => {
+  test("reserveSandboxRow creates a placeholder row and attachSandboxRemoteInfo updates it in place", async () => {
+    const ownerTokenIdentifier = "user|reserve-sandbox";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/reserve-sandbox',
-        sourceRepoFullName: 'acme/reserve-sandbox',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'reserve-sandbox',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'running',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/reserve-sandbox",
+        sourceRepoFullName: "acme/reserve-sandbox",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "reserve-sandbox",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "running",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'running',
-        stage: 'provisioning_sandbox',
+        kind: "import",
+        status: "running",
+        stage: "provisioning_sandbox",
         progress: 0.1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
 
-      const importId = await ctx.db.insert('imports', {
+      const importId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/reserve-sandbox',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'running',
+        sourceUrl: "https://github.com/acme/reserve-sandbox",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "running",
         jobId,
       });
 
@@ -1026,15 +1026,15 @@ describe('sandbox reservation during import', () => {
       importId: ids.importId,
       repositoryId: ids.repositoryId,
       ownerTokenIdentifier,
-      sourceAdapter: 'git_clone',
+      sourceAdapter: "git_clone",
     });
 
     await t.mutation(internal.imports.attachSandboxRemoteInfo, {
       importId: ids.importId,
       sandboxId,
-      remoteId: 'remote-reserved',
-      workDir: '/workspace',
-      repoPath: '/workspace/repo',
+      remoteId: "remote-reserved",
+      workDir: "/workspace",
+      repoPath: "/workspace/repo",
       cpuLimit: 2,
       memoryLimitGiB: 4,
       diskLimitGiB: 10,
@@ -1048,59 +1048,59 @@ describe('sandbox reservation during import', () => {
       importRecord: await ctx.db.get(ids.importId),
       repository: await ctx.db.get(ids.repositoryId),
       sandboxes: await ctx.db
-        .query('sandboxes')
-        .withIndex('by_repositoryId', (q) => q.eq('repositoryId', ids.repositoryId))
+        .query("sandboxes")
+        .withIndex("by_repositoryId", (q) => q.eq("repositoryId", ids.repositoryId))
         .take(10),
     }));
 
     expect(state.importRecord?.sandboxId).toBe(sandboxId);
-    expect(state.importRecord?.remoteSandboxId).toBe('remote-reserved');
+    expect(state.importRecord?.remoteSandboxId).toBe("remote-reserved");
     expect(state.repository?.latestSandboxId).toBe(sandboxId);
     expect(state.sandboxes).toHaveLength(1);
-    expect(state.sandboxes[0]?.remoteId).toBe('remote-reserved');
-    expect(state.sandboxes[0]?.workDir).toBe('/workspace');
+    expect(state.sandboxes[0]?.remoteId).toBe("remote-reserved");
+    expect(state.sandboxes[0]?.workDir).toBe("/workspace");
   });
 
-  test('scheduleRepositorySandboxCleanup picks up a failed placeholder sandbox', async () => {
-    const ownerTokenIdentifier = 'user|failed-placeholder';
+  test("scheduleRepositorySandboxCleanup picks up a failed placeholder sandbox", async () => {
+    const ownerTokenIdentifier = "user|failed-placeholder";
     const t = convexTest(schema, modules);
 
     const ids = await t.run(async (ctx) => {
-      const repositoryId = await ctx.db.insert('repositories', {
+      const repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/failed-placeholder',
-        sourceRepoFullName: 'acme/failed-placeholder',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'failed-placeholder',
-        defaultBranch: 'main',
-        visibility: 'private',
-        accessMode: 'private',
-        importStatus: 'running',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/failed-placeholder",
+        sourceRepoFullName: "acme/failed-placeholder",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "failed-placeholder",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "running",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
         fileCount: 0,
       });
 
-      const jobId = await ctx.db.insert('jobs', {
+      const jobId = await ctx.db.insert("jobs", {
         repositoryId,
         ownerTokenIdentifier,
-        kind: 'import',
-        status: 'running',
-        stage: 'provisioning_sandbox',
+        kind: "import",
+        status: "running",
+        stage: "provisioning_sandbox",
         progress: 0.1,
-        costCategory: 'indexing',
-        triggerSource: 'user',
+        costCategory: "indexing",
+        triggerSource: "user",
       });
 
-      const importId = await ctx.db.insert('imports', {
+      const importId = await ctx.db.insert("imports", {
         repositoryId,
         ownerTokenIdentifier,
-        sourceUrl: 'https://github.com/acme/failed-placeholder',
-        branch: 'main',
-        adapterKind: 'git_clone',
-        status: 'running',
+        sourceUrl: "https://github.com/acme/failed-placeholder",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "running",
         jobId,
       });
 
@@ -1111,13 +1111,13 @@ describe('sandbox reservation during import', () => {
       importId: ids.importId,
       repositoryId: ids.repositoryId,
       ownerTokenIdentifier,
-      sourceAdapter: 'git_clone',
+      sourceAdapter: "git_clone",
     });
 
     await t.mutation(internal.imports.markImportFailed, {
       importId: ids.importId,
       jobId: ids.jobId,
-      errorMessage: 'Provisioning failed',
+      errorMessage: "Provisioning failed",
     });
 
     const cleanupState = await t.mutation(internal.ops.scheduleRepositorySandboxCleanup, {
@@ -1126,13 +1126,13 @@ describe('sandbox reservation during import', () => {
 
     const jobs = await t.run(async (ctx) =>
       ctx.db
-        .query('jobs')
-        .withIndex('by_repositoryId', (q) => q.eq('repositoryId', ids.repositoryId))
-        .order('desc')
+        .query("jobs")
+        .withIndex("by_repositoryId", (q) => q.eq("repositoryId", ids.repositoryId))
+        .order("desc")
         .take(10),
     );
 
     expect(cleanupState).toEqual({ pendingCleanupCount: 1 });
-    expect(jobs.some((job) => job.kind === 'cleanup' && job.sandboxId === sandboxId)).toBe(true);
+    expect(jobs.some((job) => job.kind === "cleanup" && job.sandboxId === sandboxId)).toBe(true);
   });
 });

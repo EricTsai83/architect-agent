@@ -1,19 +1,19 @@
 /// <reference types="vite/client" />
 
-import { describe, expect, test } from 'vitest';
-import { convexTest } from 'convex-test';
-import { api, internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import schema from './schema';
+import { describe, expect, test } from "vitest";
+import { convexTest } from "convex-test";
+import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import schema from "./schema";
 
-const modules = import.meta.glob('./**/*.ts');
+const modules = import.meta.glob("./**/*.ts");
 
-const OWNER = 'user|thread-context-test';
-const OTHER_OWNER = 'user|thread-context-other';
+const OWNER = "user|thread-context-test";
+const OTHER_OWNER = "user|thread-context-other";
 
 interface SeedOptions {
   withRepository?: boolean;
-  sandboxStatus?: 'provisioning' | 'ready' | 'stopped' | 'archived' | 'failed' | null;
+  sandboxStatus?: "provisioning" | "ready" | "stopped" | "archived" | "failed" | null;
   ownerTokenIdentifier?: string;
 }
 
@@ -21,26 +21,26 @@ async function seedThread(
   t: ReturnType<typeof convexTest>,
   options: SeedOptions = {},
 ): Promise<{
-  threadId: Id<'threads'>;
-  repositoryId: Id<'repositories'> | null;
-  sandboxId: Id<'sandboxes'> | null;
+  threadId: Id<"threads">;
+  repositoryId: Id<"repositories"> | null;
+  sandboxId: Id<"sandboxes"> | null;
 }> {
   const owner = options.ownerTokenIdentifier ?? OWNER;
   return await t.run(async (ctx) => {
-    let repositoryId: Id<'repositories'> | null = null;
-    let sandboxId: Id<'sandboxes'> | null = null;
+    let repositoryId: Id<"repositories"> | null = null;
+    let sandboxId: Id<"sandboxes"> | null = null;
 
     if (options.withRepository) {
-      repositoryId = await ctx.db.insert('repositories', {
+      repositoryId = await ctx.db.insert("repositories", {
         ownerTokenIdentifier: owner,
-        sourceHost: 'github',
-        sourceUrl: 'https://github.com/acme/widget',
-        sourceRepoFullName: 'acme/widget',
-        sourceRepoOwner: 'acme',
-        sourceRepoName: 'widget',
-        visibility: 'unknown',
-        accessMode: 'private',
-        importStatus: 'idle',
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/widget",
+        sourceRepoFullName: "acme/widget",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "widget",
+        visibility: "unknown",
+        accessMode: "private",
+        importStatus: "idle",
         detectedLanguages: [],
         packageManagers: [],
         entrypoints: [],
@@ -48,15 +48,15 @@ async function seedThread(
       });
 
       if (options.sandboxStatus) {
-        sandboxId = await ctx.db.insert('sandboxes', {
+        sandboxId = await ctx.db.insert("sandboxes", {
           repositoryId,
           ownerTokenIdentifier: owner,
-          provider: 'daytona',
-          sourceAdapter: 'git_clone',
-          remoteId: 'remote-1',
+          provider: "daytona",
+          sourceAdapter: "git_clone",
+          remoteId: "remote-1",
           status: options.sandboxStatus,
-          workDir: '/work',
-          repoPath: '/work/repo',
+          workDir: "/work",
+          repoPath: "/work/repo",
           cpuLimit: 1,
           memoryLimitGiB: 1,
           diskLimitGiB: 5,
@@ -71,11 +71,11 @@ async function seedThread(
       }
     }
 
-    const threadId = await ctx.db.insert('threads', {
+    const threadId = await ctx.db.insert("threads", {
       repositoryId: repositoryId ?? undefined,
       ownerTokenIdentifier: owner,
-      title: 'thread',
-      mode: 'discuss',
+      title: "thread",
+      mode: "discuss",
       lastMessageAt: Date.now(),
     });
 
@@ -83,14 +83,14 @@ async function seedThread(
   });
 }
 
-describe('getThreadContext (internal)', () => {
-  test('returns null when the thread does not exist', async () => {
+describe("getThreadContext (internal)", () => {
+  test("returns null when the thread does not exist", async () => {
     const t = convexTest(schema, modules);
     const fakeId = await t.run(async (ctx) => {
-      const id = await ctx.db.insert('threads', {
+      const id = await ctx.db.insert("threads", {
         ownerTokenIdentifier: OWNER,
-        title: 'temp',
-        mode: 'discuss',
+        title: "temp",
+        mode: "discuss",
         lastMessageAt: Date.now(),
       });
       await ctx.db.delete(id);
@@ -103,7 +103,7 @@ describe('getThreadContext (internal)', () => {
     expect(result).toBeNull();
   });
 
-  test('thread without a repository: only discuss mode is available', async () => {
+  test("thread without a repository: only discuss mode is available", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, { withRepository: false });
 
@@ -114,12 +114,12 @@ describe('getThreadContext (internal)', () => {
     expect(result).not.toBeNull();
     expect(result!.attachedRepository).toBeNull();
     expect(result!.sandboxStatus).toBeNull();
-    expect(result!.chatModes.availableModes).toEqual(['discuss']);
-    expect(result!.chatModes.defaultMode).toBe('discuss');
-    expect(Object.keys(result!.chatModes.disabledReasons).sort()).toEqual(['docs', 'sandbox']);
+    expect(result!.chatModes.availableModes).toEqual(["discuss"]);
+    expect(result!.chatModes.defaultMode).toBe("discuss");
+    expect(Object.keys(result!.chatModes.disabledReasons).sort()).toEqual(["docs", "sandbox"]);
   });
 
-  test('thread with repository but no sandbox: discuss + docs available', async () => {
+  test("thread with repository but no sandbox: discuss + docs available", async () => {
     const t = convexTest(schema, modules);
     const { threadId, repositoryId } = await seedThread(t, { withRepository: true });
 
@@ -129,94 +129,94 @@ describe('getThreadContext (internal)', () => {
 
     expect(result!.attachedRepository?._id).toBe(repositoryId);
     expect(result!.sandboxStatus).toBeNull();
-    expect(result!.chatModes.availableModes).toEqual(['discuss', 'docs']);
-    expect(result!.chatModes.defaultMode).toBe('docs');
-    expect(Object.keys(result!.chatModes.disabledReasons)).toEqual(['sandbox']);
+    expect(result!.chatModes.availableModes).toEqual(["discuss", "docs"]);
+    expect(result!.chatModes.defaultMode).toBe("docs");
+    expect(Object.keys(result!.chatModes.disabledReasons)).toEqual(["sandbox"]);
   });
 
-  test('thread with repository and ready sandbox: all three modes available, default docs', async () => {
+  test("thread with repository and ready sandbox: all three modes available, default docs", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: true,
-      sandboxStatus: 'ready',
+      sandboxStatus: "ready",
     });
 
     const result = await t.query(internal.threadContext.getThreadContextInternal, {
       threadId,
     });
 
-    expect(result!.sandboxStatus).toBe('ready');
-    expect(result!.chatModes.availableModes).toEqual(['discuss', 'docs', 'sandbox']);
-    expect(result!.chatModes.defaultMode).toBe('docs');
+    expect(result!.sandboxStatus).toBe("ready");
+    expect(result!.chatModes.availableModes).toEqual(["discuss", "docs", "sandbox"]);
+    expect(result!.chatModes.defaultMode).toBe("docs");
     expect(result!.chatModes.disabledReasons).toEqual({});
   });
 
-  test('thread with stopped sandbox maps to expired in resolver input', async () => {
+  test("thread with stopped sandbox maps to expired in resolver input", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: true,
-      sandboxStatus: 'stopped',
+      sandboxStatus: "stopped",
     });
 
     const result = await t.query(internal.threadContext.getThreadContextInternal, {
       threadId,
     });
 
-    expect(result!.sandboxStatus).toBe('stopped');
-    expect(result!.chatModes.availableModes).toEqual(['discuss', 'docs']);
+    expect(result!.sandboxStatus).toBe("stopped");
+    expect(result!.chatModes.availableModes).toEqual(["discuss", "docs"]);
     expect(result!.chatModes.disabledReasons.sandbox).toMatch(/expired|provision a new sandbox/i);
   });
 
-  test('thread with archived sandbox maps to expired in resolver input', async () => {
+  test("thread with archived sandbox maps to expired in resolver input", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: true,
-      sandboxStatus: 'archived',
+      sandboxStatus: "archived",
     });
 
     const result = await t.query(internal.threadContext.getThreadContextInternal, {
       threadId,
     });
 
-    expect(result!.sandboxStatus).toBe('archived');
-    expect(result!.chatModes.availableModes).toEqual(['discuss', 'docs']);
+    expect(result!.sandboxStatus).toBe("archived");
+    expect(result!.chatModes.availableModes).toEqual(["discuss", "docs"]);
     expect(result!.chatModes.disabledReasons.sandbox).toMatch(/expired|provision a new sandbox/i);
   });
 
-  test('thread with provisioning sandbox surfaces a provisioning hint for sandbox mode', async () => {
+  test("thread with provisioning sandbox surfaces a provisioning hint for sandbox mode", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: true,
-      sandboxStatus: 'provisioning',
+      sandboxStatus: "provisioning",
     });
 
     const result = await t.query(internal.threadContext.getThreadContextInternal, {
       threadId,
     });
 
-    expect(result!.sandboxStatus).toBe('provisioning');
-    expect(result!.chatModes.availableModes).toEqual(['discuss', 'docs']);
+    expect(result!.sandboxStatus).toBe("provisioning");
+    expect(result!.chatModes.availableModes).toEqual(["discuss", "docs"]);
     expect(result!.chatModes.disabledReasons.sandbox).toMatch(/provisioning/i);
   });
 
-  test('thread with failed sandbox surfaces a failed hint for sandbox mode', async () => {
+  test("thread with failed sandbox surfaces a failed hint for sandbox mode", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: true,
-      sandboxStatus: 'failed',
+      sandboxStatus: "failed",
     });
 
     const result = await t.query(internal.threadContext.getThreadContextInternal, {
       threadId,
     });
 
-    expect(result!.sandboxStatus).toBe('failed');
+    expect(result!.sandboxStatus).toBe("failed");
     expect(result!.chatModes.disabledReasons.sandbox).toMatch(/failed|provision a new sandbox/i);
   });
 });
 
-describe('getThreadContext (public, owner-scoped)', () => {
-  test('rejects access from a different owner', async () => {
+describe("getThreadContext (public, owner-scoped)", () => {
+  test("rejects access from a different owner", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: false,
@@ -224,16 +224,14 @@ describe('getThreadContext (public, owner-scoped)', () => {
     });
 
     const intruder = t.withIdentity({ tokenIdentifier: OTHER_OWNER });
-    await expect(
-      intruder.query(api.threadContext.getThreadContext, { threadId }),
-    ).rejects.toThrow();
+    await expect(intruder.query(api.threadContext.getThreadContext, { threadId })).rejects.toThrow();
   });
 
-  test('returns the same shape as the internal query for the owner', async () => {
+  test("returns the same shape as the internal query for the owner", async () => {
     const t = convexTest(schema, modules);
     const { threadId } = await seedThread(t, {
       withRepository: true,
-      sandboxStatus: 'ready',
+      sandboxStatus: "ready",
     });
 
     const viewer = t.withIdentity({ tokenIdentifier: OWNER });

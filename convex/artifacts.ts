@@ -1,6 +1,6 @@
-import { v } from 'convex/values';
-import { query } from './_generated/server';
-import { requireViewerIdentity } from './lib/auth';
+import { v } from "convex/values";
+import { query } from "./_generated/server";
+import { requireViewerIdentity } from "./lib/auth";
 
 const ARTIFACTS_PER_THREAD_LIMIT = 40;
 
@@ -18,19 +18,19 @@ const ARTIFACTS_PER_THREAD_LIMIT = 40;
  */
 export const listByThread = query({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread || thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     return await ctx.db
-      .query('artifacts')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
-      .order('desc')
+      .query("artifacts")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
+      .order("desc")
       .take(ARTIFACTS_PER_THREAD_LIMIT);
   },
 });

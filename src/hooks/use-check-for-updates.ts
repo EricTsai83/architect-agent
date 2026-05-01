@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react';
-import { useAction } from 'convex/react';
-import { api } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
+import { useEffect, useRef } from "react";
+import { useAction } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 
 /**
  * Triggers a lightweight GitHub remote-SHA check for the selected repo.
@@ -13,7 +13,7 @@ import type { Id } from '../../convex/_generated/dataModel';
  * The action is throttled server-side (skips if checked < 60 s ago) so
  * rapid tab-switching or repo-switching won't spam the GitHub API.
  */
-export function useCheckForUpdates(repositoryId: Id<'repositories'> | null) {
+export function useCheckForUpdates(repositoryId: Id<"repositories"> | null) {
   const checkForUpdates = useAction(api.githubCheck.checkForUpdates);
   const repoIdRef = useRef(repositoryId);
 
@@ -32,16 +32,16 @@ export function useCheckForUpdates(repositoryId: Id<'repositories'> | null) {
   // Fire on visibility change (tab re-focus)
   useEffect(() => {
     function handleVisibilityChange() {
-      if (document.visibilityState === 'visible' && repoIdRef.current) {
+      if (document.visibilityState === "visible" && repoIdRef.current) {
         checkForUpdates({ repositoryId: repoIdRef.current }).catch(() => {
           // Silently ignore
         });
       }
     }
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [checkForUpdates]);
 }

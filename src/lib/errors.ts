@@ -1,16 +1,16 @@
 function getStructuredErrorData(error: unknown) {
-  if (typeof error !== 'object' || error === null || !('data' in error)) {
+  if (typeof error !== "object" || error === null || !("data" in error)) {
     return null;
   }
 
-  if (typeof error.data === 'object' && error.data !== null) {
+  if (typeof error.data === "object" && error.data !== null) {
     return error.data;
   }
 
-  if (typeof error.data === 'string') {
+  if (typeof error.data === "string") {
     try {
       const parsed = JSON.parse(error.data);
-      if (typeof parsed === 'object' && parsed !== null) {
+      if (typeof parsed === "object" && parsed !== null) {
         return parsed;
       }
     } catch {
@@ -23,7 +23,7 @@ function getStructuredErrorData(error: unknown) {
 
 function getStructuredErrorMessage(error: unknown) {
   const data = getStructuredErrorData(error);
-  if (data && 'message' in data && typeof data.message === 'string' && data.message.trim()) {
+  if (data && "message" in data && typeof data.message === "string" && data.message.trim()) {
     return data.message;
   }
 

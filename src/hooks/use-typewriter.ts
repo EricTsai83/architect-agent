@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-type Phase = 'typing' | 'pausingType' | 'deleting' | 'pausingDelete';
+type Phase = "typing" | "pausingType" | "deleting" | "pausingDelete";
 
 export type UseTypewriterOptions = {
   /**
@@ -49,19 +49,19 @@ export function useTypewriter({
   pauseAfterType = 1400,
   pauseAfterDelete = 350,
 }: UseTypewriterOptions): string {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [wordIdx, setWordIdx] = useState(0);
-  const [phase, setPhase] = useState<Phase>('typing');
+  const [phase, setPhase] = useState<Phase>("typing");
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     if (!active || words.length === 0) {
-      if (text !== '' || wordIdx !== 0 || phase !== 'typing') {
+      if (text !== "" || wordIdx !== 0 || phase !== "typing") {
         timer = setTimeout(() => {
-          setText('');
+          setText("");
           setWordIdx(0);
-          setPhase('typing');
+          setPhase("typing");
         }, 0);
       }
 
@@ -73,7 +73,7 @@ export function useTypewriter({
     const word = words[wordIdx % words.length];
 
     switch (phase) {
-      case 'typing': {
+      case "typing": {
         if (text.length < word.length) {
           timer = setTimeout(() => {
             setText(word.slice(0, text.length + 1));
@@ -82,29 +82,29 @@ export function useTypewriter({
           // Typing complete — transition immediately to the pause phase.
           // A 0ms timer keeps the transition cancellable and avoids a
           // synchronous state update inside the effect body.
-          timer = setTimeout(() => setPhase('pausingType'), 0);
+          timer = setTimeout(() => setPhase("pausingType"), 0);
         }
         break;
       }
-      case 'pausingType': {
-        timer = setTimeout(() => setPhase('deleting'), pauseAfterType);
+      case "pausingType": {
+        timer = setTimeout(() => setPhase("deleting"), pauseAfterType);
         break;
       }
-      case 'deleting': {
+      case "deleting": {
         if (text.length > 0) {
           timer = setTimeout(() => {
             setText((current) => current.slice(0, -1));
           }, deleteSpeed);
         } else {
           // Deletion complete — same cancellable immediate transition as above.
-          timer = setTimeout(() => setPhase('pausingDelete'), 0);
+          timer = setTimeout(() => setPhase("pausingDelete"), 0);
         }
         break;
       }
-      case 'pausingDelete': {
+      case "pausingDelete": {
         timer = setTimeout(() => {
           setWordIdx((i) => (i + 1) % words.length);
-          setPhase('typing');
+          setPhase("typing");
         }, pauseAfterDelete);
         break;
       }
@@ -116,5 +116,5 @@ export function useTypewriter({
   }, [text, wordIdx, phase, active, words, typeSpeed, deleteSpeed, pauseAfterType, pauseAfterDelete]);
 
   // While inactive, or without words, the hook resets and renders nothing.
-  return active && words.length > 0 ? text : '';
+  return active && words.length > 0 ? text : "";
 }

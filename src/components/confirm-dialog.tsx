@@ -1,5 +1,5 @@
-import { TrashIcon } from '@phosphor-icons/react';
-import { Button } from '@/components/ui/button';
+import { TrashIcon } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogClose,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 export function ConfirmDialog({
   open,
@@ -42,13 +42,7 @@ export function ConfirmDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button
-            type="button"
-            variant="destructive"
-            className="min-w-36"
-            disabled={isPending}
-            onClick={onConfirm}
-          >
+          <Button type="button" variant="destructive" className="min-w-36" disabled={isPending} onClick={onConfirm}>
             <TrashIcon weight="bold" />
             {isPending ? loadingLabel : actionLabel}
           </Button>

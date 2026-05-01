@@ -1,15 +1,15 @@
 "use node";
 
-import { CodeLanguage, Daytona, DaytonaError, DaytonaNotFoundError, type Sandbox } from '@daytona/sdk';
-import { shouldReadFile, type RepositorySnapshot } from './lib/repoAnalysis';
-import { buildSandboxName } from './lib/sandboxNames';
+import { CodeLanguage, Daytona, DaytonaError, DaytonaNotFoundError, type Sandbox } from "@daytona/sdk";
+import { shouldReadFile, type RepositorySnapshot } from "./lib/repoAnalysis";
+import { buildSandboxName } from "./lib/sandboxNames";
 import {
   DEFAULT_AUTO_STOP_MINUTES,
   DEFAULT_AUTO_ARCHIVE_MINUTES,
   DEFAULT_AUTO_DELETE_MINUTES,
   MAX_LISTED_FILES,
   MAX_TREE_DEPTH,
-} from './lib/constants';
+} from "./lib/constants";
 
 const DEFAULT_CPU_LIMIT = 2;
 const DEFAULT_MEMORY_GIB = 4;
@@ -18,8 +18,8 @@ const DEFAULT_DISK_GIB = 10;
 type CreateSandboxOptions = {
   repositoryKey: string;
   repositoryId: string;
-  accessMode: 'public' | 'private';
-  sourceAdapter: 'git_clone' | 'source_service';
+  accessMode: "public" | "private";
+  sourceAdapter: "git_clone" | "source_service";
 };
 
 export type SandboxProvisionResult = {
@@ -42,9 +42,9 @@ export type ListedSandbox = {
   createdAt?: string;
 };
 
-type RemoteSandboxState = 'started' | 'stopped' | 'archived' | 'destroyed' | 'error' | 'unknown';
+type RemoteSandboxState = "started" | "stopped" | "archived" | "destroyed" | "error" | "unknown";
 export const SYSTIFY_DAYTONA_MANAGED_LABELS = {
-  app: 'systify',
+  app: "systify",
 } as const;
 
 export type RemoteSandboxDetails =
@@ -60,8 +60,8 @@ export type RemoteSandboxDetails =
   | {
       exists: false;
       remoteId: string;
-      state: 'destroyed';
-      errorKind: 'not_found';
+      state: "destroyed";
+      errorKind: "not_found";
     };
 
 export async function provisionSandbox(options: CreateSandboxOptions): Promise<SandboxProvisionResult> {
@@ -82,9 +82,9 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
   }
 
   const networkAllowList = process.env.DAYTONA_NETWORK_ALLOW_LIST;
-  const cpuLimit = readNumberEnv('DAYTONA_CPU_LIMIT', DEFAULT_CPU_LIMIT);
-  const memoryLimitGiB = readNumberEnv('DAYTONA_MEMORY_GIB', DEFAULT_MEMORY_GIB);
-  const diskLimitGiB = readNumberEnv('DAYTONA_DISK_GIB', DEFAULT_DISK_GIB);
+  const cpuLimit = readNumberEnv("DAYTONA_CPU_LIMIT", DEFAULT_CPU_LIMIT);
+  const memoryLimitGiB = readNumberEnv("DAYTONA_MEMORY_GIB", DEFAULT_MEMORY_GIB);
+  const diskLimitGiB = readNumberEnv("DAYTONA_DISK_GIB", DEFAULT_DISK_GIB);
   const sandbox = await daytona.create({
     name: sandboxName,
     language: CodeLanguage.TYPESCRIPT,
@@ -94,14 +94,14 @@ export async function provisionSandbox(options: CreateSandboxOptions): Promise<S
       adapter: options.sourceAdapter,
       repositoryId: options.repositoryId,
     },
-    autoStopInterval: readNumberEnv('DAYTONA_AUTO_STOP_MINUTES', DEFAULT_AUTO_STOP_MINUTES),
-    autoArchiveInterval: readNumberEnv('DAYTONA_AUTO_ARCHIVE_MINUTES', DEFAULT_AUTO_ARCHIVE_MINUTES),
-    autoDeleteInterval: readNumberEnv('DAYTONA_AUTO_DELETE_MINUTES', DEFAULT_AUTO_DELETE_MINUTES),
+    autoStopInterval: readNumberEnv("DAYTONA_AUTO_STOP_MINUTES", DEFAULT_AUTO_STOP_MINUTES),
+    autoArchiveInterval: readNumberEnv("DAYTONA_AUTO_ARCHIVE_MINUTES", DEFAULT_AUTO_ARCHIVE_MINUTES),
+    autoDeleteInterval: readNumberEnv("DAYTONA_AUTO_DELETE_MINUTES", DEFAULT_AUTO_DELETE_MINUTES),
     networkBlockAll: false,
     networkAllowList,
   });
 
-  const workDir = (await sandbox.getWorkDir()) ?? 'workspace';
+  const workDir = (await sandbox.getWorkDir()) ?? "workspace";
   return {
     remoteId: sandbox.id,
     workDir,
@@ -158,9 +158,7 @@ export async function stopSandbox(remoteId: string) {
  * Returns the current Daytona-side state of a sandbox.
  * Useful for syncing Convex DB status with reality.
  */
-export async function getSandboxState(
-  remoteId: string,
-): Promise<RemoteSandboxState> {
+export async function getSandboxState(remoteId: string): Promise<RemoteSandboxState> {
   try {
     const sandbox = await getSandbox(remoteId);
     await sandbox.refreshData();
@@ -170,7 +168,7 @@ export async function getSandboxState(
       throw error;
     }
 
-    return 'destroyed';
+    return "destroyed";
   }
 }
 
@@ -196,8 +194,8 @@ export async function getRemoteSandboxDetails(remoteId: string): Promise<RemoteS
     return {
       exists: false,
       remoteId,
-      state: 'destroyed',
-      errorKind: 'not_found',
+      state: "destroyed",
+      errorKind: "not_found",
     };
   }
 }
@@ -209,10 +207,17 @@ export async function cloneRepositoryInSandbox(args: {
   token?: string;
 }) {
   const sandbox = await getSandbox(args.remoteId);
-  await sandbox.git.clone(args.url, 'repo', args.branch, undefined, args.token ? 'x-access-token' : undefined, args.token);
+  await sandbox.git.clone(
+    args.url,
+    "repo",
+    args.branch,
+    undefined,
+    args.token ? "x-access-token" : undefined,
+    args.token,
+  );
 
-  const branchCommand = await sandbox.process.executeCommand('git branch --show-current', 'repo');
-  const shaCommand = await sandbox.process.executeCommand('git rev-parse HEAD', 'repo');
+  const branchCommand = await sandbox.process.executeCommand("git branch --show-current", "repo");
+  const shaCommand = await sandbox.process.executeCommand("git rev-parse HEAD", "repo");
 
   return {
     branch: branchCommand.result.trim() || args.branch,
@@ -222,12 +227,14 @@ export async function cloneRepositoryInSandbox(args: {
 
 export async function collectRepositorySnapshot(remoteId: string, repoPath: string): Promise<RepositorySnapshot> {
   const sandbox = await getSandbox(remoteId);
-  const listed = await walkRepositoryTree(sandbox, repoPath, '', 0, []);
-  const readmePath = listed.find((entry) => entry.fileType === 'file' && /(^|\/)readme(\.[^.]+)?$/i.test(entry.path))?.path;
+  const listed = await walkRepositoryTree(sandbox, repoPath, "", 0, []);
+  const readmePath = listed.find(
+    (entry) => entry.fileType === "file" && /(^|\/)readme(\.[^.]+)?$/i.test(entry.path),
+  )?.path;
 
   const importantFiles = listed
-    .filter((entry) => entry.fileType === 'file' && shouldReadFile(entry.path))
-    .sort((left, right) => Number(right.path.includes('README')) - Number(left.path.includes('README')))
+    .filter((entry) => entry.fileType === "file" && shouldReadFile(entry.path))
+    .sort((left, right) => Number(right.path.includes("README")) - Number(left.path.includes("README")))
     .slice(0, 12);
 
   const importantFileContents = await Promise.all(
@@ -237,18 +244,15 @@ export async function collectRepositorySnapshot(remoteId: string, repoPath: stri
     })),
   );
 
-  const packageJsonContent =
-    importantFiles.find((file) => file.path === 'package.json')
-      ? await downloadUtf8File(sandbox, `${repoPath}/package.json`)
-      : undefined;
-  const pyprojectContent =
-    importantFiles.find((file) => file.path === 'pyproject.toml')
-      ? await downloadUtf8File(sandbox, `${repoPath}/pyproject.toml`)
-      : undefined;
-  const cargoTomlContent =
-    importantFiles.find((file) => file.path === 'Cargo.toml')
-      ? await downloadUtf8File(sandbox, `${repoPath}/Cargo.toml`)
-      : undefined;
+  const packageJsonContent = importantFiles.find((file) => file.path === "package.json")
+    ? await downloadUtf8File(sandbox, `${repoPath}/package.json`)
+    : undefined;
+  const pyprojectContent = importantFiles.find((file) => file.path === "pyproject.toml")
+    ? await downloadUtf8File(sandbox, `${repoPath}/pyproject.toml`)
+    : undefined;
+  const cargoTomlContent = importantFiles.find((file) => file.path === "Cargo.toml")
+    ? await downloadUtf8File(sandbox, `${repoPath}/Cargo.toml`)
+    : undefined;
 
   return {
     readmePath,
@@ -315,8 +319,8 @@ async function walkRepositoryTree(
   repoPath: string,
   relativePath: string,
   depth: number,
-  acc: RepositorySnapshot['files'],
-): Promise<RepositorySnapshot['files']> {
+  acc: RepositorySnapshot["files"],
+): Promise<RepositorySnapshot["files"]> {
   if (depth > MAX_TREE_DEPTH || acc.length >= MAX_LISTED_FILES) {
     return acc;
   }
@@ -337,7 +341,7 @@ async function walkRepositoryTree(
     acc.push({
       path: nextRelative,
       parentPath: relativePath,
-      fileType: item.isDir ? 'dir' : 'file',
+      fileType: item.isDir ? "dir" : "file",
       extension: undefined,
       language: undefined,
       sizeBytes: item.size,
@@ -357,7 +361,7 @@ async function walkRepositoryTree(
 
 async function downloadUtf8File(sandbox: Sandbox, path: string) {
   const buffer = await sandbox.fs.downloadFile(path, 30);
-  return buffer.toString('utf8').slice(0, 20_000);
+  return buffer.toString("utf8").slice(0, 20_000);
 }
 
 async function getSandbox(remoteId: string) {
@@ -374,7 +378,7 @@ function isDaytonaNotFoundError(error: unknown): boolean {
     return true;
   }
 
-  if (typeof error !== 'object' || error === null) {
+  if (typeof error !== "object" || error === null) {
     return false;
   }
 
@@ -391,7 +395,7 @@ function isDaytonaNotFoundError(error: unknown): boolean {
 function createDaytonaClient() {
   const apiKey = process.env.DAYTONA_API_KEY;
   if (!apiKey) {
-    throw new Error('DAYTONA_API_KEY is required to provision a sandbox.');
+    throw new Error("DAYTONA_API_KEY is required to provision a sandbox.");
   }
 
   return new Daytona({
@@ -403,12 +407,12 @@ function createDaytonaClient() {
 
 function ignorePath(path: string) {
   return (
-    path.startsWith('.git/') ||
-    path.startsWith('node_modules/') ||
-    path.startsWith('dist/') ||
-    path.startsWith('build/') ||
-    path.startsWith('.next/') ||
-    path.startsWith('.turbo/')
+    path.startsWith(".git/") ||
+    path.startsWith("node_modules/") ||
+    path.startsWith("dist/") ||
+    path.startsWith("build/") ||
+    path.startsWith(".next/") ||
+    path.startsWith(".turbo/")
   );
 }
 
@@ -423,24 +427,24 @@ function readNumberEnv(name: string, fallback: number) {
 
 function normalizeRemoteSandboxState(state: string | undefined): RemoteSandboxState {
   if (!state) {
-    return 'unknown';
+    return "unknown";
   }
 
   const normalized = state.toLowerCase();
-  if (normalized === 'started') {
-    return 'started';
+  if (normalized === "started") {
+    return "started";
   }
-  if (normalized === 'stopped') {
-    return 'stopped';
+  if (normalized === "stopped") {
+    return "stopped";
   }
-  if (normalized === 'archived') {
-    return 'archived';
+  if (normalized === "archived") {
+    return "archived";
   }
-  if (normalized === 'destroyed' || normalized === 'deleted') {
-    return 'destroyed';
+  if (normalized === "destroyed" || normalized === "deleted") {
+    return "destroyed";
   }
-  if (normalized === 'error' || normalized === 'failed') {
-    return 'error';
+  if (normalized === "error" || normalized === "failed") {
+    return "error";
   }
-  return 'unknown';
+  return "unknown";
 }

@@ -1,24 +1,20 @@
-import { v } from 'convex/values';
-import type { Doc } from './_generated/dataModel';
-import { mutation, type MutationCtx } from './_generated/server';
-import { requireViewerIdentity } from './lib/auth';
-import { validateParentPresence } from './artifactStore';
+import { v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
+import { mutation, type MutationCtx } from "./_generated/server";
+import { requireViewerIdentity } from "./lib/auth";
+import { validateParentPresence } from "./artifactStore";
 import {
   generateArchitectureDiagram,
   type DiagramDepth,
   type DiagramSnapshot,
   type DiagramSnapshotFile,
-} from './lib/architectureDiagram';
+} from "./lib/architectureDiagram";
 
 const REPO_FILE_LIMIT = 800;
-const PACKAGE_FILE_PATHS = ['package.json', 'pyproject.toml', 'Cargo.toml'] as const;
+const PACKAGE_FILE_PATHS = ["package.json", "pyproject.toml", "Cargo.toml"] as const;
 const MAX_EXTERNAL_DEPS_FROM_MANIFEST = 24;
 
-const diagramDepthValidator = v.union(
-  v.literal('service'),
-  v.literal('module'),
-  v.literal('file'),
-);
+const diagramDepthValidator = v.union(v.literal("service"), v.literal("module"), v.literal("file"));
 
 /**
  * Requests an architecture diagram for the thread's attached repository.
@@ -38,21 +34,21 @@ const diagramDepthValidator = v.union(
  */
 export const requestArchitectureDiagram = mutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
     depth: diagramDepthValidator,
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread || thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
     if (!thread.repositoryId) {
-      throw new Error('Architecture diagrams require an attached repository on this thread.');
+      throw new Error("Architecture diagrams require an attached repository on this thread.");
     }
     const repository = await ctx.db.get(thread.repositoryId);
     if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     const snapshot = await buildSnapshot(ctx, repository);
@@ -66,15 +62,15 @@ export const requestArchitectureDiagram = mutation({
     // is the single source of truth for the rule.
     validateParentPresence(args.threadId, repository._id);
 
-    const artifactId = await ctx.db.insert('artifacts', {
+    const artifactId = await ctx.db.insert("artifacts", {
       threadId: args.threadId,
       repositoryId: repository._id,
       ownerTokenIdentifier: identity.tokenIdentifier,
-      kind: 'architecture_diagram',
+      kind: "architecture_diagram",
       title: result.title,
       summary: result.summary,
       contentMarkdown: result.mermaid,
-      source: 'heuristic',
+      source: "heuristic",
       version: 1,
     });
 
@@ -82,13 +78,10 @@ export const requestArchitectureDiagram = mutation({
   },
 });
 
-async function buildSnapshot(
-  ctx: MutationCtx,
-  repository: Doc<'repositories'>,
-): Promise<DiagramSnapshot> {
+async function buildSnapshot(ctx: MutationCtx, repository: Doc<"repositories">): Promise<DiagramSnapshot> {
   const files = await ctx.db
-    .query('repoFiles')
-    .withIndex('by_repositoryId_and_path', (q) => q.eq('repositoryId', repository._id))
+    .query("repoFiles")
+    .withIndex("by_repositoryId_and_path", (q) => q.eq("repositoryId", repository._id))
     .take(REPO_FILE_LIMIT);
 
   const externalDependencies = repository.latestImportId
@@ -105,7 +98,7 @@ async function buildSnapshot(
   };
 }
 
-function toDiagramSnapshotFile(file: Doc<'repoFiles'>): DiagramSnapshotFile {
+function toDiagramSnapshotFile(file: Doc<"repoFiles">): DiagramSnapshotFile {
   return {
     path: file.path,
     parentPath: file.parentPath,
@@ -128,15 +121,13 @@ function toDiagramSnapshotFile(file: Doc<'repoFiles'>): DiagramSnapshotFile {
  */
 async function loadExternalDependenciesFromManifest(
   ctx: MutationCtx,
-  importId: Doc<'imports'>['_id'],
+  importId: Doc<"imports">["_id"],
 ): Promise<string[]> {
   const collected = new Set<string>();
   for (const path of PACKAGE_FILE_PATHS) {
     const chunks = await ctx.db
-      .query('repoChunks')
-      .withIndex('by_importId_and_path_and_chunkIndex', (q) =>
-        q.eq('importId', importId).eq('path', path),
-      )
+      .query("repoChunks")
+      .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", importId).eq("path", path))
       .take(1);
     if (chunks.length === 0) {
       continue;
@@ -157,10 +148,10 @@ async function loadExternalDependenciesFromManifest(
 }
 
 function parseManifestDependencies(path: string, content: string): string[] {
-  if (path === 'package.json') {
+  if (path === "package.json") {
     return parsePackageJsonDependencies(content);
   }
-  if (path === 'pyproject.toml' || path === 'Cargo.toml') {
+  if (path === "pyproject.toml" || path === "Cargo.toml") {
     return parseTomlDependencies(content);
   }
   return [];
@@ -169,11 +160,11 @@ function parseManifestDependencies(path: string, content: string): string[] {
 function parsePackageJsonDependencies(content: string): string[] {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>;
-    const buckets = ['dependencies', 'peerDependencies', 'optionalDependencies'];
+    const buckets = ["dependencies", "peerDependencies", "optionalDependencies"];
     const result = new Set<string>();
     for (const bucket of buckets) {
       const value = parsed[bucket];
-      if (value && typeof value === 'object') {
+      if (value && typeof value === "object") {
         for (const key of Object.keys(value as Record<string, unknown>)) {
           if (key.length > 0) {
             result.add(key);
@@ -196,7 +187,7 @@ function parseTomlDependencies(content: string): string[] {
   const result = new Set<string>();
 
   const sectionRegex = /^\[(?<section>[^\]]+)\]\s*$/gm;
-  const lines = content.split('\n');
+  const lines = content.split("\n");
   let currentSection: string | null = null;
   for (const line of lines) {
     const sectionMatch = sectionRegex.exec(line);
@@ -209,10 +200,10 @@ function parseTomlDependencies(content: string): string[] {
       continue;
     }
     if (
-      currentSection !== 'dependencies' &&
-      !currentSection.startsWith('project.dependencies') &&
-      !currentSection.startsWith('tool.poetry.dependencies') &&
-      currentSection !== 'dev-dependencies'
+      currentSection !== "dependencies" &&
+      !currentSection.startsWith("project.dependencies") &&
+      !currentSection.startsWith("tool.poetry.dependencies") &&
+      currentSection !== "dev-dependencies"
     ) {
       continue;
     }
@@ -227,7 +218,7 @@ function parseTomlDependencies(content: string): string[] {
   if (arrayMatch?.[1]) {
     const items = arrayMatch[1].split(/[,\n]/);
     for (const raw of items) {
-      const trimmed = raw.trim().replace(/^["']|["']$/g, '');
+      const trimmed = raw.trim().replace(/^["']|["']$/g, "");
       const nameMatch = /^([A-Za-z0-9_.-]+)/.exec(trimmed);
       if (nameMatch?.[1]) {
         result.add(nameMatch[1]);

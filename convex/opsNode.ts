@@ -1,22 +1,22 @@
 "use node";
 
-import { v } from 'convex/values';
-import { internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import { internalAction } from './_generated/server';
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { internalAction } from "./_generated/server";
 import {
   deleteSandbox,
   getSandboxState,
   listSandboxesByLabel,
   SYSTIFY_DAYTONA_MANAGED_LABELS,
   stopSandbox,
-} from './daytona';
-import { logErrorWithId, logInfo } from './lib/observability';
+} from "./daytona";
+import { logErrorWithId, logInfo } from "./lib/observability";
 
 export const runSandboxCleanup = internalAction({
   args: {
-    sandboxId: v.id('sandboxes'),
-    jobId: v.id('jobs'),
+    sandboxId: v.id("sandboxes"),
+    jobId: v.id("jobs"),
   },
   handler: async (ctx, args) => {
     const sandbox = await ctx.runMutation(internal.ops.markSandboxCleanupRunning, {
@@ -34,7 +34,7 @@ export const runSandboxCleanup = internalAction({
         jobId: args.jobId,
       });
     } catch (error) {
-      const errorId = logErrorWithId('ops', 'sandbox_cleanup_failed', error, {
+      const errorId = logErrorWithId("ops", "sandbox_cleanup_failed", error, {
         sandboxId: args.sandboxId,
         jobId: args.jobId,
         remoteId: sandbox.remoteId,
@@ -43,7 +43,7 @@ export const runSandboxCleanup = internalAction({
         sandboxId: args.sandboxId,
         jobId: args.jobId,
         errorMessage: `${
-          error instanceof Error ? error.message : 'Unknown sandbox cleanup error'
+          error instanceof Error ? error.message : "Unknown sandbox cleanup error"
         }\n\nReference: ${errorId}`,
       });
     }
@@ -62,20 +62,18 @@ type ExpiredSandbox = {
 };
 
 type StaleInteractiveJob = {
-  jobId: Id<'jobs'>;
-  kind: 'chat' | 'deep_analysis';
+  jobId: Id<"jobs">;
+  kind: "chat" | "deep_analysis";
   requestedCommand?: string;
 };
 
 type SandboxLookupResult = {
-  sandboxId: Id<'sandboxes'>;
-  status: 'provisioning' | 'ready' | 'stopped' | 'archived' | 'failed';
+  sandboxId: Id<"sandboxes">;
+  status: "provisioning" | "ready" | "stopped" | "archived" | "failed";
 } | null;
 
-const STALE_CHAT_JOB_ERROR_MESSAGE =
-  'The assistant reply stalled and was automatically marked as failed.';
-const STALE_DEEP_ANALYSIS_ERROR_MESSAGE =
-  'The deep analysis job stalled and was automatically marked as failed.';
+const STALE_CHAT_JOB_ERROR_MESSAGE = "The assistant reply stalled and was automatically marked as failed.";
+const STALE_DEEP_ANALYSIS_ERROR_MESSAGE = "The deep analysis job stalled and was automatically marked as failed.";
 const DAYTONA_ORPHAN_RECONCILIATION_MIN_AGE_MS = 10 * 60_000;
 
 export const sweepExpiredSandboxes = internalAction({
@@ -83,16 +81,13 @@ export const sweepExpiredSandboxes = internalAction({
   handler: async (ctx) => {
     // Cast required: Convex action ctx.runQuery cannot infer return types
     // for functions defined in a different file (framework limitation).
-    const expired = (await ctx.runQuery(
-      internal.ops.getExpiredSandboxes,
-      {},
-    )) as ExpiredSandbox[];
+    const expired = (await ctx.runQuery(internal.ops.getExpiredSandboxes, {})) as ExpiredSandbox[];
 
     if (expired.length === 0) {
       return;
     }
 
-    logInfo('sweep', 'expired_sandboxes_found', {
+    logInfo("sweep", "expired_sandboxes_found", {
       count: expired.length,
     });
 
@@ -100,46 +95,46 @@ export const sweepExpiredSandboxes = internalAction({
       try {
         const daytonaState = await getSandboxState(entry.remoteId);
 
-        if (daytonaState === 'archived' || daytonaState === 'destroyed') {
+        if (daytonaState === "archived" || daytonaState === "destroyed") {
           // Daytona already reclaimed it — mark as archived in Convex DB
           await ctx.runMutation(internal.ops.markSandboxSwept, {
             sandboxId: entry.sandboxId as never,
-            newStatus: 'archived',
+            newStatus: "archived",
           });
-          logInfo('sweep', 'sandbox_marked_archived', {
+          logInfo("sweep", "sandbox_marked_archived", {
             sandboxId: entry.sandboxId,
             remoteId: entry.remoteId,
             daytonaState,
           });
-        } else if (daytonaState === 'stopped') {
+        } else if (daytonaState === "stopped") {
           // Still on disk but stopped — proactively delete to free disk cost
           try {
             await deleteSandbox(entry.remoteId);
-            logInfo('sweep', 'stopped_sandbox_deleted', {
+            logInfo("sweep", "stopped_sandbox_deleted", {
               sandboxId: entry.sandboxId,
               remoteId: entry.remoteId,
             });
             await ctx.runMutation(internal.ops.markSandboxSwept, {
               sandboxId: entry.sandboxId as never,
-              newStatus: 'archived',
+              newStatus: "archived",
             });
           } catch {
             // Deletion failed, will retry on next sweep
           }
-        } else if (daytonaState === 'started') {
+        } else if (daytonaState === "started") {
           // Sandbox is somehow still running past TTL — stop it first, delete next sweep
           await stopSandbox(entry.remoteId);
           await ctx.runMutation(internal.ops.markSandboxSwept, {
             sandboxId: entry.sandboxId as never,
-            newStatus: 'stopped',
+            newStatus: "stopped",
           });
-          logInfo('sweep', 'running_sandbox_stopped_for_ttl', {
+          logInfo("sweep", "running_sandbox_stopped_for_ttl", {
             sandboxId: entry.sandboxId,
             remoteId: entry.remoteId,
           });
         }
       } catch (error) {
-        logErrorWithId('sweep', 'sandbox_reconciliation_failed', error, {
+        logErrorWithId("sweep", "sandbox_reconciliation_failed", error, {
           sandboxId: entry.sandboxId,
           remoteId: entry.remoteId,
         });
@@ -157,12 +152,12 @@ export const reconcileStaleInteractiveJobs = internalAction({
       return;
     }
 
-    logInfo('ops', 'stale_interactive_jobs_found', {
+    logInfo("ops", "stale_interactive_jobs_found", {
       count: staleJobs.length,
     });
 
     for (const job of staleJobs) {
-      if (job.kind === 'chat') {
+      if (job.kind === "chat") {
         await ctx.runMutation(internal.chat.recoverStaleChatJob, {
           jobId: job.jobId,
           errorMessage: STALE_CHAT_JOB_ERROR_MESSAGE,
@@ -170,7 +165,7 @@ export const reconcileStaleInteractiveJobs = internalAction({
         continue;
       }
 
-      if (job.requestedCommand?.startsWith('failure_mode_analysis:')) {
+      if (job.requestedCommand?.startsWith("failure_mode_analysis:")) {
         await ctx.runMutation(internal.designArtifacts.recoverStaleFailureModeJob, {
           jobId: job.jobId,
         });
@@ -211,12 +206,12 @@ export const reconcileDaytonaOrphans = internalAction({
 
       try {
         await deleteSandbox(sandbox.remoteId);
-        logInfo('reconcile', 'orphan_deleted', {
+        logInfo("reconcile", "orphan_deleted", {
           remoteId: sandbox.remoteId,
           createdAt: sandbox.createdAt,
         });
       } catch (error) {
-        logErrorWithId('reconcile', 'orphan_delete_failed', error, {
+        logErrorWithId("reconcile", "orphan_delete_failed", error, {
           remoteId: sandbox.remoteId,
           createdAt: sandbox.createdAt,
         });

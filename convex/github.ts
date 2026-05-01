@@ -1,6 +1,6 @@
-import { v } from 'convex/values';
-import { query, mutation, internalMutation, internalQuery } from './_generated/server';
-import { requireViewerIdentity } from './lib/auth';
+import { v } from "convex/values";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { requireViewerIdentity } from "./lib/auth";
 
 // ---------------------------------------------------------------------------
 // Public query: GitHub connection status for the current user
@@ -20,9 +20,9 @@ export const getGitHubConnectionStatus = query({
     }
 
     const installation = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
+      .query("githubInstallations")
+      .withIndex("by_ownerTokenIdentifier_and_status", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier).eq("status", "active"),
       )
       .first();
 
@@ -56,7 +56,7 @@ export const createOAuthState = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    await ctx.db.insert('githubOAuthStates', {
+    await ctx.db.insert("githubOAuthStates", {
       state: args.state,
       ownerTokenIdentifier: args.ownerTokenIdentifier,
       ...(args.returnTo ? { returnTo: args.returnTo } : {}),
@@ -73,8 +73,8 @@ export const getOAuthReturnToByState = internalQuery({
   },
   handler: async (ctx, args) => {
     const stateDoc = await ctx.db
-      .query('githubOAuthStates')
-      .withIndex('by_state', (q) => q.eq('state', args.state))
+      .query("githubOAuthStates")
+      .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
 
     return stateDoc?.returnTo ?? null;
@@ -87,18 +87,18 @@ export const consumeOAuthState = internalMutation({
   },
   handler: async (ctx, args) => {
     const stateDoc = await ctx.db
-      .query('githubOAuthStates')
-      .withIndex('by_state', (q) => q.eq('state', args.state))
+      .query("githubOAuthStates")
+      .withIndex("by_state", (q) => q.eq("state", args.state))
       .first();
 
     if (!stateDoc) {
-      throw new Error('Invalid state parameter.');
+      throw new Error("Invalid state parameter.");
     }
     if (stateDoc.consumed) {
-      throw new Error('State already consumed.');
+      throw new Error("State already consumed.");
     }
     if (stateDoc.expiresAt < Date.now()) {
-      throw new Error('State expired.');
+      throw new Error("State expired.");
     }
 
     await ctx.db.patch(stateDoc._id, { consumed: true });
@@ -118,14 +118,14 @@ export const saveInstallation = internalMutation({
     ownerTokenIdentifier: v.string(),
     installationId: v.number(),
     accountLogin: v.string(),
-    accountType: v.union(v.literal('User'), v.literal('Organization')),
-    repositorySelection: v.union(v.literal('all'), v.literal('selected')),
+    accountType: v.union(v.literal("User"), v.literal("Organization")),
+    repositorySelection: v.union(v.literal("all"), v.literal("selected")),
   },
   handler: async (ctx, args) => {
     const activeInstallations = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
-        q.eq('ownerTokenIdentifier', args.ownerTokenIdentifier).eq('status', 'active'),
+      .query("githubInstallations")
+      .withIndex("by_ownerTokenIdentifier_and_status", (q) =>
+        q.eq("ownerTokenIdentifier", args.ownerTokenIdentifier).eq("status", "active"),
       )
       .take(5);
 
@@ -135,7 +135,7 @@ export const saveInstallation = internalMutation({
     );
     if (conflictingActive) {
       return {
-        kind: 'conflict' as const,
+        kind: "conflict" as const,
         existingInstallationId: conflictingActive.installationId,
         existingAccountLogin: conflictingActive.accountLogin,
       };
@@ -151,30 +151,30 @@ export const saveInstallation = internalMutation({
         accountLogin: args.accountLogin,
         accountType: args.accountType,
         repositorySelection: args.repositorySelection,
-        status: 'active',
+        status: "active",
         connectedAt: now,
         suspendedAt: undefined,
         deletedAt: undefined,
       });
 
       return {
-        kind: 'connected' as const,
+        kind: "connected" as const,
         installationId: args.installationId,
       };
     }
 
-    await ctx.db.insert('githubInstallations', {
+    await ctx.db.insert("githubInstallations", {
       ownerTokenIdentifier: args.ownerTokenIdentifier,
       installationId: args.installationId,
       accountLogin: args.accountLogin,
       accountType: args.accountType,
-      status: 'active',
+      status: "active",
       repositorySelection: args.repositorySelection,
       connectedAt: now,
     });
 
     return {
-      kind: 'connected' as const,
+      kind: "connected" as const,
       installationId: args.installationId,
     };
   },
@@ -186,14 +186,14 @@ export const markInstallationSuspended = internalMutation({
   },
   handler: async (ctx, args) => {
     const installations = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+      .query("githubInstallations")
+      .withIndex("by_installationId", (q) => q.eq("installationId", args.installationId))
       .take(100);
 
     const now = Date.now();
     for (const installation of installations) {
       await ctx.db.patch(installation._id, {
-        status: 'suspended',
+        status: "suspended",
         suspendedAt: now,
       });
     }
@@ -206,14 +206,14 @@ export const markInstallationDeleted = internalMutation({
   },
   handler: async (ctx, args) => {
     const installations = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+      .query("githubInstallations")
+      .withIndex("by_installationId", (q) => q.eq("installationId", args.installationId))
       .take(100);
 
     const now = Date.now();
     for (const installation of installations) {
       await ctx.db.patch(installation._id, {
-        status: 'deleted',
+        status: "deleted",
         deletedAt: now,
       });
     }
@@ -226,13 +226,13 @@ export const markInstallationActive = internalMutation({
   },
   handler: async (ctx, args) => {
     const installations = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_installationId', (q) => q.eq('installationId', args.installationId))
+      .query("githubInstallations")
+      .withIndex("by_installationId", (q) => q.eq("installationId", args.installationId))
       .take(100);
 
     for (const installation of installations) {
       await ctx.db.patch(installation._id, {
-        status: 'active',
+        status: "active",
         suspendedAt: undefined,
       });
     }
@@ -249,9 +249,9 @@ export const getInstallationIdForOwner = internalQuery({
   },
   handler: async (ctx, args) => {
     const installation = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
-        q.eq('ownerTokenIdentifier', args.ownerTokenIdentifier).eq('status', 'active'),
+      .query("githubInstallations")
+      .withIndex("by_ownerTokenIdentifier_and_status", (q) =>
+        q.eq("ownerTokenIdentifier", args.ownerTokenIdentifier).eq("status", "active"),
       )
       .first();
 
@@ -275,15 +275,15 @@ export const disconnectGitHub = mutation({
     // Find the active installation for this owner specifically, rather than
     // patching whichever row comes first (which could be an already-deleted one).
     const installation = await ctx.db
-      .query('githubInstallations')
-      .withIndex('by_ownerTokenIdentifier_and_status', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier).eq('status', 'active'),
+      .query("githubInstallations")
+      .withIndex("by_ownerTokenIdentifier_and_status", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier).eq("status", "active"),
       )
       .first();
 
     if (installation) {
       await ctx.db.patch(installation._id, {
-        status: 'deleted',
+        status: "deleted",
         deletedAt: Date.now(),
       });
     }

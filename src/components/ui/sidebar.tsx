@@ -1,10 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
-import * as React from 'react';
-import { List } from '@phosphor-icons/react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+import * as React from "react";
+import { List } from "@phosphor-icons/react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type SidebarContextValue = {
   open: boolean;
@@ -17,11 +17,11 @@ type SidebarContextValue = {
 };
 
 const SidebarContext = React.createContext<SidebarContextValue | null>(null);
-const SIDEBAR_DOCKED_QUERY = '(min-width: 1280px)';
+const SIDEBAR_DOCKED_QUERY = "(min-width: 1280px)";
 
 export function useSidebar() {
   const ctx = React.useContext(SidebarContext);
-  if (!ctx) throw new Error('useSidebar must be used within a SidebarProvider');
+  if (!ctx) throw new Error("useSidebar must be used within a SidebarProvider");
   return ctx;
 }
 
@@ -34,7 +34,7 @@ export function SidebarProvider({
 }) {
   const isMobile = useIsMobile();
   const [isDockedViewport, setIsDockedViewport] = React.useState<boolean>(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return true;
     }
     return window.matchMedia(SIDEBAR_DOCKED_QUERY).matches;
@@ -51,8 +51,8 @@ export function SidebarProvider({
         setOpenMobile(false);
       }
     };
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
   const toggle = React.useCallback(() => {
@@ -68,13 +68,7 @@ export function SidebarProvider({
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
 }
 
-export function Sidebar({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+export function Sidebar({ children, className }: { children: React.ReactNode; className?: string }) {
   const { isSheetMode, open, openMobile, setOpenMobile } = useSidebar();
 
   if (isSheetMode) {
@@ -83,7 +77,7 @@ export function Sidebar({
         <SheetContent
           side="left"
           className={cn(
-            'w-[min(18rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0 data-[state=closed]:duration-200 data-[state=open]:duration-200',
+            "w-[min(18rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0 data-[state=closed]:duration-200 data-[state=open]:duration-200",
             className,
           )}
           hideClose
@@ -98,10 +92,10 @@ export function Sidebar({
 
   return (
     <aside
-      data-state={open ? 'open' : 'closed'}
+      data-state={open ? "open" : "closed"}
       className={cn(
-        'hidden shrink-0 flex-col overflow-hidden border-r border-border bg-background transition-[width] duration-200 ease-out xl:flex',
-        open ? 'w-72' : 'w-0 border-r-0',
+        "hidden shrink-0 flex-col overflow-hidden border-r border-border bg-background transition-[width] duration-200 ease-out xl:flex",
+        open ? "w-72" : "w-0 border-r-0",
         className,
       )}
     >
@@ -110,61 +104,20 @@ export function Sidebar({
   );
 }
 
-export function SidebarHeader({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn('flex items-center gap-2 border-b border-border px-4 py-3', className)}>
-      {children}
-    </div>
-  );
+export function SidebarHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("flex items-center gap-2 border-b border-border px-4 py-3", className)}>{children}</div>;
 }
 
-export function SidebarContent({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', className)}>
-      {children}
-    </div>
-  );
+export function SidebarContent({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", className)}>{children}</div>;
 }
 
-export function SidebarFooter({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        'flex flex-col gap-3 border-t border-border px-4 py-4',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
+export function SidebarFooter({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("flex flex-col gap-3 border-t border-border px-4 py-4", className)}>{children}</div>;
 }
 
-export function SidebarSection({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={cn('flex flex-col gap-2 px-3 py-3', className)}>{children}</div>;
+export function SidebarSection({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("flex flex-col gap-2 px-3 py-3", className)}>{children}</div>;
 }
 
 export function SidebarTrigger({ className }: { className?: string }) {
@@ -173,7 +126,7 @@ export function SidebarTrigger({ className }: { className?: string }) {
     <Button
       variant="ghost"
       size="icon"
-      className={cn('text-muted-foreground hover:text-foreground', className)}
+      className={cn("text-muted-foreground hover:text-foreground", className)}
       onClick={toggle}
       aria-label="Toggle sidebar"
     >
@@ -186,7 +139,7 @@ export function SidebarMenuButton({
   children,
   className,
   selected,
-  'aria-current': ariaCurrent,
+  "aria-current": ariaCurrent,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean }) {
   return (
@@ -195,13 +148,13 @@ export function SidebarMenuButton({
       variant="ghost"
       size="sm"
       className={cn(
-        'h-auto w-full cursor-pointer justify-start gap-2 rounded-none border px-3 py-2 text-left transition-colors',
+        "h-auto w-full cursor-pointer justify-start gap-2 rounded-none border px-3 py-2 text-left transition-colors",
         selected
-          ? 'border-transparent border-l-2 border-l-primary bg-muted text-foreground'
-          : 'border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+          ? "border-transparent border-l-2 border-l-primary bg-muted text-foreground"
+          : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground",
         className,
       )}
-      aria-current={ariaCurrent ?? (selected ? 'page' : undefined)}
+      aria-current={ariaCurrent ?? (selected ? "page" : undefined)}
       {...props}
     >
       {children}
@@ -210,7 +163,5 @@ export function SidebarMenuButton({
 }
 
 export function SidebarInset({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</main>
-  );
+  return <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children}</main>;
 }

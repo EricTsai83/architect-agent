@@ -1,7 +1,7 @@
-import { STACK } from '../data';
-import { Reveal } from '../primitives/reveal';
+import { STACK } from "../data";
+import { Reveal } from "../primitives/reveal";
 
-const HEADING_ID = 'stack-heading';
+const HEADING_ID = "stack-heading";
 
 /**
  * Static grid of integration brand icons. Despite the historical name

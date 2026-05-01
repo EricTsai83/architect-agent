@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { useMutation } from 'convex/react';
+import { useRef, useState } from "react";
+import { useMutation } from "convex/react";
 import {
   CaretDownIcon,
   CircleNotchIcon,
@@ -9,11 +9,11 @@ import {
   LinkIcon,
   LockIcon,
   XIcon,
-} from '@phosphor-icons/react';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { api } from '../../convex/_generated/api';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from "@phosphor-icons/react";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { api } from "../../convex/_generated/api";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,10 +21,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { toUserErrorMessage } from '@/lib/errors';
-import type { AttachedRepositorySummary } from '@/hooks/use-thread-capabilities';
-import type { RepositoryId, ThreadId } from '@/lib/types';
+} from "@/components/ui/dropdown-menu";
+import { toUserErrorMessage } from "@/lib/errors";
+import type { AttachedRepositorySummary } from "@/hooks/use-thread-capabilities";
+import type { RepositoryId, ThreadId } from "@/lib/types";
 
 /**
  * In-thread affordance to attach, swap, or detach the repository bound to
@@ -49,7 +49,7 @@ export function AttachRepoMenu({
 }: {
   threadId: ThreadId;
   attachedRepository: AttachedRepositorySummary | null;
-  availableRepositories: ReadonlyArray<Doc<'repositories'>>;
+  availableRepositories: ReadonlyArray<Doc<"repositories">>;
 }) {
   const setThreadRepository = useMutation(api.chat.setThreadRepository);
   const latestRequestRef = useRef(0);
@@ -75,7 +75,7 @@ export function AttachRepoMenu({
       if (latestRequestRef.current === requestId) {
         setErrorState({
           threadId,
-          message: toUserErrorMessage(err, 'Failed to update repository.'),
+          message: toUserErrorMessage(err, "Failed to update repository."),
         });
       }
     }
@@ -91,18 +91,16 @@ export function AttachRepoMenu({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
-            variant={attachedRepository ? 'ghost' : 'outline'}
+            variant={attachedRepository ? "ghost" : "outline"}
             size="sm"
             disabled={isPending}
             className="gap-1.5 text-xs"
-            aria-label={attachedRepository ? 'Change attached repository' : 'Attach a repository'}
+            aria-label={attachedRepository ? "Change attached repository" : "Attach a repository"}
           >
             {attachedRepository ? (
               <>
                 <GitBranchIcon size={12} weight="bold" />
-                <span className="max-w-[200px] truncate font-medium">
-                  {attachedRepository.fullName}
-                </span>
+                <span className="max-w-[200px] truncate font-medium">{attachedRepository.fullName}</span>
               </>
             ) : (
               <>
@@ -121,7 +119,7 @@ export function AttachRepoMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuLabel className="text-[11px] uppercase tracking-wider">
-            {attachedRepository ? 'Swap repository' : 'Attach a repository'}
+            {attachedRepository ? "Swap repository" : "Attach a repository"}
           </DropdownMenuLabel>
           {swapTargets.length === 0 ? (
             // Empty-state copy is intentionally different from the sidebar's
@@ -131,8 +129,8 @@ export function AttachRepoMenu({
             // duplicate that flow inside this menu.
             <div className="px-2 py-3 text-xs text-muted-foreground">
               {attachedRepository
-                ? 'No other repositories to swap to. Import one from the sidebar.'
-                : 'You have no repositories yet. Import one from the sidebar.'}
+                ? "No other repositories to swap to. Import one from the sidebar."
+                : "You have no repositories yet. Import one from the sidebar."}
             </div>
           ) : (
             swapTargets.map((repo) => (
@@ -144,7 +142,7 @@ export function AttachRepoMenu({
                 }}
                 className="flex items-center gap-2 text-xs"
               >
-                {repo.visibility === 'private' ? (
+                {repo.visibility === "private" ? (
                   <LockIcon size={12} weight="bold" className="shrink-0 text-muted-foreground" />
                 ) : (
                   <GlobeIcon size={12} weight="bold" className="shrink-0 text-muted-foreground" />
@@ -178,11 +176,7 @@ export function AttachRepoMenu({
             variant="ghost"
             size="icon"
             className="size-4 text-destructive/80 hover:text-destructive"
-            onClick={() =>
-              setErrorState((current) =>
-                current?.threadId === threadId ? null : current,
-              )
-            }
+            onClick={() => setErrorState((current) => (current?.threadId === threadId ? null : current))}
             aria-label="Dismiss repository update error"
           >
             <XIcon size={10} weight="bold" />

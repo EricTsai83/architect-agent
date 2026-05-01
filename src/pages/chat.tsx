@@ -1,7 +1,7 @@
-import { useParams } from 'react-router-dom';
-import { SidebarProvider } from '@/components/ui/sidebar';
-import { RepositoryShell } from '@/components/repository-shell';
-import type { RepositoryId, ThreadId } from '@/lib/types';
+import { useParams } from "react-router-dom";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { RepositoryShell } from "@/components/repository-shell";
+import type { RepositoryId, ThreadId } from "@/lib/types";
 
 /**
  * Workspace entry point. The route layer mounts this component at three URLs:

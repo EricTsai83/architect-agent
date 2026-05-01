@@ -1,32 +1,32 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQuery } from 'convex/react';
-import type { Doc } from '../../convex/_generated/dataModel';
-import { api } from '../../convex/_generated/api';
-import { SidebarInset } from '@/components/ui/sidebar';
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
-import { AppSidebar } from '@/components/app-sidebar';
-import { ArtifactPanel } from '@/components/artifact-panel';
-import { TopBar } from '@/components/top-bar';
-import { ConfirmDialog } from '@/components/confirm-dialog';
-import { EmptyState } from '@/components/empty-state';
-import { AppNotice } from '@/components/app-notice';
-import { ChatPanel } from '@/components/chat-panel';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAsyncCallback } from '@/hooks/use-async-callback';
-import { useCheckForUpdates } from '@/hooks/use-check-for-updates';
-import { useLocalStorageBoolean } from '@/hooks/use-persisted-state';
-import { useRepositoryActions } from '@/hooks/use-repository-actions';
-import { useThreadCapabilities } from '@/hooks/use-thread-capabilities';
-import type { RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from '@/lib/types';
-import { toUserErrorMessage } from '@/lib/errors';
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMutation, useQuery } from "convex/react";
+import type { Doc } from "../../convex/_generated/dataModel";
+import { api } from "../../convex/_generated/api";
+import { SidebarInset } from "@/components/ui/sidebar";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { AppSidebar } from "@/components/app-sidebar";
+import { ArtifactPanel } from "@/components/artifact-panel";
+import { TopBar } from "@/components/top-bar";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { EmptyState } from "@/components/empty-state";
+import { AppNotice } from "@/components/app-notice";
+import { ChatPanel } from "@/components/chat-panel";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAsyncCallback } from "@/hooks/use-async-callback";
+import { useCheckForUpdates } from "@/hooks/use-check-for-updates";
+import { useLocalStorageBoolean } from "@/hooks/use-persisted-state";
+import { useRepositoryActions } from "@/hooks/use-repository-actions";
+import { useThreadCapabilities } from "@/hooks/use-thread-capabilities";
+import type { RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
+import { toUserErrorMessage } from "@/lib/errors";
 
-type RepositoryWorkspaceStatus = 'initializing' | 'no-repo' | 'ready';
-const DESKTOP_LAYOUT_QUERY = '(min-width: 1280px)';
+type RepositoryWorkspaceStatus = "initializing" | "no-repo" | "ready";
+const DESKTOP_LAYOUT_QUERY = "(min-width: 1280px)";
 
 const DeepAnalysisDialog = lazy(() =>
-  import('@/components/deep-analysis-dialog').then((module) => ({ default: module.DeepAnalysisDialog })),
+  import("@/components/deep-analysis-dialog").then((module) => ({ default: module.DeepAnalysisDialog })),
 );
 
 /**
@@ -67,17 +67,14 @@ export function RepositoryShell({
   // Loaded only on the no-selection landing (`/chat`) so we can redirect to
   // the most recent thread when one exists. The query is owner-scoped via
   // chat.listThreads's no-arg branch added in Phase 1.
-  const ownerThreads = useQuery(
-    api.chat.listThreads,
-    urlThreadId === null && urlRepositoryId === null ? {} : 'skip',
-  );
+  const ownerThreads = useQuery(api.chat.listThreads, urlThreadId === null && urlRepositoryId === null ? {} : "skip");
 
   const [threadToDelete, setThreadToDelete] = useState<ThreadId | null>(null);
   const [showDeleteRepoDialog, setShowDeleteRepoDialog] = useState(false);
   const [analysisPrompt, setAnalysisPrompt] = useState(
-    'Summarize the main modules, data flow, and risk areas for this repository.',
+    "Summarize the main modules, data flow, and risk areas for this repository.",
   );
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState("");
   // The user's last explicit mode pick, scoped to the thread it was made for.
   // When `urlThreadId` changes, the scope check fails and the effective mode
   // collapses to the new thread's resolver-supplied default — no effect or
@@ -104,12 +101,12 @@ export function RepositoryShell({
   const [actionError, setActionError] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isArtifactPanelOpen, setIsArtifactPanelOpen, isArtifactPanelHydrated] = useLocalStorageBoolean(
-    'systify.artifactPanel.open',
+    "systify.artifactPanel.open",
     true,
   );
   const [isArtifactSheetOpen, setIsArtifactSheetOpen] = useState(false);
   const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return true;
     }
     return window.matchMedia(DESKTOP_LAYOUT_QUERY).matches;
@@ -125,8 +122,8 @@ export function RepositoryShell({
         setIsArtifactSheetOpen(false);
       }
     };
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
   // /t/:threadId → use thread's repository (if any). /r/:repoId → use the
@@ -137,17 +134,15 @@ export function RepositoryShell({
   const effectiveSelectedThreadId: ThreadId | null = urlThreadId;
 
   const selectedRepoName = repositories?.find(
-    (repository: Doc<'repositories'>) => repository._id === effectiveSelectedRepositoryId,
+    (repository: Doc<"repositories">) => repository._id === effectiveSelectedRepositoryId,
   )?.sourceRepoFullName;
 
   const repoDetail = useQuery(
     api.repositories.getRepositoryDetail,
-    effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : 'skip',
+    effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : "skip",
   );
   const effectiveSandboxModeStatus: SandboxModeStatus | null =
-    effectiveSelectedThreadId !== null
-      ? capabilities.sandboxModeStatus
-      : repoDetail?.sandboxModeStatus ?? null;
+    effectiveSelectedThreadId !== null ? capabilities.sandboxModeStatus : (repoDetail?.sandboxModeStatus ?? null);
 
   // PRD US 27: most recent thread loads on landing. Runs only on `/chat` when
   // the owner has at least one thread; the redirect is `replace` so the user
@@ -170,7 +165,7 @@ export function RepositoryShell({
       return;
     }
     if (capabilities.isMissingThread) {
-      void navigate('/chat', { replace: true });
+      void navigate("/chat", { replace: true });
     }
   }, [capabilities.isMissingThread, navigate, urlThreadId]);
 
@@ -179,27 +174,27 @@ export function RepositoryShell({
 
   const messages = useQuery(
     api.chat.listMessages,
-    effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : 'skip',
+    effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : "skip",
   );
   const activeMessageStream = useQuery(
     api.chat.getActiveMessageStream,
-    effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : 'skip',
+    effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : "skip",
   );
 
   const isOnLanding = urlThreadId === null && urlRepositoryId === null;
-  const isLandingResolving =
-    isOnLanding && (ownerThreads === undefined || (ownerThreads.length > 0));
+  const isLandingResolving = isOnLanding && (ownerThreads === undefined || ownerThreads.length > 0);
 
-  const workspaceStatus: RepositoryWorkspaceStatus = isRepositoriesLoading || isLandingResolving
-    ? 'initializing'
-    : isOnLanding && ownerThreads?.length === 0
-      ? 'no-repo'
-      : effectiveSelectedRepositoryId === null && effectiveSelectedThreadId === null
-        ? 'no-repo'
-        : 'ready';
+  const workspaceStatus: RepositoryWorkspaceStatus =
+    isRepositoriesLoading || isLandingResolving
+      ? "initializing"
+      : isOnLanding && ownerThreads?.length === 0
+        ? "no-repo"
+        : effectiveSelectedRepositoryId === null && effectiveSelectedThreadId === null
+          ? "no-repo"
+          : "ready";
 
   const isChatLoading =
-    workspaceStatus === 'initializing' ||
+    workspaceStatus === "initializing" ||
     (effectiveSelectedThreadId !== null && (messages === undefined || capabilities.isLoading));
 
   const handleSelectThread = useCallback(
@@ -207,7 +202,7 @@ export function RepositoryShell({
       setActionError(null);
       setAnalysisError(null);
       if (threadId === null) {
-        void navigate('/chat');
+        void navigate("/chat");
       } else {
         void navigate(`/t/${threadId}`);
       }
@@ -225,7 +220,7 @@ export function RepositoryShell({
   );
 
   const handleToggleArtifactPanel = useCallback(() => {
-    if (workspaceStatus === 'no-repo') {
+    if (workspaceStatus === "no-repo") {
       return;
     }
     if (isDesktopLayout) {
@@ -236,14 +231,14 @@ export function RepositoryShell({
   }, [isDesktopLayout, setIsArtifactPanelOpen, workspaceStatus]);
 
   useEffect(() => {
-    if (workspaceStatus === 'no-repo') {
+    if (workspaceStatus === "no-repo") {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229) {
         return;
       }
-      if (event.key !== '.' || (!event.metaKey && !event.ctrlKey) || event.shiftKey || event.altKey) {
+      if (event.key !== "." || (!event.metaKey && !event.ctrlKey) || event.shiftKey || event.altKey) {
         return;
       }
 
@@ -261,8 +256,8 @@ export function RepositoryShell({
       handleToggleArtifactPanel();
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleToggleArtifactPanel, workspaceStatus]);
 
   // Import success can produce either a fresh repo+thread (when the user
@@ -295,7 +290,7 @@ export function RepositoryShell({
         const newThreadId = await createThreadMutation({});
         void navigate(`/t/${newThreadId}`);
       } catch (error) {
-        setActionError(toUserErrorMessage(error, 'Failed to start a conversation.'));
+        setActionError(toUserErrorMessage(error, "Failed to start a conversation."));
       }
     }, [createThreadMutation, navigate]),
   );
@@ -324,10 +319,10 @@ export function RepositoryShell({
     onAfterDeleteThread: () => {
       // After deletion the thread no longer exists. Send the user back to the
       // landing so the redirect-to-most-recent or empty-state logic re-resolves.
-      void navigate('/chat');
+      void navigate("/chat");
     },
     onAfterDeleteRepo: () => {
-      void navigate('/chat');
+      void navigate("/chat");
     },
     setThreadToDelete,
     setShowDeleteRepoDialog,
@@ -370,7 +365,7 @@ export function RepositoryShell({
         ) : null}
 
         <div className="flex min-h-0 min-w-0 flex-1">
-          {workspaceStatus === 'no-repo' ? (
+          {workspaceStatus === "no-repo" ? (
             <EmptyState
               onStartConversation={() => void handleStartConversation()}
               onImported={handleImported}
@@ -404,7 +399,7 @@ export function RepositoryShell({
                 // responsively without an overlay.
                 <div
                   aria-hidden={!(isArtifactPanelHydrated && isArtifactPanelOpen)}
-                  data-state={isArtifactPanelHydrated && isArtifactPanelOpen ? 'open' : 'closed'}
+                  data-state={isArtifactPanelHydrated && isArtifactPanelOpen ? "open" : "closed"}
                   className="shrink-0 overflow-hidden border-l border-border transition-[width] duration-300 ease-out data-[state=closed]:w-0 data-[state=closed]:border-l-0 data-[state=open]:w-80"
                 >
                   <div className="h-full w-80">
@@ -423,17 +418,11 @@ export function RepositoryShell({
         </div>
       </SidebarInset>
 
-      {workspaceStatus !== 'no-repo' && !isDesktopLayout ? (
+      {workspaceStatus !== "no-repo" && !isDesktopLayout ? (
         <Sheet open={isArtifactSheetOpen} onOpenChange={setIsArtifactSheetOpen}>
-          <SheetContent
-            side="bottom"
-            className="h-[min(75vh,34rem)] rounded-t-2xl border-x border-t p-0"
-            hideClose
-          >
+          <SheetContent side="bottom" className="h-[min(75vh,34rem)] rounded-t-2xl border-x border-t p-0" hideClose>
             <SheetTitle className="sr-only">Artifacts</SheetTitle>
-            <SheetDescription className="sr-only">
-              Persistent outputs for the current conversation.
-            </SheetDescription>
+            <SheetDescription className="sr-only">Persistent outputs for the current conversation.</SheetDescription>
             <ArtifactPanel
               threadId={effectiveSelectedThreadId}
               hasAttachedRepository={capabilities.attachedRepository !== null}
@@ -481,8 +470,8 @@ export function RepositoryShell({
             onAnalysisPromptChange={setAnalysisPrompt}
             sandboxModeStatus={
               effectiveSandboxModeStatus ?? {
-                reasonCode: 'missing_sandbox',
-                message: 'A live sandbox is unavailable right now. Sync the repository to provision a fresh sandbox.',
+                reasonCode: "missing_sandbox",
+                message: "A live sandbox is unavailable right now. Sync the repository to provision a fresh sandbox.",
               }
             }
             errorMessage={analysisError}

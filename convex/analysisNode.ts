@@ -1,19 +1,19 @@
 "use node";
 
-import { v } from 'convex/values';
-import { internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import { internalAction } from './_generated/server';
-import { runFocusedInspection } from './daytona';
-import { getSandboxUnavailableReason } from './lib/sandboxAvailability';
-import { createDeepAnalysisMarkdown } from './lib/repoAnalysis';
-import { logErrorWithId } from './lib/observability';
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { internalAction } from "./_generated/server";
+import { runFocusedInspection } from "./daytona";
+import { getSandboxUnavailableReason } from "./lib/sandboxAvailability";
+import { createDeepAnalysisMarkdown } from "./lib/repoAnalysis";
+import { logErrorWithId } from "./lib/observability";
 
 type DeepAnalysisContext = {
-  repositoryId: Id<'repositories'>;
+  repositoryId: Id<"repositories">;
   ownerTokenIdentifier: string;
-  latestSandboxId?: Id<'sandboxes'>;
-  sandboxStatus?: 'provisioning' | 'ready' | 'stopped' | 'archived' | 'failed';
+  latestSandboxId?: Id<"sandboxes">;
+  sandboxStatus?: "provisioning" | "ready" | "stopped" | "archived" | "failed";
   ttlExpiresAt?: number;
   remoteSandboxId?: string;
   repoPath?: string;
@@ -22,8 +22,8 @@ type DeepAnalysisContext = {
 
 export const runDeepAnalysis = internalAction({
   args: {
-    repositoryId: v.id('repositories'),
-    jobId: v.id('jobs'),
+    repositoryId: v.id("repositories"),
+    jobId: v.id("jobs"),
     prompt: v.string(),
   },
   handler: async (ctx, args) => {
@@ -63,14 +63,14 @@ export const runDeepAnalysis = internalAction({
         contentMarkdown: markdown,
       });
     } catch (error) {
-      const errorId = logErrorWithId('analysis', 'deep_analysis_failed', error, {
+      const errorId = logErrorWithId("analysis", "deep_analysis_failed", error, {
         repositoryId: args.repositoryId,
         jobId: args.jobId,
       });
       await ctx.runMutation(internal.analysis.failDeepAnalysis, {
         jobId: args.jobId,
         errorMessage: `${
-          error instanceof Error ? error.message : 'Unknown deep analysis error'
+          error instanceof Error ? error.message : "Unknown deep analysis error"
         }\n\nReference: ${errorId}`,
       });
     }

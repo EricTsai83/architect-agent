@@ -1,13 +1,13 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type ReactNode } from "react";
 
-import { GitHubIcon, XIcon } from '@/components/icons';
+import { GitHubIcon, XIcon } from "@/components/icons";
 
-import { FAQS, REPO_URL, X_URL } from '../data';
-import { CornerMarks } from '../primitives/corner-marks';
-import { InvitingCat } from '../primitives/inviting-cat';
-import { Reveal } from '../primitives/reveal';
-import { useShrinkToggle } from '../primitives/use-shrink-toggle';
-import type { FaqEntry } from '../types';
+import { FAQS, REPO_URL, X_URL } from "../data";
+import { CornerMarks } from "../primitives/corner-marks";
+import { InvitingCat } from "../primitives/inviting-cat";
+import { Reveal } from "../primitives/reveal";
+import { useShrinkToggle } from "../primitives/use-shrink-toggle";
+import type { FaqEntry } from "../types";
 
 /**
  * Half-duration of the toggle icon animation. The cross shrinks to a dot
@@ -16,7 +16,7 @@ import type { FaqEntry } from '../types';
  */
 const ICON_SHRINK_MS = 80;
 
-const HEADING_ID = 'faq-heading';
+const HEADING_ID = "faq-heading";
 
 export function Faq() {
   return (
@@ -52,7 +52,7 @@ function FaqItem({ item }: { item: FaqEntry }) {
         aria-controls={regionId}
         onClick={toggle}
         className={`group flex w-full cursor-pointer items-center justify-between gap-3 py-5 text-left transition-colors hover:text-foreground sm:gap-6 ${
-          isOpen ? 'text-foreground' : ''
+          isOpen ? "text-foreground" : ""
         }`}
       >
         <span className="min-w-0 text-pretty text-[15.5px] font-semibold tracking-tight sm:text-lg">{item.q}</span>
@@ -65,13 +65,13 @@ function FaqItem({ item }: { item: FaqEntry }) {
         aria-hidden={!isOpen}
         inert={!isOpen}
         className={`grid transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-          isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
       >
         <div className="overflow-hidden">
           <div
             className={`pb-5 pr-2 transition-[opacity,transform] duration-200 ease-out sm:pr-12 ${
-              isOpen ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'
+              isOpen ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
             }`}
           >
             <p className="text-pretty text-[14.5px] leading-relaxed text-muted-foreground sm:text-[15px]">{item.a}</p>
@@ -104,12 +104,12 @@ function ToggleIcon({ isOpen, isShrinking }: { isOpen: boolean; isShrinking: boo
       <span className="relative size-3.5">
         <span
           className={`absolute left-0 top-1/2 h-px w-full origin-center -translate-y-1/2 bg-current transition-transform duration-150 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            horizontalHidden ? 'scale-x-0' : ''
+            horizontalHidden ? "scale-x-0" : ""
           }`}
         />
         <span
           className={`absolute left-1/2 top-0 h-full w-px origin-center -translate-x-1/2 bg-current transition-transform duration-150 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-            verticalHidden ? 'scale-y-0' : ''
+            verticalHidden ? "scale-y-0" : ""
           }`}
         />
       </span>
@@ -170,14 +170,18 @@ function QuickAnswersPanel() {
         <SupportLink
           href={`${REPO_URL}/issues/new`}
           ariaLabel="Open a new issue on GitHub"
-          icon={<GitHubIcon className="size-3 text-muted-foreground transition-colors group-hover:text-foreground lg:size-3.5" />}
+          icon={
+            <GitHubIcon className="size-3 text-muted-foreground transition-colors group-hover:text-foreground lg:size-3.5" />
+          }
           shortLabel="open issue"
           fullLabel="open an issue"
         />
         <SupportLink
           href={X_URL}
           ariaLabel="Find the author on X"
-          icon={<XIcon className="size-3 text-muted-foreground transition-colors group-hover:text-foreground lg:size-3.5" />}
+          icon={
+            <XIcon className="size-3 text-muted-foreground transition-colors group-hover:text-foreground lg:size-3.5" />
+          }
           shortLabel="find on x"
           fullLabel="find me on x"
         />

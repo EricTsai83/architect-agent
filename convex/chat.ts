@@ -1,12 +1,12 @@
-import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
-import { v } from 'convex/values';
-import type { Doc, Id } from './_generated/dataModel';
-import { internal } from './_generated/api';
-import type { MutationCtx, QueryCtx } from './_generated/server';
-import { mutation, query, internalAction, internalMutation, internalQuery } from './_generated/server';
-import { getDefaultThreadMode } from './chatModeResolver';
-import { requireViewerIdentity } from './lib/auth';
+import { openai } from "@ai-sdk/openai";
+import { streamText } from "ai";
+import { v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { mutation, query, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { getDefaultThreadMode } from "./chatModeResolver";
+import { requireViewerIdentity } from "./lib/auth";
 import {
   CASCADE_BATCH_SIZE,
   CHAT_BASELINE_CHUNKS,
@@ -18,7 +18,7 @@ import {
   MAX_VISIBLE_MESSAGES,
   MAX_RELEVANT_CHUNKS,
   STREAM_FLUSH_THRESHOLD,
-} from './lib/constants';
+} from "./lib/constants";
 import {
   CHAT_JOB_LEASE_MS,
   consumeChatGlobalRateLimit,
@@ -26,9 +26,9 @@ import {
   getLeaseRetryAfterMs,
   isLeaseActive,
   throwOperationAlreadyInProgress,
-} from './lib/rateLimit';
-import { estimateCostUsd } from './lib/openaiPricing';
-import { logWarn } from './lib/observability';
+} from "./lib/rateLimit";
+import { estimateCostUsd } from "./lib/openaiPricing";
+import { logWarn } from "./lib/observability";
 
 type ReplyContext = {
   ownerTokenIdentifier: string;
@@ -38,85 +38,85 @@ type ReplyContext = {
   sourceRepoFullName?: string;
   artifacts: Array<{ title: string; summary: string; contentMarkdown: string }>;
   chunks: Array<{ path: string; summary: string; content: string }>;
-  messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
+  messages: Array<{ role: "user" | "assistant" | "system" | "tool"; content: string }>;
 };
 
-type DbCtx = Pick<QueryCtx, 'db'> | Pick<MutationCtx, 'db'>;
+type DbCtx = Pick<QueryCtx, "db"> | Pick<MutationCtx, "db">;
 
-const STALE_CHAT_JOB_ERROR_MESSAGE = 'The assistant reply stalled and was automatically marked as failed.';
-const DOCS_ARTIFACT_KINDS: Array<Doc<'artifacts'>['kind']> = [
-  'architecture_diagram',
-  'adr',
-  'failure_mode_analysis',
-  'deep_analysis',
-  'architecture_overview',
-  'design_review',
-  'migration_plan',
-  'trade_off_matrix',
-  'capacity_estimate',
+const STALE_CHAT_JOB_ERROR_MESSAGE = "The assistant reply stalled and was automatically marked as failed.";
+const DOCS_ARTIFACT_KINDS: Array<Doc<"artifacts">["kind"]> = [
+  "architecture_diagram",
+  "adr",
+  "failure_mode_analysis",
+  "deep_analysis",
+  "architecture_overview",
+  "design_review",
+  "migration_plan",
+  "trade_off_matrix",
+  "capacity_estimate",
 ];
 const DOCS_ARTIFACTS_TOTAL_LIMIT = 12;
 
 type DocsArtifactCursorState = {
-  kind: Doc<'artifacts'>['kind'];
+  kind: Doc<"artifacts">["kind"];
   cursor: string | null;
-  buffer: Doc<'artifacts'>[];
+  buffer: Doc<"artifacts">[];
   isDone: boolean;
 };
 
-async function getActiveChatJobForThread(ctx: MutationCtx, threadId: Id<'threads'>, now: number) {
+async function getActiveChatJobForThread(ctx: MutationCtx, threadId: Id<"threads">, now: number) {
   const jobs = await ctx.db
-    .query('jobs')
-    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
-    .order('desc')
+    .query("jobs")
+    .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
+    .order("desc")
     .take(25);
 
   return jobs.find(
     (job) =>
-      job.kind === 'chat' &&
-      (job.status === 'queued' || job.status === 'running') &&
+      job.kind === "chat" &&
+      (job.status === "queued" || job.status === "running") &&
       isLeaseActive(job.leaseExpiresAt, now),
   );
 }
 
-async function getMessageStreamByThread(ctx: DbCtx, threadId: Id<'threads'>) {
+async function getMessageStreamByThread(ctx: DbCtx, threadId: Id<"threads">) {
   const streams = await ctx.db
-    .query('messageStreams')
-    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
-    .order('desc')
+    .query("messageStreams")
+    .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
+    .order("desc")
     .take(5);
 
   return streams[0] ?? null;
 }
 
-async function getMessageStreamByAssistantMessageId(ctx: DbCtx, assistantMessageId: Id<'messages'>) {
+async function getMessageStreamByAssistantMessageId(ctx: DbCtx, assistantMessageId: Id<"messages">) {
   return await ctx.db
-    .query('messageStreams')
-    .withIndex('by_assistantMessageId', (q) => q.eq('assistantMessageId', assistantMessageId))
+    .query("messageStreams")
+    .withIndex("by_assistantMessageId", (q) => q.eq("assistantMessageId", assistantMessageId))
     .unique();
 }
 
-async function getMessageStreamByJobId(ctx: DbCtx, jobId: Id<'jobs'>) {
+async function getMessageStreamByJobId(ctx: DbCtx, jobId: Id<"jobs">) {
   return await ctx.db
-    .query('messageStreams')
-    .withIndex('by_jobId', (q) => q.eq('jobId', jobId))
+    .query("messageStreams")
+    .withIndex("by_jobId", (q) => q.eq("jobId", jobId))
     .unique();
 }
 
 async function loadStreamTailChunks(
   ctx: DbCtx,
-  stream: Doc<'messageStreams'>,
+  stream: Doc<"messageStreams">,
   limit: number = MESSAGE_STREAM_COMPACT_CHUNK_THRESHOLD,
 ) {
   return await ctx.db
-    .query('messageStreamChunks')
-    .withIndex('by_streamId_and_sequence', (q) =>
-      q.eq('streamId', stream._id).gt('sequence', stream.compactedThroughSequence),
+    .query("messageStreamChunks")
+    .withIndex("by_streamId_and_sequence", (q) =>
+      q.eq("streamId", stream._id).gt("sequence", stream.compactedThroughSequence),
     )
     .take(limit);
 }
 
-async function loadMessageStreamSnapshot(ctx: DbCtx, assistantMessageId: Id<'messages'>) {
+async function loadMessageStreamSnapshot(ctx: DbCtx, assistantMessageId: Id<"messages">) {
   const stream = await getMessageStreamByAssistantMessageId(ctx, assistantMessageId);
   if (!stream) {
     return null;
@@ -127,17 +127,17 @@ async function loadMessageStreamSnapshot(ctx: DbCtx, assistantMessageId: Id<'mes
   return {
     stream,
     tailChunks,
-    content: `${stream.compactedContent}${tailChunks.map((chunk) => chunk.text).join('')}`,
+    content: `${stream.compactedContent}${tailChunks.map((chunk) => chunk.text).join("")}`,
   };
 }
 
-async function loadAllStreamTailChunks(ctx: DbCtx, stream: Doc<'messageStreams'>) {
-  const tailChunks: Doc<'messageStreamChunks'>[] = [];
+async function loadAllStreamTailChunks(ctx: DbCtx, stream: Doc<"messageStreams">) {
+  const tailChunks: Doc<"messageStreamChunks">[] = [];
   let cursor = stream.compactedThroughSequence;
   while (true) {
     const batch = await ctx.db
-      .query('messageStreamChunks')
-      .withIndex('by_streamId_and_sequence', (q) => q.eq('streamId', stream._id).gt('sequence', cursor))
+      .query("messageStreamChunks")
+      .withIndex("by_streamId_and_sequence", (q) => q.eq("streamId", stream._id).gt("sequence", cursor))
       .take(CASCADE_BATCH_SIZE);
     if (batch.length === 0) {
       break;
@@ -153,17 +153,15 @@ async function loadAllStreamTailChunks(ctx: DbCtx, stream: Doc<'messageStreams'>
 }
 
 async function loadNextDocsArtifactForKind(
-  ctx: Pick<QueryCtx, 'db'>,
-  repositoryId: Id<'repositories'>,
-  kind: Doc<'artifacts'>['kind'],
+  ctx: Pick<QueryCtx, "db">,
+  repositoryId: Id<"repositories">,
+  kind: Doc<"artifacts">["kind"],
   cursor: string | null,
 ) {
   const page = await ctx.db
-    .query('artifacts')
-    .withIndex('by_repositoryId_and_kind', (q) =>
-      q.eq('repositoryId', repositoryId).eq('kind', kind),
-    )
-    .order('desc')
+    .query("artifacts")
+    .withIndex("by_repositoryId_and_kind", (q) => q.eq("repositoryId", repositoryId).eq("kind", kind))
+    .order("desc")
     .paginate({
       cursor,
       numItems: DOCS_ARTIFACTS_TOTAL_LIMIT,
@@ -176,10 +174,7 @@ async function loadNextDocsArtifactForKind(
   };
 }
 
-async function loadLatestDocsArtifacts(
-  ctx: Pick<QueryCtx, 'db'>,
-  repositoryId: Id<'repositories'>,
-) {
+async function loadLatestDocsArtifacts(ctx: Pick<QueryCtx, "db">, repositoryId: Id<"repositories">) {
   const states: DocsArtifactCursorState[] = await Promise.all(
     DOCS_ARTIFACT_KINDS.map(async (kind) => {
       const first = await loadNextDocsArtifactForKind(ctx, repositoryId, kind, null);
@@ -192,19 +187,14 @@ async function loadLatestDocsArtifacts(
     }),
   );
 
-  const selected: Doc<'artifacts'>[] = [];
+  const selected: Doc<"artifacts">[] = [];
   while (selected.length < DOCS_ARTIFACTS_TOTAL_LIMIT) {
     await Promise.all(
       states.map(async (state) => {
         if (state.buffer.length > 0 || state.isDone) {
           return;
         }
-        const next = await loadNextDocsArtifactForKind(
-          ctx,
-          repositoryId,
-          state.kind,
-          state.cursor,
-        );
+        const next = await loadNextDocsArtifactForKind(ctx, repositoryId, state.kind, state.cursor);
         state.cursor = next.continueCursor;
         state.buffer = next.page;
         state.isDone = next.isDone;
@@ -247,7 +237,7 @@ async function loadLatestDocsArtifacts(
   return selected;
 }
 
-async function compactMessageStreamTail(ctx: MutationCtx, streamId: Id<'messageStreams'>) {
+async function compactMessageStreamTail(ctx: MutationCtx, streamId: Id<"messageStreams">) {
   const stream = await ctx.db.get(streamId);
   if (!stream) {
     return;
@@ -264,12 +254,12 @@ async function compactMessageStreamTail(ctx: MutationCtx, streamId: Id<'messageS
   }
 
   const lastSequence = tailChunks[tailChunks.length - 1]?.sequence;
-  if (typeof lastSequence !== 'number') {
+  if (typeof lastSequence !== "number") {
     return;
   }
 
   await ctx.db.patch(streamId, {
-    compactedContent: `${stream.compactedContent}${tailChunks.map((chunk) => chunk.text).join('')}`,
+    compactedContent: `${stream.compactedContent}${tailChunks.map((chunk) => chunk.text).join("")}`,
     compactedThroughSequence: lastSequence,
     lastAppendedAt: Date.now(),
   });
@@ -279,11 +269,11 @@ async function compactMessageStreamTail(ctx: MutationCtx, streamId: Id<'messageS
   }
 }
 
-async function deleteMessageStreamState(ctx: MutationCtx, streamId: Id<'messageStreams'>) {
+async function deleteMessageStreamState(ctx: MutationCtx, streamId: Id<"messageStreams">) {
   while (true) {
     const chunks = await ctx.db
-      .query('messageStreamChunks')
-      .withIndex('by_streamId_and_sequence', (q) => q.eq('streamId', streamId))
+      .query("messageStreamChunks")
+      .withIndex("by_streamId_and_sequence", (q) => q.eq("streamId", streamId))
       .take(CASCADE_BATCH_SIZE);
     for (const chunk of chunks) {
       await ctx.db.delete(chunk._id);
@@ -298,7 +288,7 @@ async function deleteMessageStreamState(ctx: MutationCtx, streamId: Id<'messageS
 
 export const listThreads = query({
   args: {
-    repositoryId: v.optional(v.id('repositories')),
+    repositoryId: v.optional(v.id("repositories")),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
@@ -307,45 +297,45 @@ export const listThreads = query({
     if (filterRepositoryId) {
       const repository = await ctx.db.get(filterRepositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Repository not found.');
+        throw new Error("Repository not found.");
       }
 
       return await ctx.db
-        .query('threads')
-        .withIndex('by_repositoryId_and_lastMessageAt', (q) => q.eq('repositoryId', filterRepositoryId))
-        .order('desc')
+        .query("threads")
+        .withIndex("by_repositoryId_and_lastMessageAt", (q) => q.eq("repositoryId", filterRepositoryId))
+        .order("desc")
         .take(20);
     }
 
     return await ctx.db
-      .query('threads')
-      .withIndex('by_ownerTokenIdentifier_and_lastMessageAt', (q) =>
-        q.eq('ownerTokenIdentifier', identity.tokenIdentifier),
+      .query("threads")
+      .withIndex("by_ownerTokenIdentifier_and_lastMessageAt", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier),
       )
-      .order('desc')
+      .order("desc")
       .take(20);
   },
 });
 
 export const listMessages = query({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (thread.repositoryId) {
       const repository = await ctx.db.get(thread.repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Thread not found.');
+        throw new Error("Thread not found.");
       }
     }
 
@@ -355,23 +345,23 @@ export const listMessages = query({
 
 export const getActiveMessageStream = query({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (thread.repositoryId) {
       const repository = await ctx.db.get(thread.repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Thread not found.');
+        throw new Error("Thread not found.");
       }
     }
 
@@ -381,7 +371,7 @@ export const getActiveMessageStream = query({
     }
 
     const assistantMessage = await ctx.db.get(stream.assistantMessageId);
-    if (!assistantMessage || assistantMessage.status !== 'streaming') {
+    if (!assistantMessage || assistantMessage.status !== "streaming") {
       return null;
     }
 
@@ -389,7 +379,7 @@ export const getActiveMessageStream = query({
 
     return {
       assistantMessageId: stream.assistantMessageId,
-      content: `${stream.compactedContent}${tailChunks.map((chunk) => chunk.text).join('')}`,
+      content: `${stream.compactedContent}${tailChunks.map((chunk) => chunk.text).join("")}`,
       startedAt: stream.startedAt,
       lastAppendedAt: stream.lastAppendedAt,
     };
@@ -398,11 +388,9 @@ export const getActiveMessageStream = query({
 
 export const createThread = mutation({
   args: {
-    repositoryId: v.optional(v.id('repositories')),
+    repositoryId: v.optional(v.id("repositories")),
     title: v.optional(v.string()),
-    mode: v.optional(
-      v.union(v.literal('discuss'), v.literal('docs'), v.literal('sandbox')),
-    ),
+    mode: v.optional(v.union(v.literal("discuss"), v.literal("docs"), v.literal("sandbox"))),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
@@ -413,21 +401,19 @@ export const createThread = mutation({
     // states) can't bypass it. We do NOT enforce sandbox-ready at thread
     // creation — the user may create a thread before sandbox provisioning
     // finishes; `sendMessage` re-validates at the actual send moment.
-    if ((args.mode === 'docs' || args.mode === 'sandbox') && !args.repositoryId) {
-      throw new Error(
-        `'${args.mode}' mode requires an attached repository.`,
-      );
+    if ((args.mode === "docs" || args.mode === "sandbox") && !args.repositoryId) {
+      throw new Error(`'${args.mode}' mode requires an attached repository.`);
     }
 
     let title = args.title;
     if (args.repositoryId) {
       const repository = await ctx.db.get(args.repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Repository not found.');
+        throw new Error("Repository not found.");
       }
       title ??= `${repository.sourceRepoName} chat`;
     } else {
-      title ??= 'New design conversation';
+      title ??= "New design conversation";
     }
 
     // Default mode picks `docs` when a repo is in play (matches resolver's
@@ -437,7 +423,7 @@ export const createThread = mutation({
     // on day one.
     const defaultMode = getDefaultThreadMode(!!args.repositoryId);
 
-    return await ctx.db.insert('threads', {
+    return await ctx.db.insert("threads", {
       repositoryId: args.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
       title,
@@ -463,20 +449,20 @@ export const createThread = mutation({
  */
 export const setThreadRepository = mutation({
   args: {
-    threadId: v.id('threads'),
-    repositoryId: v.union(v.id('repositories'), v.null()),
+    threadId: v.id("threads"),
+    repositoryId: v.union(v.id("repositories"), v.null()),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread || thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (args.repositoryId !== null) {
       const repository = await ctx.db.get(args.repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Repository not found.');
+        throw new Error("Repository not found.");
       }
       await ctx.db.patch(args.threadId, { repositoryId: args.repositoryId });
       return { repositoryId: args.repositoryId };
@@ -496,27 +482,27 @@ export const setThreadRepository = mutation({
 
 export const deleteThread = mutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread || thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     // Delete all messages in this thread
     const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
+      .query("messages")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .take(500);
     for (const message of messages) {
       await ctx.db.delete(message._id);
     }
 
     const streams = await ctx.db
-      .query('messageStreams')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
+      .query("messageStreams")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .take(500);
     for (const stream of streams) {
       await deleteMessageStreamState(ctx, stream._id);
@@ -549,12 +535,12 @@ export const deleteThread = mutation({
 
 export const cleanupOrphanedMessages = internalMutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const messages = await ctx.db
-      .query('messages')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
+      .query("messages")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .take(500);
     for (const message of messages) {
       await ctx.db.delete(message._id);
@@ -569,12 +555,12 @@ export const cleanupOrphanedMessages = internalMutation({
 
 export const cleanupOrphanedMessageStreams = internalMutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const streams = await ctx.db
-      .query('messageStreams')
-      .withIndex('by_threadId', (q) => q.eq('threadId', args.threadId))
+      .query("messageStreams")
+      .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .take(500);
     for (const stream of streams) {
       await deleteMessageStreamState(ctx, stream._id);
@@ -589,28 +575,26 @@ export const cleanupOrphanedMessageStreams = internalMutation({
 
 export const sendMessage = mutation({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
     content: v.string(),
-    mode: v.optional(
-      v.union(v.literal('discuss'), v.literal('docs'), v.literal('sandbox')),
-    ),
+    mode: v.optional(v.union(v.literal("discuss"), v.literal("docs"), v.literal("sandbox"))),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
     const thread = await ctx.db.get(args.threadId);
     if (!thread) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     if (thread.ownerTokenIdentifier !== identity.tokenIdentifier) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
-    let repository: Doc<'repositories'> | null = null;
+    let repository: Doc<"repositories"> | null = null;
     if (thread.repositoryId) {
       repository = await ctx.db.get(thread.repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error('Thread not found.');
+        throw new Error("Thread not found.");
       }
     }
 
@@ -620,26 +604,22 @@ export const sendMessage = mutation({
     // disabled-mode tooltips also encode these, but a direct mutation caller
     // (or a UI race where the user picked `sandbox` and then the sandbox
     // expired before they hit Send) needs the same gate enforced server-side.
-    if ((mode === 'docs' || mode === 'sandbox') && !repository) {
+    if ((mode === "docs" || mode === "sandbox") && !repository) {
       throw new Error(`'${mode}' mode requires an attached repository.`);
     }
-    if (mode === 'sandbox') {
+    if (mode === "sandbox") {
       // `repository` is guaranteed non-null by the previous check, but TS
       // can't narrow across the `||` without restating it.
       const repo = repository!;
-      const sandbox = repo.latestSandboxId
-        ? await ctx.db.get(repo.latestSandboxId)
-        : null;
-      if (!sandbox || sandbox.status !== 'ready') {
-        throw new Error(
-          "'sandbox' mode requires the repository's sandbox to be in 'ready' state.",
-        );
+      const sandbox = repo.latestSandboxId ? await ctx.db.get(repo.latestSandboxId) : null;
+      if (!sandbox || sandbox.status !== "ready") {
+        throw new Error("'sandbox' mode requires the repository's sandbox to be in 'ready' state.");
       }
     }
 
     const trimmedContent = args.content.trim();
     if (!trimmedContent) {
-      throw new Error('Message content cannot be empty.');
+      throw new Error("Message content cannot be empty.");
     }
 
     const now = Date.now();
@@ -647,8 +627,8 @@ export const sendMessage = mutation({
 
     if (activeJob) {
       throwOperationAlreadyInProgress(
-        'threadChatInFlight',
-        'An assistant reply is already in progress for this thread.',
+        "threadChatInFlight",
+        "An assistant reply is already in progress for this thread.",
         getLeaseRetryAfterMs(activeJob.leaseExpiresAt, now),
       );
     }
@@ -656,52 +636,52 @@ export const sendMessage = mutation({
     await consumeChatRateLimit(ctx, identity.tokenIdentifier);
     await consumeChatGlobalRateLimit(ctx);
 
-    const jobId = await ctx.db.insert('jobs', {
+    const jobId = await ctx.db.insert("jobs", {
       repositoryId: thread.repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
       sandboxId: repository?.latestSandboxId,
       threadId: args.threadId,
-      kind: 'chat',
-      status: 'queued',
-      stage: 'queued',
+      kind: "chat",
+      status: "queued",
+      stage: "queued",
       progress: 0,
       // Sandbox mode is the only one that consumes Daytona compute, so it
       // bills against the `deep_analysis` cost category. `discuss` and `docs`
       // both stay on the standard `chat` category.
-      costCategory: mode === 'sandbox' ? 'deep_analysis' : 'chat',
-      triggerSource: 'user',
+      costCategory: mode === "sandbox" ? "deep_analysis" : "chat",
+      triggerSource: "user",
       leaseExpiresAt: now + CHAT_JOB_LEASE_MS,
     });
 
-    const userMessageId = await ctx.db.insert('messages', {
+    const userMessageId = await ctx.db.insert("messages", {
       repositoryId: thread.repositoryId,
       threadId: args.threadId,
       jobId,
       ownerTokenIdentifier: identity.tokenIdentifier,
-      role: 'user',
-      status: 'completed',
+      role: "user",
+      status: "completed",
       mode,
       content: trimmedContent,
     });
 
-    const assistantMessageId = await ctx.db.insert('messages', {
+    const assistantMessageId = await ctx.db.insert("messages", {
       repositoryId: thread.repositoryId,
       threadId: args.threadId,
       jobId,
       ownerTokenIdentifier: identity.tokenIdentifier,
-      role: 'assistant',
-      status: 'pending',
+      role: "assistant",
+      status: "pending",
       mode,
-      content: '',
+      content: "",
     });
 
-    await ctx.db.insert('messageStreams', {
+    await ctx.db.insert("messageStreams", {
       repositoryId: thread.repositoryId,
       threadId: args.threadId,
       jobId,
       assistantMessageId,
       ownerTokenIdentifier: identity.tokenIdentifier,
-      compactedContent: '',
+      compactedContent: "",
       compactedThroughSequence: -1,
       nextSequence: 0,
       startedAt: now,
@@ -730,18 +710,18 @@ export const sendMessage = mutation({
 
 export const getReplyContext = internalQuery({
   args: {
-    threadId: v.id('threads'),
+    threadId: v.id("threads"),
   },
   handler: async (ctx, args) => {
     const thread = await ctx.db.get(args.threadId);
     if (!thread) {
-      throw new Error('Thread not found.');
+      throw new Error("Thread not found.");
     }
 
     const messages = (await loadRecentMessages(ctx, args.threadId, MAX_CONTEXT_MESSAGES + 1))
       .filter((message) => message.content.trim().length > 0)
       .slice(-MAX_CONTEXT_MESSAGES);
-    const latestUserMessage = [...messages].reverse().find((message) => message.role === 'user');
+    const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
     const effectiveMode = latestUserMessage?.mode ?? thread.mode;
 
     if (!thread.repositoryId) {
@@ -762,35 +742,35 @@ export const getReplyContext = internalQuery({
 
     const repository = await ctx.db.get(thread.repositoryId);
     if (!repository) {
-      throw new Error('Repository not found.');
+      throw new Error("Repository not found.");
     }
 
     const artifacts =
-      effectiveMode === 'docs'
+      effectiveMode === "docs"
         ? await loadLatestDocsArtifacts(ctx, repository._id)
         : [
             ...(repository.latestImportJobId
               ? await ctx.db
-                  .query('artifacts')
-                  .withIndex('by_jobId', (q) => q.eq('jobId', repository.latestImportJobId!))
+                  .query("artifacts")
+                  .withIndex("by_jobId", (q) => q.eq("jobId", repository.latestImportJobId!))
                   .take(10)
               : []),
             ...(await ctx.db
-              .query('artifacts')
-              .withIndex('by_repositoryId_and_kind', (q) =>
-                q.eq('repositoryId', repository._id).eq('kind', 'deep_analysis'),
+              .query("artifacts")
+              .withIndex("by_repositoryId_and_kind", (q) =>
+                q.eq("repositoryId", repository._id).eq("kind", "deep_analysis"),
               )
-              .order('desc')
+              .order("desc")
               .take(10)),
           ];
     // Phase 4 rollout: `docs` mode is artifact-only retrieval. We intentionally
     // stop pulling indexed code chunks in this mode so knowledge sources stay
     // non-overlapping (`docs` => artifacts, `sandbox` => live/code-grounded).
     const chunks =
-      effectiveMode === 'docs'
+      effectiveMode === "docs"
         ? []
         : repository.latestImportId
-          ? await loadCandidateChunks(ctx, repository.latestImportId, latestUserMessage?.content ?? '')
+          ? await loadCandidateChunks(ctx, repository.latestImportId, latestUserMessage?.content ?? "")
           : [];
 
     return {
@@ -819,10 +799,10 @@ export const getReplyContext = internalQuery({
 
 export const generateAssistantReply = internalAction({
   args: {
-    threadId: v.id('threads'),
-    userMessageId: v.id('messages'),
-    assistantMessageId: v.id('messages'),
-    jobId: v.id('jobs'),
+    threadId: v.id("threads"),
+    userMessageId: v.id("messages"),
+    assistantMessageId: v.id("messages"),
+    jobId: v.id("jobs"),
   },
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.chat.markAssistantReplyRunning, {
@@ -831,7 +811,7 @@ export const generateAssistantReply = internalAction({
     });
 
     // Anything still buffered in pendingDelta below STREAM_FLUSH_THRESHOLD can be lost on a crash; recoverStaleChatJob only sees persisted messageStreamChunks flushed via appendAssistantStreamChunk before compactMessageStreamTail/finalizeAssistantReply/failAssistantReply run.
-    let pendingDelta = '';
+    let pendingDelta = "";
 
     try {
       // Cast required: ctx.runAction/runQuery cannot infer return types for
@@ -840,8 +820,8 @@ export const generateAssistantReply = internalAction({
         threadId: args.threadId,
       })) as ReplyContext;
 
-      const latestUserMessage = [...replyContext.messages].reverse().find((message) => message.role === 'user');
-      const userPrompt = latestUserMessage?.content ?? 'Summarize this repository.';
+      const latestUserMessage = [...replyContext.messages].reverse().find((message) => message.role === "user");
+      const userPrompt = latestUserMessage?.content ?? "Summarize this repository.";
       const relevantChunks = selectRelevantChunks(replyContext.chunks, userPrompt);
 
       if (!process.env.OPENAI_API_KEY) {
@@ -855,7 +835,7 @@ export const generateAssistantReply = internalAction({
         return;
       }
 
-      const modelName = process.env.OPENAI_MODEL ?? 'gpt-5.4-mini';
+      const modelName = process.env.OPENAI_MODEL ?? "gpt-5.4-mini";
       const response = streamText({
         model: openai(modelName),
         system: buildSystemPrompt(),
@@ -869,7 +849,7 @@ export const generateAssistantReply = internalAction({
             assistantMessageId: args.assistantMessageId,
             delta: pendingDelta,
           });
-          pendingDelta = '';
+          pendingDelta = "";
         }
       }
 
@@ -882,7 +862,7 @@ export const generateAssistantReply = internalAction({
         outputTokens = usage.outputTokens;
         costUsd = estimateCostUsd(modelName, inputTokens, outputTokens);
       } catch (error) {
-        logWarn('chat', 'assistant_reply_usage_unavailable', {
+        logWarn("chat", "assistant_reply_usage_unavailable", {
           assistantMessageId: args.assistantMessageId,
           jobId: args.jobId,
           model: modelName,
@@ -903,7 +883,7 @@ export const generateAssistantReply = internalAction({
       await ctx.runMutation(internal.chat.failAssistantReply, {
         assistantMessageId: args.assistantMessageId,
         jobId: args.jobId,
-        errorMessage: error instanceof Error ? error.message : 'Unknown assistant error',
+        errorMessage: error instanceof Error ? error.message : "Unknown assistant error",
         finalDelta: pendingDelta,
       });
     }
@@ -912,17 +892,17 @@ export const generateAssistantReply = internalAction({
 
 export const markAssistantReplyRunning = internalMutation({
   args: {
-    assistantMessageId: v.id('messages'),
-    jobId: v.id('jobs'),
+    assistantMessageId: v.id("messages"),
+    jobId: v.id("jobs"),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     await ctx.db.patch(args.assistantMessageId, {
-      status: 'streaming',
+      status: "streaming",
     });
     await ctx.db.patch(args.jobId, {
-      status: 'running',
-      stage: 'generating_reply',
+      status: "running",
+      stage: "generating_reply",
       progress: 0.15,
       startedAt: now,
       leaseExpiresAt: now + CHAT_JOB_LEASE_MS,
@@ -932,7 +912,7 @@ export const markAssistantReplyRunning = internalMutation({
 
 export const appendAssistantStreamChunk = internalMutation({
   args: {
-    assistantMessageId: v.id('messages'),
+    assistantMessageId: v.id("messages"),
     delta: v.string(),
   },
   handler: async (ctx, args) => {
@@ -942,17 +922,17 @@ export const appendAssistantStreamChunk = internalMutation({
 
     const stream = await getMessageStreamByAssistantMessageId(ctx, args.assistantMessageId);
     if (!stream) {
-      logWarn('chat', 'assistant_stream_missing_for_chunk_append', {
+      logWarn("chat", "assistant_stream_missing_for_chunk_append", {
         assistantMessageId: args.assistantMessageId,
         deltaLength: args.delta.length,
-        hint: 'messageStreamChunks append skipped before compactMessageStreamTail',
+        hint: "messageStreamChunks append skipped before compactMessageStreamTail",
       });
       throw new Error(
-        'Missing message stream while appending assistant delta: messageStreamChunks append aborted before compactMessageStreamTail.',
+        "Missing message stream while appending assistant delta: messageStreamChunks append aborted before compactMessageStreamTail.",
       );
     }
 
-    await ctx.db.insert('messageStreamChunks', {
+    await ctx.db.insert("messageStreamChunks", {
       streamId: stream._id,
       sequence: stream.nextSequence,
       text: args.delta,
@@ -968,9 +948,9 @@ export const appendAssistantStreamChunk = internalMutation({
 
 export const finalizeAssistantReply = internalMutation({
   args: {
-    threadId: v.id('threads'),
-    assistantMessageId: v.id('messages'),
-    jobId: v.id('jobs'),
+    threadId: v.id("threads"),
+    assistantMessageId: v.id("messages"),
+    jobId: v.id("jobs"),
     finalDelta: v.string(),
     inputTokens: v.optional(v.number()),
     outputTokens: v.optional(v.number()),
@@ -987,7 +967,7 @@ export const finalizeAssistantReply = internalMutation({
     const finalContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta}`;
     await ctx.db.patch(args.assistantMessageId, {
       content: finalContent,
-      status: 'completed',
+      status: "completed",
       errorMessage: undefined,
       estimatedInputTokens: args.inputTokens,
       estimatedOutputTokens: args.outputTokens,
@@ -997,11 +977,11 @@ export const finalizeAssistantReply = internalMutation({
       lastMessageAt: now,
     });
     await ctx.db.patch(args.jobId, {
-      status: 'completed',
-      stage: 'completed',
+      status: "completed",
+      stage: "completed",
       progress: 1,
       completedAt: now,
-      outputSummary: 'Assistant reply generated.',
+      outputSummary: "Assistant reply generated.",
       estimatedInputTokens: args.inputTokens,
       estimatedOutputTokens: args.outputTokens,
       estimatedCostUsd: args.costUsd,
@@ -1016,8 +996,8 @@ export const finalizeAssistantReply = internalMutation({
 
 export const failAssistantReply = internalMutation({
   args: {
-    assistantMessageId: v.id('messages'),
-    jobId: v.id('jobs'),
+    assistantMessageId: v.id("messages"),
+    jobId: v.id("jobs"),
     errorMessage: v.string(),
     finalDelta: v.optional(v.string()),
   },
@@ -1032,15 +1012,15 @@ export const failAssistantReply = internalMutation({
       return;
     }
 
-    const streamedContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta ?? ''}`;
+    const streamedContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta ?? ""}`;
     await ctx.db.patch(args.assistantMessageId, {
-      status: 'failed',
+      status: "failed",
       errorMessage: args.errorMessage,
       content: streamedContent || args.errorMessage,
     });
     await ctx.db.patch(args.jobId, {
-      status: 'failed',
-      stage: 'failed',
+      status: "failed",
+      stage: "failed",
       progress: 1,
       completedAt: now,
       errorMessage: args.errorMessage,
@@ -1055,7 +1035,7 @@ export const failAssistantReply = internalMutation({
 
 export const recoverStaleChatJob = internalMutation({
   args: {
-    jobId: v.id('jobs'),
+    jobId: v.id("jobs"),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -1063,9 +1043,9 @@ export const recoverStaleChatJob = internalMutation({
     const now = Date.now();
     if (
       !job ||
-      job.kind !== 'chat' ||
-      (job.status !== 'queued' && job.status !== 'running') ||
-      typeof job.leaseExpiresAt !== 'number' ||
+      job.kind !== "chat" ||
+      (job.status !== "queued" && job.status !== "running") ||
+      typeof job.leaseExpiresAt !== "number" ||
       job.leaseExpiresAt > now
     ) {
       return;
@@ -1073,25 +1053,25 @@ export const recoverStaleChatJob = internalMutation({
 
     const message = args.errorMessage ?? STALE_CHAT_JOB_ERROR_MESSAGE;
     const jobMessages = await ctx.db
-      .query('messages')
-      .withIndex('by_jobId', (q) => q.eq('jobId', args.jobId))
+      .query("messages")
+      .withIndex("by_jobId", (q) => q.eq("jobId", args.jobId))
       .take(10);
-    const assistantMessage = jobMessages.find((entry) => entry.role === 'assistant');
+    const assistantMessage = jobMessages.find((entry) => entry.role === "assistant");
     const stream = await getMessageStreamByJobId(ctx, args.jobId);
     const streamSnapshot =
       assistantMessage && stream ? await loadMessageStreamSnapshot(ctx, assistantMessage._id) : null;
 
     if (assistantMessage) {
       await ctx.db.patch(assistantMessage._id, {
-        status: 'failed',
+        status: "failed",
         errorMessage: message,
         content: streamSnapshot?.content || message,
       });
     }
 
     await ctx.db.patch(args.jobId, {
-      status: 'failed',
-      stage: 'failed',
+      status: "failed",
+      stage: "failed",
       progress: 1,
       completedAt: now,
       errorMessage: message,
@@ -1106,54 +1086,54 @@ export const recoverStaleChatJob = internalMutation({
 
 function buildSystemPrompt() {
   return [
-    'You are an open source architecture analyst.',
-    'Answer questions about the imported repository using the provided artifacts and code excerpts.',
-    'Be concrete, mention likely boundaries, and state uncertainty when evidence is weak.',
-  ].join(' ');
+    "You are an open source architecture analyst.",
+    "Answer questions about the imported repository using the provided artifacts and code excerpts.",
+    "Be concrete, mention likely boundaries, and state uncertainty when evidence is weak.",
+  ].join(" ");
 }
 
-async function loadRecentMessages(ctx: Pick<QueryCtx, 'db'>, threadId: Id<'threads'>, limit: number) {
+async function loadRecentMessages(ctx: Pick<QueryCtx, "db">, threadId: Id<"threads">, limit: number) {
   const recentMessages = await ctx.db
-    .query('messages')
-    .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
-    .order('desc')
+    .query("messages")
+    .withIndex("by_threadId", (q) => q.eq("threadId", threadId))
+    .order("desc")
     .take(limit);
 
   return recentMessages.reverse();
 }
 
-async function loadCandidateChunks(ctx: Pick<QueryCtx, 'db'>, importId: Id<'imports'>, question: string) {
+async function loadCandidateChunks(ctx: Pick<QueryCtx, "db">, importId: Id<"imports">, question: string) {
   const headCount = Math.ceil(CHAT_BASELINE_CHUNKS / 2);
   const tailCount = CHAT_BASELINE_CHUNKS - headCount;
   const [headChunks, tailChunks] = await Promise.all([
     ctx.db
-      .query('repoChunks')
-      .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', importId))
+      .query("repoChunks")
+      .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", importId))
       .take(headCount),
     ctx.db
-      .query('repoChunks')
-      .withIndex('by_importId_and_path_and_chunkIndex', (q) => q.eq('importId', importId))
-      .order('desc')
+      .query("repoChunks")
+      .withIndex("by_importId_and_path_and_chunkIndex", (q) => q.eq("importId", importId))
+      .order("desc")
       .take(tailCount),
   ]);
   const searchQuery = buildChunkSearchQuery(question);
-  let summaryMatches: Doc<'repoChunks'>[] = [];
-  let contentMatches: Doc<'repoChunks'>[] = [];
+  let summaryMatches: Doc<"repoChunks">[] = [];
+  let contentMatches: Doc<"repoChunks">[] = [];
 
   if (searchQuery) {
     [summaryMatches, contentMatches] = await Promise.all([
       ctx.db
-        .query('repoChunks')
-        .withSearchIndex('search_summary', (q) => q.search('summary', searchQuery).eq('importId', importId))
+        .query("repoChunks")
+        .withSearchIndex("search_summary", (q) => q.search("summary", searchQuery).eq("importId", importId))
         .take(CHAT_SEARCH_RESULTS_PER_INDEX),
       ctx.db
-        .query('repoChunks')
-        .withSearchIndex('search_content', (q) => q.search('content', searchQuery).eq('importId', importId))
+        .query("repoChunks")
+        .withSearchIndex("search_content", (q) => q.search("content", searchQuery).eq("importId", importId))
         .take(CHAT_SEARCH_RESULTS_PER_INDEX),
     ]);
   }
 
-  const candidatesById = new Map<string, Doc<'repoChunks'>>();
+  const candidatesById = new Map<string, Doc<"repoChunks">>();
   for (const chunk of [...summaryMatches, ...contentMatches, ...headChunks, ...[...tailChunks].reverse()]) {
     if (candidatesById.has(chunk._id)) {
       continue;
@@ -1169,7 +1149,7 @@ async function loadCandidateChunks(ctx: Pick<QueryCtx, 'db'>, importId: Id<'impo
 }
 
 function buildChunkSearchQuery(question: string) {
-  return tokenizeQuestion(question).slice(0, 8).join(' ');
+  return tokenizeQuestion(question).slice(0, 8).join(" ");
 }
 
 function buildUserPrompt(
@@ -1180,10 +1160,10 @@ function buildUserPrompt(
   const artifactSection = context.artifacts
     .slice(0, MAX_CONTEXT_ARTIFACTS)
     .map((artifact) => `## ${artifact.title}\n${artifact.summary}\n${artifact.contentMarkdown.slice(0, 1400)}`)
-    .join('\n\n');
+    .join("\n\n");
   const chunkSection = relevantChunks
     .map((chunk) => `### ${chunk.path}\n${chunk.summary}\n${chunk.content.slice(0, 1200)}`)
-    .join('\n\n');
+    .join("\n\n");
 
   const hasRepoContext =
     !!context.sourceRepoFullName ||
@@ -1198,19 +1178,19 @@ function buildUserPrompt(
     context.architectureSummary ? `Architecture summary: ${context.architectureSummary}` : undefined,
     ...(hasRepoContext
       ? [
-          '',
-          'Artifacts:',
-          artifactSection || 'No artifacts were pre-selected.',
-          '',
-          'Relevant code excerpts:',
-          chunkSection || 'No highly relevant chunks were pre-selected.',
-          '',
+          "",
+          "Artifacts:",
+          artifactSection || "No artifacts were pre-selected.",
+          "",
+          "Relevant code excerpts:",
+          chunkSection || "No highly relevant chunks were pre-selected.",
+          "",
         ]
-      : ['No repository is attached to this thread; answer from general architecture knowledge.']),
+      : ["No repository is attached to this thread; answer from general architecture knowledge."]),
     `User question: ${question}`,
   ]
     .filter((line): line is string => line !== undefined)
-    .join('\n');
+    .join("\n");
 }
 
 function buildHeuristicAnswer(
@@ -1221,80 +1201,80 @@ function buildHeuristicAnswer(
   if (!context.sourceRepoFullName) {
     return [
       `目前沒有設定 \`OPENAI_API_KEY\`，且這個對話尚未綁定 repository，所以無法做 grounded 回覆。`,
-      '',
+      "",
       `你的問題：${question}`,
-      '',
-      '建議：在側邊欄附加一個 repository 之後再提問，就能取得 grounded / deep 模式的回覆。',
-    ].join('\n');
+      "",
+      "建議：在側邊欄附加一個 repository 之後再提問，就能取得 grounded / deep 模式的回覆。",
+    ].join("\n");
   }
 
   return [
     `目前沒有設定 \`OPENAI_API_KEY\`，所以我先用已索引的 repository artifact 回答。`,
-    '',
+    "",
     `Repository: ${context.sourceRepoFullName}`,
     context.repositorySummary ? `- Summary: ${context.repositorySummary}` : undefined,
     context.architectureSummary ? `- Architecture: ${context.architectureSummary}` : undefined,
-    '',
+    "",
     `你的問題：${question}`,
-    '',
+    "",
     relevantChunks.length > 0
-      ? `我目前最相關的線索來自：${relevantChunks.map((chunk) => `\`${chunk.path}\``).join(', ')}`
-      : '目前沒有足夠的程式碼片段被選中，建議先執行一次深度分析。',
+      ? `我目前最相關的線索來自：${relevantChunks.map((chunk) => `\`${chunk.path}\``).join(", ")}`
+      : "目前沒有足夠的程式碼片段被選中，建議先執行一次深度分析。",
   ]
     .filter(Boolean)
-    .join('\n');
+    .join("\n");
 }
 
 const SHORT_TECH_TOKENS = new Set([
-  'ai',
-  'cd',
-  'ci',
-  'db',
-  'dx',
-  'fs',
-  'go',
-  'io',
-  'js',
-  'md',
-  'os',
-  'qa',
-  'ts',
-  'ui',
-  'ux',
-  'vm',
+  "ai",
+  "cd",
+  "ci",
+  "db",
+  "dx",
+  "fs",
+  "go",
+  "io",
+  "js",
+  "md",
+  "os",
+  "qa",
+  "ts",
+  "ui",
+  "ux",
+  "vm",
 ]);
 
 const QUESTION_STOPWORDS = new Set([
-  'a',
-  'an',
-  'and',
-  'are',
-  'can',
-  'does',
-  'for',
-  'how',
-  'in',
-  'is',
-  'it',
-  'me',
-  'of',
-  'on',
-  'or',
-  'show',
-  'tell',
-  'the',
-  'this',
-  'to',
-  'what',
-  'when',
-  'where',
-  'which',
-  'who',
-  'why',
-  'work',
-  'works',
-  'you',
-  'your',
+  "a",
+  "an",
+  "and",
+  "are",
+  "can",
+  "does",
+  "for",
+  "how",
+  "in",
+  "is",
+  "it",
+  "me",
+  "of",
+  "on",
+  "or",
+  "show",
+  "tell",
+  "the",
+  "this",
+  "to",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "work",
+  "works",
+  "you",
+  "your",
 ]);
 
 function tokenizeQuestion(question: string) {

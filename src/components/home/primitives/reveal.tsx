@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 type RevealProps = {
   children: ReactNode;
@@ -17,12 +17,12 @@ type RevealProps = {
  * invisible. Setting that fallback in the initial state — instead of a
  * `setState` inside an effect — avoids a flash of hidden content.
  */
-export function Reveal({ children, threshold = 0.12, rootMargin = '0px 0px -10% 0px' }: RevealProps) {
+export function Reveal({ children, threshold = 0.12, rootMargin = "0px 0px -10% 0px" }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
 
   useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return;
+    if (typeof IntersectionObserver === "undefined") return;
     const node = ref.current;
     if (!node) return;
     const obs = new IntersectionObserver(
@@ -45,7 +45,7 @@ export function Reveal({ children, threshold = 0.12, rootMargin = '0px 0px -10% 
     <div
       ref={ref}
       className={`transition-[opacity,transform] duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-        visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+        visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
       }`}
     >
       {children}

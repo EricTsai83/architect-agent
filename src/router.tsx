@@ -1,8 +1,4 @@
-import {
-  createBrowserRouter,
-  createMemoryRouter,
-  type RouteObject,
-} from 'react-router-dom';
+import { createBrowserRouter, createMemoryRouter, type RouteObject } from "react-router-dom";
 import {
   AppLayout,
   AuthCallbackRoute,
@@ -10,11 +6,11 @@ import {
   NotFoundRoute,
   ProtectedLayout,
   RouteErrorBoundary,
-} from '@/router-layouts';
-import { AUTH_CALLBACK_ROUTE_SEGMENT, PROTECTED_ROUTE_SEGMENTS } from '@/route-paths';
+} from "@/router-layouts";
+import { AUTH_CALLBACK_ROUTE_SEGMENT, PROTECTED_ROUTE_SEGMENTS } from "@/route-paths";
 
 async function loadChatRoute() {
-  const module = await import('@/pages/chat');
+  const module = await import("@/pages/chat");
   return { Component: module.ChatPage };
 }
 
@@ -40,14 +36,14 @@ const protectedRoutes: RouteObject[] = [
 
 export const appRoutes: RouteObject[] = [
   {
-    path: '/',
+    path: "/",
     Component: AppLayout,
     ErrorBoundary: RouteErrorBoundary,
     children: [
       { index: true, Component: LandingRoute },
       { path: AUTH_CALLBACK_ROUTE_SEGMENT, Component: AuthCallbackRoute },
       { Component: ProtectedLayout, children: protectedRoutes },
-      { path: '*', Component: NotFoundRoute },
+      { path: "*", Component: NotFoundRoute },
     ],
   },
 ];
@@ -56,6 +52,6 @@ export function createAppRouter() {
   return createBrowserRouter(appRoutes);
 }
 
-export function createAppMemoryRouter(initialEntries: string[] = ['/']) {
+export function createAppMemoryRouter(initialEntries: string[] = ["/"]) {
   return createMemoryRouter(appRoutes, { initialEntries });
 }

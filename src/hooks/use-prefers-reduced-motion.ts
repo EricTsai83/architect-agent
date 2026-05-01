@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-const QUERY = '(prefers-reduced-motion: reduce)';
+const QUERY = "(prefers-reduced-motion: reduce)";
 
 /**
  * Returns `true` when the user's OS or browser is configured to prefer
@@ -19,8 +19,8 @@ export function usePrefersReducedMotion(): boolean {
   useEffect(() => {
     const mql = window.matchMedia(QUERY);
     const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
   }, []);
 
   return matches;

@@ -1,4 +1,4 @@
-import { forwardRef, useId, useState, type CSSProperties, type ReactNode } from 'react';
+import { forwardRef, useId, useState, type CSSProperties, type ReactNode } from "react";
 import {
   ArrowsClockwiseIcon,
   CaretDownIcon,
@@ -7,11 +7,11 @@ import {
   ListIcon,
   MagnifyingGlassIcon,
   PaperPlaneTiltIcon,
-} from '@phosphor-icons/react';
+} from "@phosphor-icons/react";
 
-import { GitHubIcon } from '@/components/icons';
-import { CornerMarks } from '../primitives/corner-marks';
-import { REPLAY_ON_MOUNT_ATTR } from '../primitives/replay-animations';
+import { GitHubIcon } from "@/components/icons";
+import { CornerMarks } from "../primitives/corner-marks";
+import { REPLAY_ON_MOUNT_ATTR } from "../primitives/replay-animations";
 
 /**
  * HeroChat — a faithful preview of the real `<ChatPanel />` the user
@@ -70,10 +70,10 @@ const TIMELINE = {
   wordStep: 60,
 } as const;
 
-const TYPED_TEXT = 'How does the App Router resolve nested layouts?';
+const TYPED_TEXT = "How does the App Router resolve nested layouts?";
 
 const BODY_TEXT =
-  'Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:';
+  "Nested layouts are resolved across three phases — build-time discovery, runtime rendering, and component tree assembly:";
 const BODY_WORDS = BODY_TEXT.split(/\s+/);
 
 /** Wall-clock time (ms from mount) when the streamed body finishes. */
@@ -85,16 +85,16 @@ const STREAM_END = TIMELINE.streamStart + BODY_WORDS.length * TIMELINE.wordStep 
  * does not need to recreate it every time.
  */
 const CITATIONS: ReadonlyArray<string> = [
-  'packages/next/src/server/app-render/app-render.tsx',
-  'packages/next/src/server/app-render/create-component-tree.tsx',
+  "packages/next/src/server/app-render/app-render.tsx",
+  "packages/next/src/server/app-render/create-component-tree.tsx",
 ];
 
 /** Marks any element whose entry animation should be replayed by the hero "Replay" button. */
-const replayAttr = { [REPLAY_ON_MOUNT_ATTR]: '' } as const;
+const replayAttr = { [REPLAY_ON_MOUNT_ATTR]: "" } as const;
 
 export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref) {
   return (
-    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: '600ms' }} {...replayAttr}>
+    <div className="relative min-w-0 animate-fade-in" style={{ animationDelay: "600ms" }} {...replayAttr}>
       <div
         ref={ref}
         className="group/term relative overflow-hidden border border-border bg-card/85 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] backdrop-blur"
@@ -126,7 +126,7 @@ export const HeroChat = forwardRef<HTMLDivElement>(function HeroChat(_props, ref
             semi-transparent card background reads as flicker. */}
         <div
           className="scrollbar-themed flex h-[340px] flex-col gap-2.5 overflow-y-auto px-3 py-3 sm:h-[400px] sm:gap-3 sm:px-5 sm:py-5 lg:h-[460px]"
-          style={{ contain: 'content', willChange: 'transform' }}
+          style={{ contain: "content", willChange: "transform" }}
         >
           <UserMessage delay={TIMELINE.userMessage}>{TYPED_TEXT}</UserMessage>
           <AssistantMessage delay={TIMELINE.assistantHeader} />
@@ -179,7 +179,11 @@ function ChatTopBar() {
  */
 function UserMessage({ children, delay }: { children: ReactNode; delay: number }) {
   return (
-    <div className="relative overflow-hidden bg-muted px-4 py-3 animate-reveal-up" style={{ animationDelay: `${delay}ms` }} {...replayAttr}>
+    <div
+      className="relative overflow-hidden bg-muted px-4 py-3 animate-reveal-up"
+      style={{ animationDelay: `${delay}ms` }}
+      {...replayAttr}
+    >
       <span
         aria-hidden
         className="absolute inset-y-0 left-0 w-0.5 bg-primary shadow-[0_0_14px_var(--color-primary)] animate-message-rail"
@@ -262,11 +266,14 @@ function AssistantMessage({ delay }: { delay: number }) {
               <span
                 key={i}
                 className="animate-fade-in"
-                style={{ animationDelay: `${TIMELINE.streamStart + i * TIMELINE.wordStep}ms`, animationDuration: '0.12s' }}
+                style={{
+                  animationDelay: `${TIMELINE.streamStart + i * TIMELINE.wordStep}ms`,
+                  animationDuration: "0.12s",
+                }}
                 {...replayAttr}
               >
                 {word}
-                {i < BODY_WORDS.length - 1 ? ' ' : ''}
+                {i < BODY_WORDS.length - 1 ? " " : ""}
               </span>
             ))}
           </p>
@@ -279,7 +286,11 @@ function AssistantMessage({ delay }: { delay: number }) {
             answer. The list itself is wrapped in the grid-rows
             `1fr ↔ 0fr` trick so collapse animates smoothly without
             a measured height. */}
-        <div className="animate-fade-in flex flex-col gap-1.5" style={{ animationDelay: `${STREAM_END}ms` }} {...replayAttr}>
+        <div
+          className="animate-fade-in flex flex-col gap-1.5"
+          style={{ animationDelay: `${STREAM_END}ms` }}
+          {...replayAttr}
+        >
           <button
             type="button"
             onClick={() => setCitationsExpanded((prev) => !prev)}
@@ -291,14 +302,14 @@ function AssistantMessage({ delay }: { delay: number }) {
             <CaretDownIcon
               weight="bold"
               aria-hidden
-              className={`size-3 transition-transform duration-200 ${citationsExpanded ? '' : '-rotate-90'}`}
+              className={`size-3 transition-transform duration-200 ${citationsExpanded ? "" : "-rotate-90"}`}
             />
           </button>
           <div
             id={citationsListId}
             aria-hidden={!citationsExpanded}
             hidden={!citationsExpanded}
-            className={`grid transition-[grid-template-rows] duration-200 ${citationsExpanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+            className={`grid transition-[grid-template-rows] duration-200 ${citationsExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
           >
             <ul className="flex flex-col gap-1 overflow-hidden">
               {CITATIONS.map((path) => (
@@ -335,7 +346,7 @@ function ChatComposer() {
         {/* Placeholder — disappears quickly right before typing begins */}
         <span
           className="animate-fade-out text-muted-foreground/70"
-          style={{ animationDelay: `${TIMELINE.typingStart - 50}ms`, animationDuration: '0.1s' }}
+          style={{ animationDelay: `${TIMELINE.typingStart - 50}ms`, animationDuration: "0.1s" }}
           {...replayAttr}
         >
           Ask about architecture, module boundaries, data flow, risks…
@@ -345,16 +356,16 @@ function ChatComposer() {
             that fades out after Send so the composer "clears" */}
         <span
           className="absolute inset-x-3 top-2.5 animate-fade-out"
-          style={{ animationDelay: `${TIMELINE.composeClear}ms`, animationDuration: '0s' }}
+          style={{ animationDelay: `${TIMELINE.composeClear}ms`, animationDuration: "0s" }}
           {...replayAttr}
         >
           <span
             className="animate-hero-typing text-foreground"
             style={
               {
-                animationDelay: `${TIMELINE.typingStart}ms, ${TIMELINE.typingStart}ms`,
-                animationDuration: `${TIMELINE.typingDuration}ms, 1.05s`,
-                '--type-width': '100%',
+                "animationDelay": `${TIMELINE.typingStart}ms, ${TIMELINE.typingStart}ms`,
+                "animationDuration": `${TIMELINE.typingDuration}ms, 1.05s`,
+                "--type-width": "100%",
               } as CSSProperties
             }
             {...replayAttr}

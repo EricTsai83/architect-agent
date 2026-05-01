@@ -1,6 +1,6 @@
-import { Logo } from '@/components/logo';
-import { GitHubIcon } from '@/components/icons';
-import { COPYRIGHT_YEAR, REPO_LABEL, REPO_URL } from '../data';
+import { Logo } from "@/components/logo";
+import { GitHubIcon } from "@/components/icons";
+import { COPYRIGHT_YEAR, REPO_LABEL, REPO_URL } from "../data";
 
 export function SiteFooter() {
   return (

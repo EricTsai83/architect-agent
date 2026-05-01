@@ -1,16 +1,16 @@
-import { type ComponentType } from 'react';
+import { type ComponentType } from "react";
 
-import { CheckIcon, FileIcon, FolderIcon, MagnifyingGlassIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { CheckIcon, FileIcon, FolderIcon, MagnifyingGlassIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
 
-import { NARRATIVE, REPO_LABEL } from '../data';
-import { Reveal } from '../primitives/reveal';
-import type { NarrativeEntry } from '../types';
+import { NARRATIVE, REPO_LABEL } from "../data";
+import { Reveal } from "../primitives/reveal";
+import type { NarrativeEntry } from "../types";
 
-const HEADING_ID = 'how-heading';
+const HEADING_ID = "how-heading";
 
 // ─── Primary "blocks" design ──────────────────────────────────────────
 
-type StepKey = 'search' | 'index' | 'cite';
+type StepKey = "search" | "index" | "cite";
 
 type Step = {
   key: StepKey;
@@ -31,9 +31,9 @@ type Step = {
 };
 
 const STEPS: ReadonlyArray<Step> = [
-  { key: 'search', Visual: PasteBlock, entry: NARRATIVE[0] },
-  { key: 'index', Visual: IndexBlock, entry: NARRATIVE[1] },
-  { key: 'cite', Visual: CiteBlock, entry: NARRATIVE[2] },
+  { key: "search", Visual: PasteBlock, entry: NARRATIVE[0] },
+  { key: "index", Visual: IndexBlock, entry: NARRATIVE[1] },
+  { key: "cite", Visual: CiteBlock, entry: NARRATIVE[2] },
 ];
 
 /**
@@ -265,8 +265,8 @@ function PasteBlock() {
  */
 const SEARCH_RESULTS: ReadonlyArray<{ repo: string }> = [
   { repo: REPO_LABEL },
-  { repo: 'octocat/systify-app' },
-  { repo: 'hubot/systify-utils' },
+  { repo: "octocat/systify-app" },
+  { repo: "hubot/systify-utils" },
 ];
 
 /**
@@ -316,7 +316,7 @@ function IndexBlock() {
           </span>
           <span
             className={`relative min-w-0 flex-1 truncate ${
-              file.isDir ? 'text-muted-foreground' : 'text-foreground/85'
+              file.isDir ? "text-muted-foreground" : "text-foreground/85"
             }`}
           >
             {file.name}
@@ -356,11 +356,11 @@ const INDEX_FILES: ReadonlyArray<{
   /** Tailwind utility that binds this row to its per-row check keyframe. */
   checkClass: string;
 }> = [
-  { depth: 0, name: 'src/', isDir: true, checkClass: 'animate-narrative-index-check-0' },
-  { depth: 1, name: 'main.tsx', checkClass: 'animate-narrative-index-check-1' },
-  { depth: 1, name: 'App.tsx', checkClass: 'animate-narrative-index-check-2' },
-  { depth: 1, name: 'router.tsx', checkClass: 'animate-narrative-index-check-3' },
-  { depth: 0, name: 'README.md', checkClass: 'animate-narrative-index-check-4' },
+  { depth: 0, name: "src/", isDir: true, checkClass: "animate-narrative-index-check-0" },
+  { depth: 1, name: "main.tsx", checkClass: "animate-narrative-index-check-1" },
+  { depth: 1, name: "App.tsx", checkClass: "animate-narrative-index-check-2" },
+  { depth: 1, name: "router.tsx", checkClass: "animate-narrative-index-check-3" },
+  { depth: 0, name: "README.md", checkClass: "animate-narrative-index-check-4" },
 ];
 
 /**
@@ -416,7 +416,7 @@ function CiteBlock() {
               <span className="w-4 shrink-0 text-right text-muted-foreground/45 tabular-nums">{n}</span>
               <span
                 aria-hidden
-                className={`block h-[3px] ${target ? 'bg-foreground/55' : 'bg-foreground/20'}`}
+                className={`block h-[3px] ${target ? "bg-foreground/55" : "bg-foreground/20"}`}
                 style={{ width: w }}
               />
               {/* Highlighter sweep — only on the cited line. Anchored
@@ -449,16 +449,16 @@ function CiteBlock() {
  * and the scroll reads as a downward skim.
  */
 const CITE_LINES: ReadonlyArray<{ n: number; w: string; target?: boolean }> = [
-  { n: 34, w: '58%' },
-  { n: 35, w: '42%' },
-  { n: 36, w: '70%' },
-  { n: 37, w: '36%' },
-  { n: 38, w: '64%' },
-  { n: 39, w: '50%' },
-  { n: 40, w: '74%' },
-  { n: 41, w: '46%' },
-  { n: 42, w: '88%', target: true },
-  { n: 43, w: '38%' },
-  { n: 44, w: '66%' },
-  { n: 45, w: '48%' },
+  { n: 34, w: "58%" },
+  { n: 35, w: "42%" },
+  { n: 36, w: "70%" },
+  { n: 37, w: "36%" },
+  { n: 38, w: "64%" },
+  { n: 39, w: "50%" },
+  { n: 40, w: "74%" },
+  { n: 41, w: "46%" },
+  { n: 42, w: "88%", target: true },
+  { n: 43, w: "38%" },
+  { n: 44, w: "66%" },
+  { n: 45, w: "48%" },
 ];

@@ -1,52 +1,58 @@
 "use node";
 
-import { v } from 'convex/values';
-import { internal } from './_generated/api';
-import type { Id } from './_generated/dataModel';
-import { internalAction } from './_generated/server';
-import { cloneRepositoryInSandbox, collectRepositorySnapshot, isDaytonaConfigured, provisionSandbox, stopSandbox } from './daytona';
-import { getInstallationAccessToken } from './githubAppNode';
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { internalAction } from "./_generated/server";
+import {
+  cloneRepositoryInSandbox,
+  collectRepositorySnapshot,
+  isDaytonaConfigured,
+  provisionSandbox,
+  stopSandbox,
+} from "./daytona";
+import { getInstallationAccessToken } from "./githubAppNode";
 import {
   buildRepositoryManifest,
   createArchitectureArtifactMarkdown,
   createChunkRecords,
   createManifestArtifactMarkdown,
   createRepoFileRecords,
-} from './lib/repoAnalysis';
-import { logErrorWithId, logInfo, logWarn } from './lib/observability';
+} from "./lib/repoAnalysis";
+import { logErrorWithId, logInfo, logWarn } from "./lib/observability";
 
 const PERSIST_BATCH_SIZE = 200;
 
 type ReadyImportContext = {
-  kind: 'ready';
-  repositoryId: Id<'repositories'>;
-  jobId: Id<'jobs'>;
+  kind: "ready";
+  repositoryId: Id<"repositories">;
+  jobId: Id<"jobs">;
   branch?: string;
   sourceUrl: string;
   ownerTokenIdentifier: string;
-  accessMode: 'public' | 'private';
+  accessMode: "public" | "private";
   sourceRepoFullName: string;
 };
 
 type CancelledImportContext = {
-  kind: 'cancelled';
-  jobId: Id<'jobs'>;
+  kind: "cancelled";
+  jobId: Id<"jobs">;
   reason: string;
 };
 
 type CompletedImportContext = {
-  kind: 'completed';
+  kind: "completed";
 };
 
 type ImportContext = ReadyImportContext | CancelledImportContext | CompletedImportContext;
 
 export const runImportPipeline = internalAction({
   args: {
-    importId: v.id('imports'),
+    importId: v.id("imports"),
   },
   handler: async (ctx, args) => {
     let importContext: ImportContext | null = null;
-    let sandboxId: Id<'sandboxes'> | null = null;
+    let sandboxId: Id<"sandboxes"> | null = null;
 
     try {
       importContext = (await ctx.runQuery(internal.imports.getImportContext, {
@@ -57,11 +63,11 @@ export const runImportPipeline = internalAction({
         return;
       }
 
-      if (importContext.kind === 'completed') {
+      if (importContext.kind === "completed") {
         return;
       }
 
-      if (importContext.kind === 'cancelled') {
+      if (importContext.kind === "cancelled") {
         await ctx.runMutation(internal.imports.cancelImport, {
           importId: args.importId,
           jobId: importContext.jobId,
@@ -73,16 +79,13 @@ export const runImportPipeline = internalAction({
       const runningState = (await ctx.runMutation(internal.imports.markImportRunning, {
         importId: args.importId,
         jobId: importContext.jobId,
-      })) as
-        | { kind: 'running' }
-        | { kind: 'completed' }
-        | { kind: 'cancelled'; reason: string };
+      })) as { kind: "running" } | { kind: "completed" } | { kind: "cancelled"; reason: string };
 
-      if (runningState.kind === 'completed') {
+      if (runningState.kind === "completed") {
         return;
       }
 
-      if (runningState.kind === 'cancelled') {
+      if (runningState.kind === "cancelled") {
         await ctx.runMutation(internal.imports.cancelImport, {
           importId: args.importId,
           jobId: importContext.jobId,
@@ -92,7 +95,7 @@ export const runImportPipeline = internalAction({
       }
 
       if (!isDaytonaConfigured()) {
-        throw new Error('DAYTONA_API_KEY is missing. Add Daytona credentials before importing repositories.');
+        throw new Error("DAYTONA_API_KEY is missing. Add Daytona credentials before importing repositories.");
       }
 
       // -----------------------------------------------------------------------
@@ -100,19 +103,16 @@ export const runImportPipeline = internalAction({
       // this repo BEFORE provisioning a sandbox. This avoids wasting resources
       // when the repo is not included in the installation's repo selection.
       // -----------------------------------------------------------------------
-      const installationId: number | null = await ctx.runQuery(
-        internal.github.getInstallationIdForOwner,
-        { ownerTokenIdentifier: importContext.ownerTokenIdentifier },
-      );
+      const installationId: number | null = await ctx.runQuery(internal.github.getInstallationIdForOwner, {
+        ownerTokenIdentifier: importContext.ownerTokenIdentifier,
+      });
 
       if (!installationId) {
-        throw new Error(
-          'No active GitHub App installation found. Please connect your GitHub account first.',
-        );
+        throw new Error("No active GitHub App installation found. Please connect your GitHub account first.");
       }
 
       // Parse owner/repo from sourceRepoFullName (format: "owner/repo")
-      const [repoOwner, repoName] = importContext.sourceRepoFullName.split('/');
+      const [repoOwner, repoName] = importContext.sourceRepoFullName.split("/");
       if (!repoOwner || !repoName) {
         throw new Error(`Invalid repository name: ${importContext.sourceRepoFullName}`);
       }
@@ -131,7 +131,7 @@ export const runImportPipeline = internalAction({
       }
 
       // Update the repository's visibility now that we know the actual value
-      const detectedVisibility = accessCheck.isPrivate ? 'private' as const : 'public' as const;
+      const detectedVisibility = accessCheck.isPrivate ? ("private" as const) : ("public" as const);
       await ctx.runMutation(internal.repositories.updateRepoVisibility, {
         repositoryId: importContext.repositoryId,
         visibility: detectedVisibility,
@@ -157,14 +157,14 @@ export const runImportPipeline = internalAction({
         importId: args.importId,
         repositoryId: importContext.repositoryId,
         ownerTokenIdentifier: importContext.ownerTokenIdentifier,
-        sourceAdapter: 'git_clone',
+        sourceAdapter: "git_clone",
       });
 
       const sandbox = await provisionSandbox({
         repositoryKey: importContext.sourceRepoFullName,
         repositoryId: importContext.repositoryId,
         accessMode: importContext.accessMode,
-        sourceAdapter: 'git_clone',
+        sourceAdapter: "git_clone",
       });
 
       await ctx.runMutation(internal.imports.attachSandboxRemoteInfo, {
@@ -185,14 +185,14 @@ export const runImportPipeline = internalAction({
 
       // Retrieve GitHub access token — required for private repos
       let githubToken: string | undefined;
-      if (detectedVisibility === 'private') {
+      if (detectedVisibility === "private") {
         githubToken = await getInstallationAccessToken(installationId);
       } else {
         try {
           githubToken = await getInstallationAccessToken(installationId);
         } catch (error) {
           console.warn(
-            '[import] GitHub token unavailable, falling back to unauthenticated:',
+            "[import] GitHub token unavailable, falling back to unauthenticated:",
             error instanceof Error ? error.message : error,
           );
         }
@@ -229,36 +229,36 @@ export const runImportPipeline = internalAction({
         branch: cloneResult.branch,
         artifacts: [
           {
-            kind: 'manifest' as const,
-            title: 'Repository Manifest',
+            kind: "manifest" as const,
+            title: "Repository Manifest",
             summary: manifest.summary,
             contentMarkdown: createManifestArtifactMarkdown(manifest),
-            source: 'heuristic' as const,
+            source: "heuristic" as const,
           },
           {
-            kind: 'readme_summary' as const,
-            title: 'README Summary',
+            kind: "readme_summary" as const,
+            title: "README Summary",
             summary: summarizeReadme(snapshot.readmeContent),
             contentMarkdown:
               snapshot.readmeContent && snapshot.readmePath
                 ? `# README Summary\n\nSource: \`${snapshot.readmePath}\`\n\n${snapshot.readmeContent.slice(0, 6000)}`
-                : '# README Summary\n\nNo README detected during import.',
-            source: 'heuristic' as const,
+                : "# README Summary\n\nNo README detected during import.",
+            source: "heuristic" as const,
           },
           {
-            kind: 'architecture_overview' as const,
-            title: 'Architecture Overview',
-            summary: 'Initial architecture map created from repository layout.',
+            kind: "architecture_overview" as const,
+            title: "Architecture Overview",
+            summary: "Initial architecture map created from repository layout.",
             contentMarkdown: createArchitectureArtifactMarkdown(manifest, {
               ...snapshot,
               files: fileRecords,
             }),
-            source: 'heuristic' as const,
+            source: "heuristic" as const,
           },
         ],
-      })) as { kind: 'ready' } | { kind: 'completed' } | { kind: 'cancelled' };
+      })) as { kind: "ready" } | { kind: "completed" } | { kind: "cancelled" };
 
-      if (headerResult.kind !== 'ready') {
+      if (headerResult.kind !== "ready") {
         return;
       }
 
@@ -267,9 +267,9 @@ export const runImportPipeline = internalAction({
           importId: args.importId,
           jobId: importContext.jobId,
           files: batch,
-        })) as { kind: 'ready' } | { kind: 'completed' } | { kind: 'cancelled' };
+        })) as { kind: "ready" } | { kind: "completed" } | { kind: "cancelled" };
 
-        if (fileBatchResult.kind !== 'ready') {
+        if (fileBatchResult.kind !== "ready") {
           return;
         }
       }
@@ -279,9 +279,9 @@ export const runImportPipeline = internalAction({
           importId: args.importId,
           jobId: importContext.jobId,
           chunks: batch,
-        })) as { kind: 'ready' } | { kind: 'completed' } | { kind: 'cancelled' };
+        })) as { kind: "ready" } | { kind: "completed" } | { kind: "cancelled" };
 
-        if (chunkBatchResult.kind !== 'ready') {
+        if (chunkBatchResult.kind !== "ready") {
           return;
         }
       }
@@ -298,10 +298,10 @@ export const runImportPipeline = internalAction({
         fileCount: fileRecords.length,
         summary: manifest.summary,
         readmeSummary: summarizeReadme(snapshot.readmeContent),
-        architectureSummary: 'Repository imported and indexed for architecture review.',
-      })) as { kind: 'completed' } | { kind: 'cancelled' };
+        architectureSummary: "Repository imported and indexed for architecture review.",
+      })) as { kind: "completed" } | { kind: "cancelled" };
 
-      if (persistResult.kind === 'cancelled') {
+      if (persistResult.kind === "cancelled") {
         return;
       }
 
@@ -310,45 +310,45 @@ export const runImportPipeline = internalAction({
       // and will auto-wake if Deep Path needs it later.
       try {
         await stopSandbox(sandbox.remoteId);
-        logInfo('import', 'sandbox_stopped_after_import', {
+        logInfo("import", "sandbox_stopped_after_import", {
           repositoryId: importContext.repositoryId,
           sandboxRemoteId: sandbox.remoteId,
         });
       } catch (stopError) {
         // Non-fatal: sandbox will auto-stop after the idle interval anyway.
-        logWarn('import', 'sandbox_stop_failed_after_import', {
+        logWarn("import", "sandbox_stop_failed_after_import", {
           repositoryId: importContext.repositoryId,
           sandboxRemoteId: sandbox.remoteId,
           error: stopError instanceof Error ? stopError.message : String(stopError),
         });
       }
     } catch (error) {
-      let errorMessage = error instanceof Error ? error.message : 'Unknown import error';
+      let errorMessage = error instanceof Error ? error.message : "Unknown import error";
 
       // Provide helpful error message for auth/access failures.
       // When a repo is not included in the GitHub App installation,
       // clone failures typically surface as "not found" (404) or permission denied.
       const lowerMsg = errorMessage.toLowerCase();
       const isAuthFailure =
-        lowerMsg.includes('not found') ||
-        lowerMsg.includes('authentication failed') ||
-        lowerMsg.includes('could not read from remote') ||
-        lowerMsg.includes('private') ||
-        lowerMsg.includes('401') ||
-        lowerMsg.includes('403') ||
-        lowerMsg.includes('404') ||
-        lowerMsg.includes('permission denied');
+        lowerMsg.includes("not found") ||
+        lowerMsg.includes("authentication failed") ||
+        lowerMsg.includes("could not read from remote") ||
+        lowerMsg.includes("private") ||
+        lowerMsg.includes("401") ||
+        lowerMsg.includes("403") ||
+        lowerMsg.includes("404") ||
+        lowerMsg.includes("permission denied");
 
       if (isAuthFailure) {
         errorMessage +=
-          '\n\nThis repository may not be accessible. Make sure it is included in your GitHub App installation. You can update your repo selection in GitHub Settings > Applications.';
+          "\n\nThis repository may not be accessible. Make sure it is included in your GitHub App installation. You can update your repo selection in GitHub Settings > Applications.";
       }
 
-      if (!importContext || importContext.kind !== 'ready') {
+      if (!importContext || importContext.kind !== "ready") {
         return;
       }
 
-      const errorId = logErrorWithId('import', 'run_import_pipeline_failed', error, {
+      const errorId = logErrorWithId("import", "run_import_pipeline_failed", error, {
         importId: args.importId,
         repositoryId: importContext.repositoryId,
         jobId: importContext.jobId,
@@ -371,15 +371,15 @@ export const runImportPipeline = internalAction({
 
 function summarizeReadme(readme?: string) {
   if (!readme) {
-    return 'No README was detected during import.';
+    return "No README was detected during import.";
   }
 
   return readme
-    .split('\n')
+    .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .slice(0, 4)
-    .join(' ')
+    .join(" ")
     .slice(0, 240);
 }
 

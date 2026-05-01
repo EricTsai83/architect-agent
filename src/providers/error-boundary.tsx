@@ -1,4 +1,4 @@
-import { Component, ReactNode } from 'react';
+import { Component, ReactNode } from "react";
 
 const isDevelopment = import.meta.env.DEV;
 
@@ -24,13 +24,12 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
     const errorMessage = normalizeErrorMessage(error);
     return {
       errorMessage,
-      isWorkosConfigError:
-        errorMessage.includes('@workos-inc/authkit-react') && errorMessage.includes('clientId'),
+      isWorkosConfigError: errorMessage.includes("@workos-inc/authkit-react") && errorMessage.includes("clientId"),
     };
   }
 
   componentDidCatch(error: unknown, errorInfo: { componentStack: string }) {
-    console.error('[ui] render failure', {
+    console.error("[ui] render failure", {
       error: normalizeErrorMessage(error),
       componentStack: errorInfo.componentStack,
     });
@@ -55,7 +54,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
                 </li>
               </ul>
               <p>
-                You can find <code>VITE_WORKOS_CLIENT_ID</code> in your WorkOS dashboard at{' '}
+                You can find <code>VITE_WORKOS_CLIENT_ID</code> in your WorkOS dashboard at{" "}
                 <a
                   className="underline hover:no-underline"
                   href="https://dashboard.workos.com"
@@ -64,9 +63,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
                 >
                   https://dashboard.workos.com
                 </a>
-                . <code>VITE_CONVEX_URL</code> comes from Convex, usually via{' '}
-                <code>npx convex dev</code> in local development or <code>bun run build:vercel</code>{' '}
-                during Vercel builds.
+                . <code>VITE_CONVEX_URL</code> comes from Convex, usually via <code>npx convex dev</code> in local
+                development or <code>bun run build:vercel</code> during Vercel builds.
               </p>
             </>
           ) : (

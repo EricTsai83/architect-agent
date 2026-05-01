@@ -1,22 +1,20 @@
-import { useAuth } from '@workos-inc/authkit-react';
-import { CaretUpDown, Moon, Sun, SignOut, UserCircle, Stack, ChartLineUp } from '@phosphor-icons/react';
-import { useTheme } from '@/providers/theme-provider';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from "@workos-inc/authkit-react";
+import { CaretUpDown, Moon, Sun, SignOut, UserCircle, Stack, ChartLineUp } from "@phosphor-icons/react";
+import { useTheme } from "@/providers/theme-provider";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from "@/components/ui/dropdown-menu";
 
 export function ProfileCard() {
   const { user, signIn, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
-  const isDark =
-    theme === 'dark' ||
-    (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   if (!user) {
     return (
@@ -38,8 +36,8 @@ export function ProfileCard() {
   }
 
   const displayName = user.firstName
-    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ''}`
-    : user.email ?? 'User';
+    ? `${user.firstName}${user.lastName ? ` ${user.lastName}` : ""}`
+    : (user.email ?? "User");
 
   const avatarUrl = user.profilePictureUrl;
 
@@ -60,9 +58,7 @@ export function ProfileCard() {
           </Avatar>
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-sm font-semibold">{displayName}</p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {user.email ?? 'Workspace shortcuts'}
-            </p>
+            <p className="truncate text-[11px] text-muted-foreground">{user.email ?? "Workspace shortcuts"}</p>
           </div>
           <CaretUpDown size={14} weight="bold" className="shrink-0 text-muted-foreground" />
         </Button>
@@ -78,9 +74,9 @@ export function ProfileCard() {
           <span>Usage</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setTheme(isDark ? 'light' : 'dark')}>
+        <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>
           {isDark ? <Sun weight="bold" /> : <Moon weight="bold" />}
-          <span>{isDark ? 'Light mode' : 'Dark mode'}</span>
+          <span>{isDark ? "Light mode" : "Dark mode"}</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
