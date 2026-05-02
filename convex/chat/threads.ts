@@ -8,6 +8,17 @@ import { ensureRepositoryWorkspace, findHomeWorkspaceId } from "../lib/workspace
 import { loadRecentMessages } from "./context";
 import { deleteMessageStreamState } from "./streamStore";
 
+/**
+ * Soft cap on the number of `messageStreamChunks` rows a single thread
+ * cleanup pass is allowed to delete. Each `deleteMessageStreamState` call
+ * fully drains its stream's chunks, so without a per-pass cap one mutation
+ * could try to fan out into thousands of deletes and exceed Convex's
+ * per-transaction read/write limits. When this budget is hit we re-enqueue
+ * `cleanupOrphanedMessageStreams` to continue on the next tick;
+ * `deleteMessageStreamState` is idempotent on already-drained streams.
+ */
+const MAX_STREAM_CHUNKS_PER_PASS = 1500;
+
 export const listThreads = query({
   args: {
     repositoryId: v.optional(v.id("repositories")),
@@ -180,7 +191,11 @@ export const setThreadRepository = mutation({
         ownerTokenIdentifier: identity.tokenIdentifier,
         name: repository.sourceRepoFullName,
       });
-      await ctx.db.patch(args.threadId, { repositoryId: args.repositoryId, workspaceId });
+      await ctx.db.patch(args.threadId, {
+        repositoryId: args.repositoryId,
+        workspaceId,
+        mode: getDefaultThreadMode(true),
+      });
       return { repositoryId: args.repositoryId, workspaceId };
     }
 
@@ -217,12 +232,25 @@ export const deleteThread = mutation({
       await ctx.db.delete(message._id);
     }
 
+    // Drain message streams in this thread, but cap total chunk-row deletions
+    // per invocation. Without a budget, one mutation could try to delete every
+    // chunk across every stream in the thread (e.g. 500 streams * a long
+    // uncompacted tail), which can blow past Convex's per-mutation
+    // read/write limits. Streams we don't get to are picked up by
+    // cleanupOrphanedMessageStreams on the follow-up scheduler tick.
     const streams = await ctx.db
       .query("messageStreams")
       .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .take(500);
+
+    let totalChunksProcessed = 0;
+    let streamBudgetExhausted = false;
     for (const stream of streams) {
-      await deleteMessageStreamState(ctx, stream._id);
+      if (totalChunksProcessed >= MAX_STREAM_CHUNKS_PER_PASS) {
+        streamBudgetExhausted = true;
+        break;
+      }
+      totalChunksProcessed += await deleteMessageStreamState(ctx, stream._id);
     }
 
     if (thread.repositoryId) {
@@ -239,7 +267,7 @@ export const deleteThread = mutation({
         threadId: args.threadId,
       });
     }
-    if (streams.length === 500) {
+    if (streamBudgetExhausted || streams.length === 500) {
       await ctx.scheduler.runAfter(0, internal.chat.threads.cleanupOrphanedMessageStreams, {
         threadId: args.threadId,
       });
@@ -276,10 +304,18 @@ export const cleanupOrphanedMessageStreams = internalMutation({
       .query("messageStreams")
       .withIndex("by_threadId", (q) => q.eq("threadId", args.threadId))
       .take(500);
+
+    let totalChunksProcessed = 0;
+    let streamBudgetExhausted = false;
     for (const stream of streams) {
-      await deleteMessageStreamState(ctx, stream._id);
+      if (totalChunksProcessed >= MAX_STREAM_CHUNKS_PER_PASS) {
+        streamBudgetExhausted = true;
+        break;
+      }
+      totalChunksProcessed += await deleteMessageStreamState(ctx, stream._id);
     }
-    if (streams.length === 500) {
+
+    if (streamBudgetExhausted || streams.length === 500) {
       await ctx.scheduler.runAfter(0, internal.chat.threads.cleanupOrphanedMessageStreams, {
         threadId: args.threadId,
       });

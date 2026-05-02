@@ -35,7 +35,9 @@ describe("chat reply context", () => {
         repositoryId,
         ownerTokenIdentifier,
         title: "Context thread",
-        mode: "discuss",
+        // sandbox mode is exercised here so we go through the artifact/chunk
+        // loading branches; `discuss` is now repo-context-free by design.
+        mode: "sandbox",
         lastMessageAt: Date.now(),
       });
 
@@ -220,7 +222,9 @@ describe("chat reply context", () => {
         repositoryId,
         ownerTokenIdentifier,
         title: "Query-aware thread",
-        mode: "discuss",
+        // sandbox mode preserves chunk loading so this test still exercises
+        // search-index ranking; `discuss` is repo-context-free now.
+        mode: "sandbox",
         lastMessageAt: Date.now(),
       });
 
@@ -332,7 +336,9 @@ describe("chat reply context", () => {
         ownerTokenIdentifier,
         role: "user",
         status: "completed",
-        mode: "discuss",
+        // sandbox mode keeps the chunk-loading code path live; the user
+        // message mode is what `getReplyContext` uses for `effectiveMode`.
+        mode: "sandbox",
         content: "How does auth work?",
       });
 
@@ -376,7 +382,8 @@ describe("chat reply context", () => {
         repositoryId,
         ownerTokenIdentifier,
         title: "Fallback thread",
-        mode: "discuss",
+        // sandbox mode keeps chunk loading active; `discuss` returns no chunks.
+        mode: "sandbox",
         lastMessageAt: Date.now(),
       });
 
@@ -437,7 +444,9 @@ describe("chat reply context", () => {
         ownerTokenIdentifier,
         role: "user",
         status: "completed",
-        mode: "discuss",
+        // sandbox mode preserves chunk loading; user message mode wins
+        // over thread.mode in `getReplyContext.effectiveMode`.
+        mode: "sandbox",
         content: "quaternion entanglement neutron lattice",
       });
 
@@ -711,5 +720,128 @@ describe("chat reply context", () => {
     expect(context.artifacts).toHaveLength(12);
     expect(context.artifacts[0]?.title).toBe("Architecture diagram 19");
     expect(context.artifacts[11]?.title).toBe("Architecture diagram 8");
+  });
+
+  test("discuss mode returns no repo context even when a repository is attached", async () => {
+    const ownerTokenIdentifier = "user|discuss-with-repo";
+    const t = convexTest(schema, modules);
+
+    const threadId = await t.run(async (ctx) => {
+      const repositoryId = await ctx.db.insert("repositories", {
+        ownerTokenIdentifier,
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/discuss-mode",
+        sourceRepoFullName: "acme/discuss-mode",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "discuss-mode",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+        fileCount: 0,
+        summary: "rich repository summary",
+        readmeSummary: "readme",
+        architectureSummary: "architecture",
+      });
+
+      const threadId = await ctx.db.insert("threads", {
+        repositoryId,
+        ownerTokenIdentifier,
+        title: "Discuss with repo",
+        // discuss is "no repo, no sandbox" by design — even with a
+        // repository attached the reply context must skip every
+        // repo-scoped lookup so this conversation stays training-only.
+        mode: "discuss",
+        lastMessageAt: Date.now(),
+      });
+
+      const importJobId = await ctx.db.insert("jobs", {
+        repositoryId,
+        ownerTokenIdentifier,
+        kind: "import",
+        status: "completed",
+        stage: "completed",
+        progress: 1,
+        costCategory: "indexing",
+        triggerSource: "user",
+      });
+      const importId = await ctx.db.insert("imports", {
+        repositoryId,
+        ownerTokenIdentifier,
+        sourceUrl: "https://github.com/acme/discuss-mode",
+        branch: "main",
+        adapterKind: "git_clone",
+        status: "completed",
+        jobId: importJobId,
+      });
+      const fileId = await ctx.db.insert("repoFiles", {
+        repositoryId,
+        ownerTokenIdentifier,
+        importId,
+        path: "src/engine.ts",
+        parentPath: "src",
+        fileType: "file",
+        extension: "ts",
+        language: "typescript",
+        sizeBytes: 128,
+        isEntryPoint: false,
+        isConfig: false,
+        isImportant: true,
+      });
+      await ctx.db.insert("repoChunks", {
+        repositoryId,
+        ownerTokenIdentifier,
+        importId,
+        fileId,
+        path: "src/engine.ts",
+        chunkIndex: 0,
+        startLine: 1,
+        endLine: 3,
+        chunkKind: "code",
+        summary: "engine internals",
+        content: 'export const engine = () => "hot path";',
+      });
+      await ctx.db.insert("artifacts", {
+        repositoryId,
+        threadId,
+        ownerTokenIdentifier,
+        kind: "architecture_diagram",
+        title: "Architecture diagram",
+        summary: "Module boundaries",
+        contentMarkdown: "graph TD\nA-->B",
+        source: "heuristic",
+        version: 1,
+      });
+      await ctx.db.insert("messages", {
+        repositoryId,
+        threadId,
+        ownerTokenIdentifier,
+        role: "user",
+        status: "completed",
+        mode: "discuss",
+        content: "Let's brainstorm.",
+      });
+
+      await ctx.db.patch(repositoryId, {
+        latestImportId: importId,
+        latestImportJobId: importJobId,
+      });
+
+      return threadId;
+    });
+
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
+
+    expect(context.artifacts).toHaveLength(0);
+    expect(context.chunks).toHaveLength(0);
+    expect(context.repositorySummary).toBeUndefined();
+    expect(context.readmeSummary).toBeUndefined();
+    expect(context.architectureSummary).toBeUndefined();
+    expect(context.sourceRepoFullName).toBeUndefined();
+    // Messages are still returned so the model can see the conversation.
+    expect(context.messages.map((message) => message.content)).toEqual(["Let's brainstorm."]);
   });
 });

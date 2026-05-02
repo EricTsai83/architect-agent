@@ -81,6 +81,7 @@ export const markAssistantReplyRunning = internalMutation({
 export const appendAssistantStreamChunk = internalMutation({
   args: {
     assistantMessageId: v.id("messages"),
+    jobId: v.id("jobs"),
     delta: v.string(),
   },
   handler: async (ctx, args) => {
@@ -100,6 +101,7 @@ export const appendAssistantStreamChunk = internalMutation({
       );
     }
 
+    const now = Date.now();
     await ctx.db.insert("messageStreamChunks", {
       streamId: stream._id,
       sequence: stream.nextSequence,
@@ -107,8 +109,24 @@ export const appendAssistantStreamChunk = internalMutation({
     });
     await ctx.db.patch(stream._id, {
       nextSequence: stream.nextSequence + 1,
-      lastAppendedAt: Date.now(),
+      lastAppendedAt: now,
     });
+
+    // Refresh job lease so long streams don't get marked stale by
+    // recoverStaleChatJob mid-flight. We piggy-back the previous
+    // `stream.lastAppendedAt` (which is updated in lockstep with the lease in
+    // markAssistantReplyRunning and on each successful append) as a free
+    // proxy for "when did we last refresh the lease?". If less than half a
+    // lease window has passed we skip the write — at the per-flush cadence
+    // (~once per STREAM_FLUSH_THRESHOLD chars) this saves one job patch per
+    // chunk for the typical sub-minute reply while still guaranteeing the
+    // lease is renewed well before it expires on long-running streams.
+    const leaseRefreshDeadline = now - Math.floor(CHAT_JOB_LEASE_MS / 2);
+    if (stream.lastAppendedAt <= leaseRefreshDeadline) {
+      await ctx.db.patch(args.jobId, {
+        leaseExpiresAt: now + CHAT_JOB_LEASE_MS,
+      });
+    }
 
     await compactMessageStreamTail(ctx, stream._id);
   },
@@ -125,39 +143,79 @@ export const finalizeAssistantReply = internalMutation({
     costUsd: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const message = await ctx.db.get(args.assistantMessageId);
-    if (!message) {
-      return;
-    }
-
-    const streamSnapshot = await loadMessageStreamSnapshot(ctx, args.assistantMessageId);
     const now = Date.now();
-    const finalContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta}`;
-    await ctx.db.patch(args.assistantMessageId, {
-      content: finalContent,
-      status: "completed",
-      errorMessage: undefined,
-      estimatedInputTokens: args.inputTokens,
-      estimatedOutputTokens: args.outputTokens,
-    });
-    await ctx.db.patch(args.threadId, {
-      lastAssistantMessageAt: now,
-      lastMessageAt: now,
-    });
-    await ctx.db.patch(args.jobId, {
-      status: "completed",
-      stage: "completed",
-      progress: 1,
-      completedAt: now,
-      outputSummary: "Assistant reply generated.",
-      estimatedInputTokens: args.inputTokens,
-      estimatedOutputTokens: args.outputTokens,
-      estimatedCostUsd: args.costUsd,
-      leaseExpiresAt: undefined,
-    });
+    const message = await ctx.db.get(args.assistantMessageId);
+    const streamSnapshot = await loadMessageStreamSnapshot(ctx, args.assistantMessageId);
 
-    if (streamSnapshot) {
-      await deleteMessageStreamState(ctx, streamSnapshot.stream._id);
+    try {
+      if (message) {
+        const finalContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta}`;
+        await ctx.db.patch(args.assistantMessageId, {
+          content: finalContent,
+          status: "completed",
+          errorMessage: undefined,
+          estimatedInputTokens: args.inputTokens,
+          estimatedOutputTokens: args.outputTokens,
+        });
+        // The thread may have been deleted while we were streaming. Patching a
+        // missing doc throws and would roll back the whole mutation (so the
+        // job lease and persisted stream state would never be cleared). Wrap
+        // it so the rest of the cleanup still runs.
+        try {
+          await ctx.db.patch(args.threadId, {
+            lastAssistantMessageAt: now,
+            lastMessageAt: now,
+          });
+        } catch (error) {
+          logWarn("chat", "finalize_thread_patch_failed", {
+            threadId: args.threadId,
+            jobId: args.jobId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      } else {
+        logWarn("chat", "finalize_assistant_message_missing", {
+          assistantMessageId: args.assistantMessageId,
+          jobId: args.jobId,
+        });
+      }
+
+      // Always release the job lease so the per-thread in-flight gate clears,
+      // even when the assistant message has been deleted (e.g. concurrent
+      // thread or repository deletion). If the message is gone we can't
+      // deliver the reply, so mark the job as failed instead of completed.
+      if (message) {
+        await ctx.db.patch(args.jobId, {
+          status: "completed",
+          stage: "completed",
+          progress: 1,
+          completedAt: now,
+          outputSummary: "Assistant reply generated.",
+          estimatedInputTokens: args.inputTokens,
+          estimatedOutputTokens: args.outputTokens,
+          estimatedCostUsd: args.costUsd,
+          leaseExpiresAt: undefined,
+        });
+      } else {
+        await ctx.db.patch(args.jobId, {
+          status: "failed",
+          stage: "failed",
+          progress: 1,
+          completedAt: now,
+          errorMessage: "Assistant message was deleted before the reply could be persisted.",
+          leaseExpiresAt: undefined,
+        });
+      }
+    } finally {
+      // Always remove persisted stream state on completion. Note: Convex
+      // mutations are transactional, so if any write above throws the
+      // transaction rolls back and this cleanup is reverted along with the
+      // rest of the writes (recoverStaleChatJob will retry from the lease).
+      // Keeping the cleanup in `finally` documents the intent and protects
+      // against future refactors that wrap individual writes in try/catch.
+      if (streamSnapshot) {
+        await deleteMessageStreamState(ctx, streamSnapshot.stream._id);
+      }
     }
   },
 });
@@ -173,30 +231,37 @@ export const failAssistantReply = internalMutation({
     const now = Date.now();
     const streamSnapshot = await loadMessageStreamSnapshot(ctx, args.assistantMessageId);
     const message = await ctx.db.get(args.assistantMessageId);
-    if (!message) {
+
+    try {
+      if (message) {
+        const streamedContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta ?? ""}`;
+        await ctx.db.patch(args.assistantMessageId, {
+          status: "failed",
+          errorMessage: args.errorMessage,
+          content: streamedContent || args.errorMessage,
+        });
+      } else {
+        logWarn("chat", "fail_assistant_message_missing", {
+          assistantMessageId: args.assistantMessageId,
+          jobId: args.jobId,
+        });
+      }
+
+      // Always fail the job and release its lease, regardless of whether the
+      // assistant message still exists. Otherwise the in-flight gate would
+      // stay engaged until the lease expires and recoverStaleChatJob fires.
+      await ctx.db.patch(args.jobId, {
+        status: "failed",
+        stage: "failed",
+        progress: 1,
+        completedAt: now,
+        errorMessage: args.errorMessage,
+        leaseExpiresAt: undefined,
+      });
+    } finally {
       if (streamSnapshot) {
         await deleteMessageStreamState(ctx, streamSnapshot.stream._id);
       }
-      return;
-    }
-
-    const streamedContent = `${streamSnapshot?.content ?? message.content}${args.finalDelta ?? ""}`;
-    await ctx.db.patch(args.assistantMessageId, {
-      status: "failed",
-      errorMessage: args.errorMessage,
-      content: streamedContent || args.errorMessage,
-    });
-    await ctx.db.patch(args.jobId, {
-      status: "failed",
-      stage: "failed",
-      progress: 1,
-      completedAt: now,
-      errorMessage: args.errorMessage,
-      leaseExpiresAt: undefined,
-    });
-
-    if (streamSnapshot) {
-      await deleteMessageStreamState(ctx, streamSnapshot.stream._id);
     }
   },
 });

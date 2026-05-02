@@ -18,7 +18,7 @@ export type ReplyContext = {
   sourceRepoFullName?: string;
   artifacts: Array<{ title: string; summary: string; contentMarkdown: string }>;
   chunks: Array<{ path: string; summary: string; content: string }>;
-  messages: Array<{ role: "user" | "assistant" | "system" | "tool"; content: string }>;
+  messages: Array<{ id: Id<"messages">; role: "user" | "assistant" | "system" | "tool"; content: string }>;
 };
 
 const DOCS_ARTIFACT_KINDS: Array<Doc<"artifacts">["kind"]> = [
@@ -136,7 +136,13 @@ export const getReplyContext = internalQuery({
     const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
     const effectiveMode = latestUserMessage?.mode ?? thread.mode;
 
-    if (!thread.repositoryId) {
+    // `discuss` mode is "no repo, no sandbox" by design (per the schema/resolver
+    // contract): even if the thread has a repositoryId attached, the user has
+    // explicitly asked for an unattached / training-only conversation, so we
+    // return the same shape as the repo-less branch and skip every
+    // repo-scoped lookup. This is also why `discuss` is grouped with the
+    // no-repo case here rather than with `docs`/`sandbox` below.
+    if (!thread.repositoryId || effectiveMode === "discuss") {
       return {
         ownerTokenIdentifier: thread.ownerTokenIdentifier,
         repositorySummary: undefined,
@@ -146,6 +152,7 @@ export const getReplyContext = internalQuery({
         artifacts: [],
         chunks: [],
         messages: messages.map((message) => ({
+          id: message._id,
           role: message.role,
           content: message.content,
         })),
@@ -178,6 +185,7 @@ export const getReplyContext = internalQuery({
     // Phase 4 rollout: `docs` mode is artifact-only retrieval. We intentionally
     // stop pulling indexed code chunks in this mode so knowledge sources stay
     // non-overlapping (`docs` => artifacts, `sandbox` => live/code-grounded).
+    // `discuss` is handled by the early return above.
     const chunks =
       effectiveMode === "docs"
         ? []
@@ -202,6 +210,7 @@ export const getReplyContext = internalQuery({
         content: chunk.content,
       })),
       messages: messages.map((message) => ({
+        id: message._id,
         role: message.role,
         content: message.content,
       })),

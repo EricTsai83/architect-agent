@@ -79,6 +79,32 @@ describe("chat thread defaults", () => {
     expect(thread?.repositoryId).toBe(repositoryId);
   });
 
+  test("setThreadRepository moves a repo-less thread out of discuss into the repo default mode", async () => {
+    const ownerTokenIdentifier = "user|chat-attach-mode";
+    const t = convexTest(schema, modules);
+    const repositoryId = await insertRepository(t, ownerTokenIdentifier);
+
+    // Start from a repo-less thread that's in `discuss` (the no-repo default).
+    const threadId = await t.run(async (ctx) => {
+      return await ctx.db.insert("threads", {
+        ownerTokenIdentifier,
+        title: "Free-form thread",
+        mode: "discuss",
+        lastMessageAt: Date.now(),
+      });
+    });
+
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+    await viewer.mutation(api.chat.threads.setThreadRepository, { threadId, repositoryId });
+
+    const thread = await t.run(async (ctx) => await ctx.db.get(threadId));
+    expect(thread?.repositoryId).toBe(repositoryId);
+    // Attaching a repo must lift the thread out of `discuss` and into the
+    // repo-default mode (currently `docs`), mirroring createThread so the
+    // persisted mode stays in lockstep with the resolver.
+    expect(thread?.mode).toBe("docs");
+  });
+
   test("createThread rejects mismatched workspace and repository ids", async () => {
     const ownerTokenIdentifier = "user|chat-workspace-mismatch";
     const t = convexTest(schema, modules);
