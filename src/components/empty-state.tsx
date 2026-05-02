@@ -22,39 +22,63 @@ export function EmptyState({
   isStartingConversation?: boolean;
 }) {
   return (
-    <div className="flex flex-1 animate-in flex-col items-center justify-center gap-6 p-10 text-center fade-in duration-300">
-      <Logo size={64} hero />
-      <div className="max-w-md">
-        <h1 className="text-2xl font-semibold tracking-tight">Home for design conversations</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Capture unscoped design notes, architecture questions, and ideas before they need a repository.
-        </p>
-      </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button
-          type="button"
-          variant="default"
-          size="default"
-          className="gap-2"
-          disabled={isStartingConversation}
-          onClick={onStartConversation}
-        >
-          <ChatCircleTextIcon size={14} weight="bold" />
-          {isStartingConversation ? "Starting…" : "Start a design conversation"}
-        </Button>
-        <ImportRepoDialog
-          onImported={onImported}
-          trigger={
-            <Button type="button" variant="outline" size="default" className="gap-2">
-              <GitBranchIcon size={14} weight="bold" />
-              Import repository
+    <div className="flex flex-1 animate-in items-center justify-center px-5 py-10 fade-in duration-300">
+      <div className="w-full max-w-3xl">
+        <div className="mx-auto mb-7 flex max-w-xl flex-col items-center text-center">
+          <Logo size={64} hero />
+          <div className="mt-5 border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Choose your starting point
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <section className="border border-border bg-card p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-foreground">
+                <ChatCircleTextIcon size={18} weight="bold" />
+              </div>
+              <div className="min-w-0 text-left">
+                <h2 className="text-base font-semibold tracking-tight">Start without a repository</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Best for loose ideas, system design tradeoffs, and questions that are not tied to code yet.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="default"
+              size="lg"
+              className="mt-5 w-full justify-center"
+              disabled={isStartingConversation}
+              onClick={onStartConversation}
+            >
+              {isStartingConversation ? "Starting..." : "Start design conversation"}
             </Button>
-          }
-        />
+          </section>
+
+          <section className="border border-border bg-card/80 p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-foreground">
+                <GitBranchIcon size={18} weight="bold" />
+              </div>
+              <div className="min-w-0 text-left">
+                <h2 className="text-base font-semibold tracking-tight">Import a repository</h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Best when answers should cite project context, inspect files, or use sandbox-backed analysis.
+                </p>
+              </div>
+            </div>
+            <ImportRepoDialog
+              onImported={onImported}
+              trigger={
+                <Button type="button" variant="outline" size="lg" className="mt-5 w-full justify-center">
+                  Import repository
+                </Button>
+              }
+            />
+          </section>
+        </div>
       </div>
-      <p className="max-w-md text-xs text-muted-foreground">
-        Importing a repository creates a dedicated workspace for grounded docs, sandbox, sync, and analysis tools.
-      </p>
     </div>
   );
 }
