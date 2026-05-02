@@ -55,6 +55,39 @@ describe("chat streaming lifecycle", () => {
     });
   });
 
+  test("appendAssistantStreamChunk refreshes the job lease once half the lease window has elapsed", async () => {
+    const ownerTokenIdentifier = "user|stream-lease-refresh";
+    const t = convexTest(schema, modules);
+    const { jobId, assistantMessageId } = await createStreamingFixture(
+      t,
+      ownerTokenIdentifier,
+      "stream-lease-refresh",
+    );
+
+    // First chunk: stream.lastAppendedAt was set at fixture creation time
+    // (now), so the threshold check sees a "recent refresh" and skips the
+    // job patch — saving a write per chunk on short replies.
+    const firstAppendAt = await t.run(async (ctx) => (await ctx.db.get(jobId))!.leaseExpiresAt!);
+    await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
+      assistantMessageId,
+      jobId,
+      delta: "first",
+    });
+    const afterFirstAppend = await t.run(async (ctx) => (await ctx.db.get(jobId))!.leaseExpiresAt!);
+    expect(afterFirstAppend).toBe(firstAppendAt);
+
+    // Advance past half the lease window. Now stream.lastAppendedAt is older
+    // than the threshold, so the next append must extend the lease.
+    vi.advanceTimersByTime(6 * 60_000);
+    await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
+      assistantMessageId,
+      jobId,
+      delta: "later",
+    });
+    const afterLateAppend = await t.run(async (ctx) => (await ctx.db.get(jobId))!.leaseExpiresAt!);
+    expect(afterLateAppend).toBeGreaterThan(afterFirstAppend);
+  });
+
   test("appendAssistantStreamChunk compacts the tail and finalizeAssistantReply writes once", async () => {
     const ownerTokenIdentifier = "user|stream-finalize";
     const t = convexTest(schema, modules);
@@ -70,6 +103,7 @@ describe("chat streaming lifecycle", () => {
       compactedParts.push(part);
       await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
         assistantMessageId,
+        jobId,
         delta: part,
       });
     }
@@ -129,6 +163,7 @@ describe("chat streaming lifecycle", () => {
 
     await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
       assistantMessageId,
+      jobId,
       delta: "partial ",
     });
 
@@ -158,7 +193,11 @@ describe("chat streaming lifecycle", () => {
   test("appendAssistantStreamChunk throws when the stream state is missing", async () => {
     const ownerTokenIdentifier = "user|stream-missing";
     const t = convexTest(schema, modules);
-    const { assistantMessageId, streamId } = await createStreamingFixture(t, ownerTokenIdentifier, "stream-missing");
+    const { jobId, assistantMessageId, streamId } = await createStreamingFixture(
+      t,
+      ownerTokenIdentifier,
+      "stream-missing",
+    );
 
     await t.run(async (ctx) => {
       await ctx.db.delete(streamId);
@@ -167,12 +206,13 @@ describe("chat streaming lifecycle", () => {
     await expect(
       t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
         assistantMessageId,
+        jobId,
         delta: "orphaned chunk",
       }),
     ).rejects.toThrow(/messageStreamChunks.*compactMessageStreamTail/);
   });
 
-  test("failAssistantReply still removes stream state when the assistant message is gone", async () => {
+  test("failAssistantReply still cleans up the job and stream when the assistant message is gone", async () => {
     const ownerTokenIdentifier = "user|stream-cleanup-without-message";
     const t = convexTest(schema, modules);
     const { jobId, assistantMessageId, streamId } = await createStreamingFixture(
@@ -183,6 +223,7 @@ describe("chat streaming lifecycle", () => {
 
     await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
       assistantMessageId,
+      jobId,
       delta: "partial ",
     });
 
@@ -206,7 +247,12 @@ describe("chat streaming lifecycle", () => {
         .take(20),
     }));
 
-    expect(failed.job?.status).toBe("running");
+    // The job must be released even when the assistant message is gone,
+    // otherwise the per-thread in-flight gate would stay engaged until
+    // recoverStaleChatJob fires.
+    expect(failed.job?.status).toBe("failed");
+    expect(failed.job?.errorMessage).toBe("stream failed after message delete");
+    expect(failed.job?.leaseExpiresAt).toBeUndefined();
     expect(failed.stream).toBeNull();
     expect(failed.tailChunks).toHaveLength(0);
   });

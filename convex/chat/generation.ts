@@ -31,8 +31,19 @@ export const generateAssistantReply = internalAction({
         threadId: args.threadId,
       })) as ReplyContext;
 
-      const latestUserMessage = [...replyContext.messages].reverse().find((message) => message.role === "user");
-      const userPrompt = latestUserMessage?.content ?? "Summarize this repository.";
+      // Bind the assistant reply to the exact queued user message rather than
+      // "the latest user message in this thread". If a second user message
+      // ever lands between queueing and generation, picking the latest one
+      // would cause this assistantMessageId to answer a different prompt
+      // than it was paired with at send time. If the queued user message has
+      // been deleted (or was filtered out of the context window), throw and
+      // let the outer catch run failAssistantReply once — this keeps the
+      // error path consistent with every other failure in this action.
+      const queuedUserMessage = replyContext.messages.find((message) => message.id === args.userMessageId);
+      if (!queuedUserMessage || queuedUserMessage.role !== "user") {
+        throw new Error("Queued user message not found in thread context for this assistant reply.");
+      }
+      const userPrompt = queuedUserMessage.content;
       const relevantChunks = selectRelevantChunks(replyContext.chunks, userPrompt);
 
       if (!process.env.OPENAI_API_KEY) {
@@ -58,6 +69,7 @@ export const generateAssistantReply = internalAction({
         if (pendingDelta.length >= STREAM_FLUSH_THRESHOLD) {
           await ctx.runMutation(internal.chat.streaming.appendAssistantStreamChunk, {
             assistantMessageId: args.assistantMessageId,
+            jobId: args.jobId,
             delta: pendingDelta,
           });
           pendingDelta = "";

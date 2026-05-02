@@ -109,7 +109,18 @@ export async function compactMessageStreamTail(ctx: MutationCtx, streamId: Id<"m
   }
 }
 
-export async function deleteMessageStreamState(ctx: MutationCtx, streamId: Id<"messageStreams">) {
+/**
+ * Fully drain a stream's chunks and delete its header. Returns the number of
+ * chunk rows actually deleted so callers can budget across multiple streams
+ * without overflowing a single mutation's read/write limits. This function is
+ * idempotent: calling it again on an already-deleted stream is a no-op (the
+ * `ctx.db.delete(streamId)` would throw, so we guard it).
+ */
+export async function deleteMessageStreamState(
+  ctx: MutationCtx,
+  streamId: Id<"messageStreams">,
+): Promise<number> {
+  let drainedCount = 0;
   while (true) {
     const chunks = await ctx.db
       .query("messageStreamChunks")
@@ -118,10 +129,15 @@ export async function deleteMessageStreamState(ctx: MutationCtx, streamId: Id<"m
     for (const chunk of chunks) {
       await ctx.db.delete(chunk._id);
     }
+    drainedCount += chunks.length;
     if (chunks.length < CASCADE_BATCH_SIZE) {
       break;
     }
   }
 
-  await ctx.db.delete(streamId);
+  const stream = await ctx.db.get(streamId);
+  if (stream) {
+    await ctx.db.delete(streamId);
+  }
+  return drainedCount;
 }
