@@ -49,13 +49,7 @@ export function ProfileCard() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-8 shrink-0 p-0"
-          aria-label={displayName}
-        >
+        <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 p-0" aria-label={displayName}>
           <Avatar className="h-8 w-8 shrink-0 rounded-md">
             <AvatarImage src={avatarUrl ?? undefined} alt={displayName} className="rounded-md" />
             <AvatarFallback className="rounded-md bg-muted text-xs font-semibold uppercase">

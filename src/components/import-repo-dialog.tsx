@@ -130,9 +130,7 @@ function RepoRow({
     >
       <Avatar className="shrink-0">
         <AvatarImage src={repo.ownerAvatarUrl} alt="" />
-        <AvatarFallback className="text-xs font-semibold">
-          {ownerInitial}
-        </AvatarFallback>
+        <AvatarFallback className="text-xs font-semibold">{ownerInitial}</AvatarFallback>
       </Avatar>
 
       {/* Repo name + metadata */}

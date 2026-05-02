@@ -92,7 +92,10 @@ export function ImportStatusBanner({
       <Progress
         value={progressValue}
         aria-valuenow={hasRealProgress ? progressValue : undefined}
-        className={cn("h-0.5 bg-border/30", !hasRealProgress && "[&_[data-slot=progress-indicator]]:animate-indeterminate")}
+        className={cn(
+          "h-0.5 bg-border/30",
+          !hasRealProgress && "[&_[data-slot=progress-indicator]]:animate-indeterminate",
+        )}
       />
     </div>
   );
