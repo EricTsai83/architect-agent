@@ -387,12 +387,18 @@ function EmptyNoRepoHint({
 }) {
   const setThreadRepository = useMutation(api.chat.setThreadRepository);
   const [isAttaching, setIsAttaching] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
 
   const handleAttachRepo = async (repoId: RepositoryId) => {
     if (!threadId) return;
     setIsAttaching(true);
+    setAttachError(null);
     try {
       await setThreadRepository({ threadId, repositoryId: repoId });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to attach repository";
+      setAttachError(message);
+      console.error("Error attaching repository:", err);
     } finally {
       setIsAttaching(false);
     }
@@ -401,6 +407,17 @@ function EmptyNoRepoHint({
   return (
     <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
       <div className="flex flex-col items-center text-center">
+        {attachError ? (
+          <div className="mb-4 w-full max-w-xs">
+            <AppNotice
+              title="Failed to attach repository"
+              message={attachError}
+              tone="error"
+              onAction={() => setAttachError(null)}
+              actionLabel="Dismiss"
+            />
+          </div>
+        ) : null}
         <div className="relative mb-1 inline-grid place-items-center">
           <pre
             aria-hidden="true"

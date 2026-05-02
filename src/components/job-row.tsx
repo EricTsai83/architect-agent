@@ -4,9 +4,9 @@ import type { Doc } from "../../convex/_generated/dataModel";
  * Minimal job row — status dot + text. No progress bar.
  */
 export function JobRow({ job }: { job: Doc<"jobs"> }) {
-  const isError = job.status === "error" || job.status === "failed";
+  const isError = job.status === "failed";
   const isRunning = job.status === "running" || job.status === "queued";
-  const isComplete = job.status === "completed" || job.status === "success";
+  const isComplete = job.status === "completed";
 
   const dotColor = isError
     ? "bg-red-500"
