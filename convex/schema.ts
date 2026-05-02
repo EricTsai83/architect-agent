@@ -336,7 +336,6 @@ export default defineSchema({
     .index("by_repositoryId_and_path", ["repositoryId", "path"])
     .index("by_fileId_and_chunkIndex", ["fileId", "chunkIndex"])
     .index("by_importId_and_path_and_chunkIndex", ["importId", "path", "chunkIndex"])
-    .index("by_repositoryId_and_symbolName", ["repositoryId", "symbolName"])
     .searchIndex("search_summary", {
       searchField: "summary",
       filterFields: ["importId"],
@@ -431,5 +430,7 @@ export default defineSchema({
     createdAt: v.number(),
     expiresAt: v.number(),
     consumed: v.boolean(),
-  }).index("by_state", ["state"]),
+  })
+    .index("by_state", ["state"])
+    .index("by_expiresAt", ["expiresAt"]),
 });

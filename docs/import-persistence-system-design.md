@@ -10,7 +10,7 @@ An import produces three durable outputs:
 
 - `repoFiles`
 - `repoChunks`
-- `analysisArtifacts`
+- `artifacts`
 
 It also needs to update the repository's published snapshot metadata, including:
 

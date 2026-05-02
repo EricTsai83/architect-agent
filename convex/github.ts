@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { requireViewerIdentity } from "./lib/auth";
 
 // ---------------------------------------------------------------------------
@@ -106,6 +107,34 @@ export const consumeOAuthState = internalMutation({
       ownerTokenIdentifier: stateDoc.ownerTokenIdentifier,
       returnTo: stateDoc.returnTo ?? null,
     };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Internal mutation: clean up expired OAuth states
+// ---------------------------------------------------------------------------
+
+const OAUTH_CLEANUP_BATCH_SIZE = 50;
+
+export const cleanupExpiredOAuthStates = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expired = await ctx.db
+      .query("githubOAuthStates")
+      .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
+      .take(OAUTH_CLEANUP_BATCH_SIZE);
+
+    for (const doc of expired) {
+      await ctx.db.delete(doc._id);
+    }
+
+    // If we hit the batch limit, schedule another run to continue.
+    if (expired.length >= OAUTH_CLEANUP_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(0, internal.github.cleanupExpiredOAuthStates, {});
+    }
+
+    return { deleted: expired.length };
   },
 });
 

@@ -236,7 +236,7 @@ export const listThreads = query({
     if (args.workspaceId) {
       const workspace = await ctx.db.get(args.workspaceId);
       if (!workspace || workspace.ownerTokenIdentifier !== identity.tokenIdentifier) {
-        throw new Error("Workspace not found.");
+        return [];
       }
       return await ctx.db
         .query("threads")

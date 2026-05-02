@@ -15,7 +15,7 @@ Both are repository-centered, but they depend on different data sources and exec
 | Capability               | Quick chat                                           | Deep analysis                               |
 | ------------------------ | ---------------------------------------------------- | ------------------------------------------- |
 | Main entry point         | `chat.sendMessage`                                   | `analysis.requestDeepAnalysis`              |
-| Primary data source      | `analysisArtifacts` + `repoChunks` + recent messages | live sandbox                                |
+| Primary data source      | `artifacts` + `repoChunks` + recent messages | live sandbox                                |
 | Execution location       | Convex action                                        | Convex Node action + Daytona                |
 | UI presentation          | stable history + active stream merge                 | a new deep-analysis artifact plus job state |
 | Availability requirement | repository has completed import                      | repository has a usable sandbox             |
@@ -228,7 +228,7 @@ This inspection is not a large direct LLM analysis over the whole repository. It
 
 The analysis result is ultimately written as:
 
-- `analysisArtifacts.kind = deep_analysis`
+- `artifacts.kind = deep_analysis`
 - `source = sandbox`
 
 That means deep analysis output does not exist only at execution time. It becomes reusable repository knowledge for later flows.
