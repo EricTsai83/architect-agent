@@ -21,4 +21,9 @@ crons.interval(
   {},
 );
 
+// Purge expired GitHub OAuth CSRF states every 12 hours.
+// These have a 10-minute TTL at creation but are never deleted, so without
+// this sweep they accumulate indefinitely.
+crons.interval("cleanup expired github oauth states", { hours: 12 }, internal.github.cleanupExpiredOAuthStates, {});
+
 export default crons;

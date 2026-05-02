@@ -43,6 +43,7 @@ import type * as ops from "../ops.js";
 import type * as opsNode from "../opsNode.js";
 import type * as repositories from "../repositories.js";
 import type * as threadContext from "../threadContext.js";
+import type * as workspaces from "../workspaces.js";
 
 import type {
   ApiFromModules,
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   opsNode: typeof opsNode;
   repositories: typeof repositories;
   threadContext: typeof threadContext;
+  workspaces: typeof workspaces;
 }>;
 
 /**

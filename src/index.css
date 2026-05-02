@@ -879,7 +879,7 @@
   }
 
   .animate-message-rail {
-    animation: message-rail 0.55s cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: message-rail 1.5s cubic-bezier(0.32, 0.72, 0, 1) both;
     transform-origin: top;
   }
 

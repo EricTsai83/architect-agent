@@ -1,6 +1,7 @@
 import type { Id } from "../../convex/_generated/dataModel";
 import type { ChatMode } from "../../convex/chatModeResolver";
 
+export type WorkspaceId = Id<"workspaces">;
 export type RepositoryId = Id<"repositories">;
 export type ThreadId = Id<"threads">;
 export type MessageId = Id<"messages">;

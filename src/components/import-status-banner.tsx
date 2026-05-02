@@ -77,9 +77,7 @@ export function ImportStatusBanner({
       <div className="flex items-center gap-2 px-4 py-1.5 md:px-6">
         <p className="min-w-0 flex-1 text-xs text-muted-foreground">{stageLabel(stage)}</p>
         {hasRealProgress ? (
-          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-            {Math.round(progress * 100)}%
-          </span>
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{Math.round(progress * 100)}%</span>
         ) : null}
       </div>
 

@@ -1,50 +1,33 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
-import {
-  CaretDownIcon,
-  ChatCircleIcon,
-  FolderIcon,
-  GlobeIcon,
-  LockIcon,
-  PlusIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+import { ChatCircleIcon, GlobeIcon, LockIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import { ProfileCard } from "@/components/profile-card";
+import { WorkspaceSelector } from "@/components/workspace-switcher";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton } from "@/components/ui/sidebar";
 import { Logo } from "@/components/logo";
-import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import { useAsyncCallback } from "@/hooks/use-async-callback";
-import { useLocalStorageBoolean } from "@/hooks/use-persisted-state";
 import { toUserErrorMessage } from "@/lib/errors";
-import { cn } from "@/lib/utils";
-import type { RepositoryId, ThreadId } from "@/lib/types";
+import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
 /**
- * Thread-first sidebar (PRD #19).
+ * Thread-first sidebar with workspace switcher.
  *
  * Layout, top to bottom:
  *
  *   1. Header — logo + product name. Branding is "Systify".
- *   2. "+ New design conversation" CTA — the primary action. Creates a thread
- *      with no repository attached so the user can start an architectural
- *      discussion before importing any code (US 1, US 10).
- *   3. Threads section — every thread the user owns, sorted by recency. Each
- *      row shows an attached-repo badge (or a "general" badge when none),
- *      satisfying US 5. The list is owner-scoped, not repo-filtered, which is
- *      the structural reversal at the heart of this PRD.
- *   4. Repositories section — collapsible, secondary. Foregrounds threads
- *      while still keeping repo import / selection one click away (US 6,
- *      US 7).
- *   5. Footer — profile card.
+ *   2. "+ New thread" CTA — creates a thread scoped to the active workspace.
+ *   3. Threads section — threads belonging to the active workspace, sorted by
+ *      recency.
+ *   4. Footer — profile card + workspace switcher dropdown side-by-side.
  */
 export function AppSidebar({
   repositories,
-  selectedRepositoryId,
-  onSelectRepository,
+  workspaces,
+  activeWorkspaceId,
+  onSwitchWorkspace,
   selectedThreadId,
   onSelectThread,
   onDeleteThread,
@@ -52,16 +35,22 @@ export function AppSidebar({
   onError,
 }: {
   repositories: Doc<"repositories">[] | undefined;
-  selectedRepositoryId: RepositoryId | null;
-  onSelectRepository: (id: RepositoryId) => void;
+  workspaces: Doc<"workspaces">[] | undefined;
+  activeWorkspaceId: WorkspaceId | null;
+  onSwitchWorkspace: (id: WorkspaceId) => void;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
   onError: (message: string | null) => void;
 }) {
-  const threads = useQuery(api.chat.listThreads, {});
+  const threads = useQuery(api.chat.listThreads, activeWorkspaceId ? { workspaceId: activeWorkspaceId } : {});
   const createThreadMutation = useMutation(api.chat.createThread);
+
+  const activeWorkspace = useMemo(
+    () => workspaces?.find((ws) => ws._id === activeWorkspaceId) ?? null,
+    [workspaces, activeWorkspaceId],
+  );
 
   // Map for O(1) repo lookup when rendering thread badges. Built only when
   // either side has loaded so we never show stale/empty data on the badge.
@@ -77,14 +66,14 @@ export function AppSidebar({
     useCallback(async () => {
       onError(null);
       try {
-        // No repositoryId: let the backend choose the default repo-less mode so
-        // the sidebar stays in lockstep with `createThread`'s source of truth.
-        const threadId = await createThreadMutation({});
+        const threadId = await createThreadMutation({
+          workspaceId: activeWorkspaceId ?? undefined,
+        });
         onSelectThread(threadId);
       } catch (error) {
         onError(toUserErrorMessage(error, "Failed to start a conversation."));
       }
-    }, [createThreadMutation, onError, onSelectThread]),
+    }, [createThreadMutation, onError, onSelectThread, activeWorkspaceId]),
   );
 
   return (
@@ -97,6 +86,7 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
 
+      {/* New thread button */}
       <div className="border-b border-border px-3 py-2">
         <Button
           type="button"
@@ -107,7 +97,7 @@ export function AppSidebar({
           onClick={() => void handleCreateThread()}
         >
           <PlusIcon size={13} weight="bold" />
-          {isCreatingThread ? "Creating…" : "New design conversation"}
+          {isCreatingThread ? "Creating..." : "New thread"}
         </Button>
       </div>
 
@@ -118,26 +108,28 @@ export function AppSidebar({
           selectedThreadId={selectedThreadId}
           onSelectThread={onSelectThread}
           onDeleteThread={onDeleteThread}
-        />
-
-        <RepositoriesSection
-          repositories={repositories}
-          threadCount={threads?.length}
-          selectedRepositoryId={selectedRepositoryId}
-          onSelectRepository={onSelectRepository}
-          onImported={onImported}
+          showRepoBadge={!activeWorkspace?.repositoryId}
         />
       </SidebarContent>
 
       <SidebarFooter className="px-3 py-2">
-        <ProfileCard />
+        <div className="flex items-center gap-2">
+          <ProfileCard />
+          <WorkspaceSelector
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            onSwitchWorkspace={onSwitchWorkspace}
+            repositories={repositories}
+            onImported={onImported}
+          />
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Threads section — primary navigation. Owner-scoped, not repo-filtered.
+// Threads section — primary navigation. Scoped to the active workspace.
 // ---------------------------------------------------------------------------
 
 function ThreadsSection({
@@ -146,12 +138,14 @@ function ThreadsSection({
   selectedThreadId,
   onSelectThread,
   onDeleteThread,
+  showRepoBadge,
 }: {
   threads: Doc<"threads">[] | undefined;
   repositoriesById: Map<RepositoryId, Doc<"repositories">>;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
+  showRepoBadge: boolean;
 }) {
   const previousThreadCountRef = useRef<number | null>(null);
   const liveRegionRef = useRef<HTMLSpanElement | null>(null);
@@ -199,6 +193,7 @@ function ThreadsSection({
           selectedThreadId={selectedThreadId}
           onSelectThread={onSelectThread}
           onDeleteThread={onDeleteThread}
+          showRepoBadge={showRepoBadge}
         />
       )}
     </div>
@@ -211,12 +206,14 @@ const ThreadsList = memo(function ThreadsList({
   selectedThreadId,
   onSelectThread,
   onDeleteThread,
+  showRepoBadge,
 }: {
   threads: Doc<"threads">[];
   repositoriesById: Map<RepositoryId, Doc<"repositories">>;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
+  showRepoBadge: boolean;
 }) {
   return (
     <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-300">
@@ -233,7 +230,7 @@ const ThreadsList = memo(function ThreadsList({
               <ChatCircleIcon size={14} weight={isSelected ? "fill" : "regular"} className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium">{thread.title}</p>
-                <ThreadRepoBadge repository={repository} />
+                {showRepoBadge && <ThreadRepoBadge repository={repository} />}
               </div>
             </SidebarMenuButton>
             <Button
@@ -254,10 +251,8 @@ const ThreadsList = memo(function ThreadsList({
 });
 
 /**
- * Per-thread repo indicator. PRD US 5 explicitly asks the row to show whether
- * the thread is grounded; we render either the repo's short name or an
- * unobtrusive "general" pill so the user can scan the list without opening
- * each thread to remember its grounding.
+ * Per-thread repo indicator. Only shown in workspaces without a bound repo
+ * (e.g. "General") where threads might be attached to different repos.
  */
 function ThreadRepoBadge({ repository }: { repository: Doc<"repositories"> | undefined }) {
   if (!repository) {
@@ -269,84 +264,5 @@ function ThreadRepoBadge({ repository }: { repository: Doc<"repositories"> | und
       <Icon size={9} weight="bold" className="shrink-0" />
       <span className="truncate">{repository.sourceRepoFullName}</span>
     </p>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Repositories section — secondary, collapsible.
-// ---------------------------------------------------------------------------
-
-function RepositoriesSection({
-  repositories,
-  threadCount,
-  selectedRepositoryId,
-  onSelectRepository,
-  onImported,
-}: {
-  repositories: Doc<"repositories">[] | undefined;
-  threadCount: number | undefined;
-  selectedRepositoryId: RepositoryId | null;
-  onSelectRepository: (id: RepositoryId) => void;
-  onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
-}) {
-  const defaultOpen = threadCount === undefined ? true : threadCount <= 3;
-  const [open, setOpen] = useLocalStorageBoolean("systify.sidebar.reposOpen", defaultOpen);
-  const count = repositories?.length;
-
-  return (
-    <div className="border-t border-border">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="flex items-center justify-between px-3 py-2">
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-auto flex-1 justify-start gap-1.5 px-0 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <CaretDownIcon
-                size={11}
-                weight="bold"
-                className={cn("transition-transform", open ? "rotate-0" : "-rotate-90")}
-              />
-              <FolderIcon size={11} weight="bold" />
-              <span>Repositories</span>
-              {typeof count === "number" ? (
-                <span className="ml-1 text-[10px] font-medium text-muted-foreground/70">{count}</span>
-              ) : null}
-            </Button>
-          </CollapsibleTrigger>
-          <ImportRepoDialog onImported={onImported} />
-        </div>
-
-        <CollapsibleContent>
-          <div className="flex flex-col gap-1 px-3 pb-3">
-            {repositories === undefined ? null : repositories.length === 0 ? (
-              <p className="px-1 pb-2 text-xs text-muted-foreground">Import a repository to ground a thread.</p>
-            ) : (
-              repositories.map((repository) => (
-                <SidebarMenuButton
-                  key={repository._id}
-                  selected={selectedRepositoryId === repository._id}
-                  onClick={() => onSelectRepository(repository._id)}
-                >
-                  {repository.visibility === "private" ? (
-                    <LockIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
-                  ) : (
-                    <GlobeIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
-                  )}
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{repository.sourceRepoFullName}</p>
-                  {repository.latestRemoteSha &&
-                    repository.lastSyncedCommitSha &&
-                    repository.latestRemoteSha !== repository.lastSyncedCommitSha && (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="New commits available" />
-                    )}
-                </SidebarMenuButton>
-              ))
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
   );
 }

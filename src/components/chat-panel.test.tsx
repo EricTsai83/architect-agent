@@ -7,6 +7,22 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { ChatPanel } from "./chat-panel";
 import type { MessageId, ThreadId } from "@/lib/types";
 
+vi.mock("convex/react", () => ({
+  useMutation: vi.fn(() => vi.fn()),
+}));
+
+vi.mock("@/components/import-repo-dialog", () => ({
+  ImportRepoDialog: () => <div>import repo</div>,
+}));
+
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuSeparator: () => <div />,
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 vi.mock("@/components/app-notice", () => ({
   AppNotice: ({ title, message }: { title: string; message: string }) => (
     <div>

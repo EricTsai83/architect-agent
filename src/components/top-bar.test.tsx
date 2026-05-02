@@ -130,4 +130,3 @@ describe("TopBar attach repo chip behavior", () => {
     expect(screen.getByTestId("attach-repo-menu")).toHaveTextContent("octocat/hello-world");
   });
 });
-

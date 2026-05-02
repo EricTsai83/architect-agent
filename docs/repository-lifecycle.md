@@ -115,7 +115,7 @@ The data generated from the snapshot falls into three main categories:
 
 - `repoFiles`
 - `repoChunks`
-- `analysisArtifacts`
+- `artifacts`
 
 Artifacts currently include at least:
 
@@ -222,7 +222,7 @@ After that, `cascadeDeleteRepository` removes data in batches:
 
 - `messages`
 - `threads`
-- `analysisArtifacts`
+- `artifacts`
 - `repoChunks`
 - `repoFiles`
 - `imports`

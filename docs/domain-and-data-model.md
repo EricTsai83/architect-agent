@@ -20,7 +20,7 @@ flowchart TD
   Import[imports]
   Sandbox[sandboxes]
   Job[jobs]
-  Artifact[analysisArtifacts]
+  Artifact[artifacts]
   RepoFile[repoFiles]
   RepoChunk[repoChunks]
   Thread[threads]
@@ -112,17 +112,24 @@ Each job carries:
 
 Because of this, the UI does not need to know the internal implementation of every background flow. It can render progress and result summaries directly from the job list.
 
-### `analysisArtifacts`
+### `artifacts`
 
-`analysisArtifacts` stores outputs with long-term value for a repository rather than temporary in-flight execution data. Current artifact kinds include:
+`artifacts` stores outputs with long-term value for a repository rather than temporary in-flight execution data. Current artifact kinds include:
 
 - `manifest`
 - `readme_summary`
-- `architecture`
+- `architecture_overview`
+- `architecture_diagram`
 - `entrypoints`
 - `dependency_overview`
 - `deep_analysis`
 - `risk_report`
+- `adr`
+- `failure_mode_analysis`
+- `trade_off_matrix`
+- `migration_plan`
+- `capacity_estimate`
+- `design_review`
 
 This table plays two roles:
 
@@ -240,7 +247,7 @@ The current data model separates three different responsibilities:
 
 - long-lived product entities: `repositories`, `threads`
 - process tracking: `imports`, `jobs`, `messages`
-- reusable knowledge assets: `analysisArtifacts`, `repoFiles`, `repoChunks`
+- reusable knowledge assets: `artifacts`, `repoFiles`, `repoChunks`
 
 This split allows the UI, background workflows, and analysis features to share the same source of data without having to share the same update cadence.
 
@@ -250,5 +257,5 @@ This split allows the UI, background workflows, and analysis features to share t
 - The workflow is still assembled mostly through status fields and the scheduler rather than an explicit domain-event model.
 - `jobs` provides a unified tracking layer that simplifies the UI, but the details of each job kind still require reading the implementation.
 - `jobs.kind = 'index'` is currently a reserved enum value; the codebase does not insert jobs with `kind: 'index'`, and indexing still happens inside the import pipeline.
-- `analysisArtifacts.version` is currently always inserted as `1`, so artifact version management is not implemented yet.
+- `artifacts.version` is currently always inserted as `1`, so artifact version management is not implemented yet.
 

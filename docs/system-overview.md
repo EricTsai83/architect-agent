@@ -97,7 +97,7 @@ That means Convex simultaneously serves as the application database, application
   - clone the repository
   - scan files and important content
   - generate manifest, README, and architecture artifacts
-  - write results back into `repoFiles`, `repoChunks`, and `analysisArtifacts`
+  - write results back into `repoFiles`, `repoChunks`, and `artifacts`
 
 ### 3. Chat and analysis
 

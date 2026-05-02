@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -11,7 +11,6 @@ import { TopBar } from "@/components/top-bar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { AppNotice } from "@/components/app-notice";
-import { ImportStatusBanner } from "@/components/import-status-banner";
 import { ChatPanel } from "@/components/chat-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -20,7 +19,7 @@ import { useCheckForUpdates } from "@/hooks/use-check-for-updates";
 import { useLocalStorageBoolean } from "@/hooks/use-persisted-state";
 import { useRepositoryActions } from "@/hooks/use-repository-actions";
 import { useThreadCapabilities } from "@/hooks/use-thread-capabilities";
-import type { RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
+import type { RepositoryId, ThreadId, WorkspaceId, ChatMode, SandboxModeStatus } from "@/lib/types";
 import { toUserErrorMessage } from "@/lib/errors";
 
 type RepositoryWorkspaceStatus = "initializing" | "no-repo" | "ready";
@@ -59,6 +58,68 @@ export function RepositoryShell({
   const repositories = useQuery(api.repositories.listRepositories);
   const createThreadMutation = useMutation(api.chat.createThread);
 
+  // -------------------------------------------------------------------------
+  // Workspace state — persisted in localStorage for cross-session continuity.
+  // -------------------------------------------------------------------------
+  const workspaces = useQuery(api.workspaces.listWorkspaces);
+  const initializeWorkspaces = useMutation(api.workspaces.initializeWorkspaces);
+  const touchWorkspace = useMutation(api.workspaces.touchWorkspace);
+  const initializationAttemptedRef = useRef(false);
+
+  // Persist active workspace in localStorage.
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId | null>(() => {
+    try {
+      const stored = localStorage.getItem("systify.activeWorkspaceId");
+      return stored ? (stored as WorkspaceId) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Sync to localStorage whenever it changes.
+  useEffect(() => {
+    try {
+      if (activeWorkspaceId) {
+        localStorage.setItem("systify.activeWorkspaceId", activeWorkspaceId);
+      } else {
+        localStorage.removeItem("systify.activeWorkspaceId");
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [activeWorkspaceId]);
+
+  // Auto-initialize the default workspace on first load if none exist.
+  useEffect(() => {
+    if (workspaces === undefined || initializationAttemptedRef.current) return;
+    if (workspaces.length === 0) {
+      initializationAttemptedRef.current = true;
+      void initializeWorkspaces({});
+    }
+  }, [workspaces, initializeWorkspaces]);
+
+  // Auto-select the most recent workspace if none is active or the active one
+  // no longer exists (e.g. deleted).
+  useEffect(() => {
+    if (!workspaces || workspaces.length === 0) return;
+    const activeExists = workspaces.some((ws) => ws._id === activeWorkspaceId);
+    if (!activeExists && activeWorkspaceId !== workspaces[0]._id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setActiveWorkspaceId(workspaces[0]._id);
+    }
+  }, [workspaces, activeWorkspaceId]);
+
+  const handleSwitchWorkspace = useCallback(
+    (workspaceId: WorkspaceId) => {
+      setActiveWorkspaceId(workspaceId);
+      void touchWorkspace({ workspaceId }).catch(() => {});
+      // Navigate to /chat so the redirect-to-most-recent-thread logic kicks in
+      // for the new workspace.
+      void navigate("/chat");
+    },
+    [navigate, touchWorkspace],
+  );
+
   // useThreadCapabilities is the canonical bridge between the resolver-side
   // ChatModeResolver / ThreadContextResolver and the UI's mode selector.
   // It also forwards the attached repository summary, so we do not need a
@@ -66,9 +127,15 @@ export function RepositoryShell({
   const capabilities = useThreadCapabilities(urlThreadId);
 
   // Loaded only on the no-selection landing (`/chat`) so we can redirect to
-  // the most recent thread when one exists. The query is owner-scoped via
-  // chat.listThreads's no-arg branch added in Phase 1.
-  const ownerThreads = useQuery(api.chat.listThreads, urlThreadId === null && urlRepositoryId === null ? {} : "skip");
+  // the most recent thread when one exists. Workspace-scoped when one is active.
+  const ownerThreads = useQuery(
+    api.chat.listThreads,
+    urlThreadId === null && urlRepositoryId === null
+      ? activeWorkspaceId
+        ? { workspaceId: activeWorkspaceId }
+        : {}
+      : "skip",
+  );
 
   const [threadToDelete, setThreadToDelete] = useState<ThreadId | null>(null);
   const [showDeleteRepoDialog, setShowDeleteRepoDialog] = useState(false);
@@ -142,6 +209,8 @@ export function RepositoryShell({
     api.repositories.getRepositoryDetail,
     effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : "skip",
   );
+  const isRepositorySyncing =
+    repoDetail?.repository.importStatus === "queued" || repoDetail?.repository.importStatus === "running";
   const effectiveSandboxModeStatus: SandboxModeStatus | null =
     effectiveSelectedThreadId !== null ? capabilities.sandboxModeStatus : (repoDetail?.sandboxModeStatus ?? null);
 
@@ -211,15 +280,6 @@ export function RepositoryShell({
     [navigate],
   );
 
-  const handleSelectRepository = useCallback(
-    (repoId: RepositoryId) => {
-      setActionError(null);
-      setAnalysisError(null);
-      void navigate(`/r/${repoId}`);
-    },
-    [navigate],
-  );
-
   const handleToggleArtifactPanel = useCallback(() => {
     if (workspaceStatus === "no-repo") {
       return;
@@ -261,13 +321,11 @@ export function RepositoryShell({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleToggleArtifactPanel, workspaceStatus]);
 
-  // Import success can produce either a fresh repo+thread (when the user
-  // imports their first repository) or just a repo (subsequent imports).
-  // We prefer the thread URL so the user lands directly in chatting context.
   const handleImported = useCallback(
     (repoId: RepositoryId, threadId: ThreadId | null) => {
       setActionError(null);
       setAnalysisError(null);
+
       if (threadId) {
         void navigate(`/t/${threadId}`);
       } else {
@@ -288,12 +346,14 @@ export function RepositoryShell({
     useCallback(async () => {
       setActionError(null);
       try {
-        const newThreadId = await createThreadMutation({});
+        const newThreadId = await createThreadMutation({
+          workspaceId: activeWorkspaceId ?? undefined,
+        });
         void navigate(`/t/${newThreadId}`);
       } catch (error) {
         setActionError(toUserErrorMessage(error, "Failed to start a conversation."));
       }
-    }, [createThreadMutation, navigate]),
+    }, [createThreadMutation, navigate, activeWorkspaceId]),
   );
 
   const {
@@ -334,8 +394,9 @@ export function RepositoryShell({
     <>
       <AppSidebar
         repositories={repositories}
-        selectedRepositoryId={effectiveSelectedRepositoryId}
-        onSelectRepository={handleSelectRepository}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onSwitchWorkspace={handleSwitchWorkspace}
         selectedThreadId={effectiveSelectedThreadId}
         onSelectThread={handleSelectThread}
         onDeleteThread={setThreadToDelete}
@@ -347,7 +408,7 @@ export function RepositoryShell({
         <TopBar
           repoDetail={repoDetail}
           repoName={selectedRepoName}
-          isSyncing={isSyncing}
+          isSyncing={isSyncing || isRepositorySyncing}
           onSync={() => void handleSync()}
           onDeleteRepo={() => setShowDeleteRepoDialog(true)}
           onRunAnalysis={() => {
@@ -364,14 +425,6 @@ export function RepositoryShell({
             <AppNotice title="Action failed" message={actionError} tone="error" />
           </div>
         ) : null}
-
-        <ImportStatusBanner
-          importStatus={repoDetail?.repository.importStatus ?? "idle"}
-          latestImportJobId={repoDetail?.repository.latestImportJobId}
-          jobs={repoDetail?.jobs}
-          isSyncing={isSyncing}
-          onRetry={() => void handleSync()}
-        />
 
         <div className="flex min-h-0 min-w-0 flex-1">
           {workspaceStatus === "no-repo" ? (
@@ -396,11 +449,14 @@ export function RepositoryShell({
                 isSending={isSending}
                 onSendMessage={handleSendMessage}
                 sandboxModeStatus={effectiveSandboxModeStatus}
-                isSyncing={isSyncing}
+                isSyncing={isSyncing || isRepositorySyncing}
                 onSync={() => void handleSync()}
                 isArtifactPanelOpen={isDesktopLayout ? isArtifactPanelOpen : isArtifactSheetOpen}
                 onToggleArtifactPanel={handleToggleArtifactPanel}
                 showArtifactToggle
+                hasAttachedRepository={capabilities.attachedRepository !== null}
+                availableRepositories={repositories ?? []}
+                onImported={handleImported}
               />
               {isDesktopLayout ? (
                 // Mirror left-sidebar behavior: animate container width while
