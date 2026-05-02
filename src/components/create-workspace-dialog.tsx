@@ -1,22 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import { useMutation } from "convex/react";
-import {
-  ChatCircleTextIcon,
-  CircleNotchIcon,
-  GitBranchIcon,
-  GlobeIcon,
-  LockIcon,
-} from "@phosphor-icons/react";
+import { ChatCircleTextIcon, CircleNotchIcon, GitBranchIcon, GlobeIcon, LockIcon } from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
@@ -42,9 +30,7 @@ export function CreateWorkspaceDialog({
     if (!repositories) return [];
     const query = search.trim().toLowerCase();
     if (!query) return repositories;
-    return repositories.filter((r) =>
-      r.sourceRepoFullName.toLowerCase().includes(query),
-    );
+    return repositories.filter((r) => r.sourceRepoFullName.toLowerCase().includes(query));
   }, [repositories, search]);
 
   const handleCreateForRepo = useCallback(
@@ -93,9 +79,7 @@ export function CreateWorkspaceDialog({
       <DialogContent className="flex h-[420px] flex-col overflow-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle>New workspace</DialogTitle>
-          <DialogDescription>
-            Choose a repository for this workspace, or create a general workspace.
-          </DialogDescription>
+          <DialogDescription>Choose a repository for this workspace, or create a general workspace.</DialogDescription>
         </DialogHeader>
 
         {/* Search input */}
@@ -147,9 +131,7 @@ export function CreateWorkspaceDialog({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">Import new repository</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Import from GitHub and create workspace
-                    </p>
+                    <p className="text-[11px] text-muted-foreground">Import from GitHub and create workspace</p>
                   </div>
                 </button>
               }
@@ -185,14 +167,10 @@ export function CreateWorkspaceDialog({
                       <Icon size={11} weight="bold" className="shrink-0 text-muted-foreground" />
                     </div>
                     <p className="text-[11px] text-muted-foreground">
-                      {repo.importStatus === "completed"
-                        ? `${repo.fileCount} files indexed`
-                        : repo.importStatus}
+                      {repo.importStatus === "completed" ? `${repo.fileCount} files indexed` : repo.importStatus}
                     </p>
                   </div>
-                  {isCreating && (
-                    <CircleNotchIcon size={14} className="shrink-0 animate-spin text-muted-foreground" />
-                  )}
+                  {isCreating && <CircleNotchIcon size={14} className="shrink-0 animate-spin text-muted-foreground" />}
                 </button>
               );
             })}

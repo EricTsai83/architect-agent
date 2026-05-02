@@ -277,7 +277,6 @@ export function ImportRepoDialog({
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-
   const isUrlMode = isGitHubUrl(publicInput);
 
   // Client-side filtered authorized repos (filter by search input).
@@ -285,9 +284,7 @@ export function ImportRepoDialog({
     if (!sortedAuthorizedRepos) return null;
     const query = publicInput.trim().toLowerCase();
     if (!query || isUrlMode) return sortedAuthorizedRepos;
-    return sortedAuthorizedRepos.filter((r) =>
-      r.fullName.toLowerCase().includes(query),
-    );
+    return sortedAuthorizedRepos.filter((r) => r.fullName.toLowerCase().includes(query));
   }, [sortedAuthorizedRepos, publicInput, isUrlMode]);
 
   // GitHub search results excluding repos already in the authorized list.
@@ -349,11 +346,7 @@ export function ImportRepoDialog({
 
       // Attempt popup first — dialog stays open, user never leaves the page.
       // Falls back to full-page redirect when the popup is blocked.
-      const popup = window.open(
-        redirectUrl,
-        "systify-github-install",
-        "width=1020,height=720,popup=yes",
-      );
+      const popup = window.open(redirectUrl, "systify-github-install", "width=1020,height=720,popup=yes");
 
       if (popup && !popup.closed) {
         popupRef.current = popup;
@@ -541,11 +534,7 @@ export function ImportRepoDialog({
       <DialogContent className="flex h-[560px] flex-col overflow-y-hidden data-[state=open]:animate-none">
         <DialogHeader className="shrink-0">
           <DialogTitle>Import Repository</DialogTitle>
-          {!isConnected && (
-            <DialogDescription>
-              Install the Systify GitHub App to get started.
-            </DialogDescription>
-          )}
+          {!isConnected && <DialogDescription>Install the Systify GitHub App to get started.</DialogDescription>}
         </DialogHeader>
 
         {!isConnected ? (
@@ -555,12 +544,8 @@ export function ImportRepoDialog({
               <>
                 <div className="flex flex-col items-center gap-3 text-center">
                   <CircleNotchIcon size={28} className="animate-spin text-primary" />
-                  <p className="text-sm font-medium text-foreground">
-                    Waiting for GitHub&hellip;
-                  </p>
-                  <p className="max-w-xs text-xs text-muted-foreground">
-                    Complete the setup in the popup window.
-                  </p>
+                  <p className="text-sm font-medium text-foreground">Waiting for GitHub&hellip;</p>
+                  <p className="max-w-xs text-xs text-muted-foreground">Complete the setup in the popup window.</p>
                 </div>
                 <Button
                   type="button"
@@ -602,9 +587,7 @@ export function ImportRepoDialog({
                       <span className="flex shrink-0 items-center justify-center rounded-md border border-border/60 bg-background p-1.5">
                         {item.icon}
                       </span>
-                      <span className="text-[13px] leading-snug text-muted-foreground">
-                        {item.text}
-                      </span>
+                      <span className="text-[13px] leading-snug text-muted-foreground">{item.text}</span>
                     </div>
                   ))}
                 </div>
@@ -729,7 +712,8 @@ export function ImportRepoDialog({
                   <ScrollArea className="min-h-0 flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
                     <div className="flex flex-col pr-3">
                       {/* Authorized repos (filtered client-side by search input) */}
-                      {filteredAuthorizedRepos && filteredAuthorizedRepos.length > 0 &&
+                      {filteredAuthorizedRepos &&
+                        filteredAuthorizedRepos.length > 0 &&
                         filteredAuthorizedRepos.map((repo) => (
                           <RepoRow
                             key={repo.fullName}

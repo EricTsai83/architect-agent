@@ -64,9 +64,7 @@ export function ProfileCard() {
         {/* User info header */}
         <div className="px-2 py-1.5">
           <p className="truncate text-sm font-semibold">{displayName}</p>
-          {user.email && (
-            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-          )}
+          {user.email && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled title="Coming soon">

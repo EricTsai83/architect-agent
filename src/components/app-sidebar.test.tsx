@@ -92,7 +92,7 @@ describe("AppSidebar", () => {
 
     renderSidebar({ onError });
 
-    fireEvent.click(screen.getByRole("button", { name: /new design conversation/i }));
+    fireEvent.click(screen.getByRole("button", { name: /new thread/i }));
 
     await waitFor(() => {
       expect(onError).toHaveBeenLastCalledWith("Rate limit exceeded.");

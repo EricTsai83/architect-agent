@@ -6,16 +6,7 @@ import { requireViewerIdentity } from "./lib/auth";
  * Workspace color palette. Assigned deterministically based on the user's
  * workspace count at creation time, cycling through the palette.
  */
-const COLOR_PALETTE = [
-  "blue",
-  "emerald",
-  "amber",
-  "violet",
-  "rose",
-  "cyan",
-  "orange",
-  "teal",
-] as const;
+const COLOR_PALETTE = ["blue", "emerald", "amber", "violet", "rose", "cyan", "orange", "teal"] as const;
 
 export const listWorkspaces = query({
   args: {},

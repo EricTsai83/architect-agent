@@ -1,4 +1,10 @@
-import { DotsThreeVerticalIcon, SparkleIcon, TrashIcon, ArrowsClockwiseIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  DotsThreeVerticalIcon,
+  SparkleIcon,
+  TrashIcon,
+  ArrowsClockwiseIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import {

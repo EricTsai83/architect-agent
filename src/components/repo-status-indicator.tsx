@@ -8,11 +8,7 @@ import { Badge } from "@/components/ui/badge";
  *
  * Happy path (sandbox ready / stopped / null) renders nothing.
  */
-export function RepoStatusIndicator({
-  sandbox,
-}: {
-  sandbox: { status: string; ttlExpiresAt: number } | null;
-}) {
+export function RepoStatusIndicator({ sandbox }: { sandbox: { status: string; ttlExpiresAt: number } | null }) {
   const badgeClassName = "ml-1 gap-1 text-[10px] uppercase tracking-wide animate-in fade-in duration-300";
 
   if (sandbox?.status === "failed") {

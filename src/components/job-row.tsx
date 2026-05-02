@@ -25,9 +25,7 @@ export function JobRow({ job }: { job: Doc<"jobs"> }) {
           <span className="text-[11px] capitalize text-muted-foreground">{job.status}</span>
         </div>
         {job.stage ? <p className="text-[11px] text-muted-foreground">{job.stage}</p> : null}
-        {job.errorMessage ? (
-          <p className="text-[11px] text-red-600 dark:text-red-400">{job.errorMessage}</p>
-        ) : null}
+        {job.errorMessage ? <p className="text-[11px] text-red-600 dark:text-red-400">{job.errorMessage}</p> : null}
         {job.outputSummary && !isError ? (
           <p className="text-[11px] text-muted-foreground">{job.outputSummary}</p>
         ) : null}
