@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { RepositoryShell } from "./repository-shell";
-import type { RepositoryId } from "@/lib/types";
+import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
 const { useMutationMock, useQueryMock } = vi.hoisted(() => ({
   useMutationMock: vi.fn(),
@@ -24,7 +24,21 @@ vi.mock("react-router-dom", () => ({
 }));
 
 vi.mock("@/components/app-sidebar", () => ({
-  AppSidebar: () => <div data-testid="app-sidebar" />,
+  AppSidebar: ({
+    onImported,
+  }: {
+    onImported: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="sidebar-import"
+      onClick={() =>
+        onImported("repo_imported" as RepositoryId, "thread_imported" as ThreadId, "workspace_imported" as WorkspaceId)
+      }
+    >
+      Import from sidebar
+    </button>
+  ),
 }));
 
 vi.mock("@/components/top-bar", () => ({
@@ -60,7 +74,21 @@ vi.mock("@/components/artifact-panel", () => ({
 }));
 
 vi.mock("@/components/empty-state", () => ({
-  EmptyState: () => <div data-testid="empty-state" />,
+  EmptyState: ({
+    onImported,
+  }: {
+    onImported: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="empty-state"
+      onClick={() =>
+        onImported("repo_empty" as RepositoryId, "thread_empty" as ThreadId, "workspace_empty" as WorkspaceId)
+      }
+    >
+      Empty import
+    </button>
+  ),
 }));
 
 vi.mock("@/components/confirm-dialog", () => ({
@@ -135,9 +163,27 @@ let repositoriesResult: Doc<"repositories">[] | undefined;
 let ownerThreadsResult: Doc<"threads">[] | undefined;
 let isDesktopMatches = false;
 let mediaListener: MatchMediaListener | null = null;
+let storedActiveWorkspaceId: string | null = null;
 
 beforeEach(() => {
   navigateMock.mockReset();
+  storedActiveWorkspaceId = null;
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: vi.fn((key: string) => (key === "systify.activeWorkspaceId" ? storedActiveWorkspaceId : null)),
+      setItem: vi.fn((key: string, value: string) => {
+        if (key === "systify.activeWorkspaceId") {
+          storedActiveWorkspaceId = value;
+        }
+      }),
+      removeItem: vi.fn((key: string) => {
+        if (key === "systify.activeWorkspaceId") {
+          storedActiveWorkspaceId = null;
+        }
+      }),
+    },
+  });
   repositoriesResult = [];
   ownerThreadsResult = [];
   isDesktopMatches = false;
@@ -145,7 +191,7 @@ beforeEach(() => {
 
   useMutationMock.mockReset();
   useQueryMock.mockReset();
-  useMutationMock.mockReturnValue(vi.fn());
+  useMutationMock.mockReturnValue(vi.fn().mockResolvedValue(null));
   useQueryMock.mockImplementation((_query: unknown, args: unknown) => {
     if (args === undefined) {
       return repositoriesResult;
@@ -225,5 +271,25 @@ describe("RepositoryShell artifact toggle behavior", () => {
       mediaListener?.({ matches: true } as MediaQueryListEvent);
     });
     expect(screen.queryByTestId("artifact-sheet")).not.toBeInTheDocument();
+  });
+});
+
+describe("RepositoryShell import workspace routing", () => {
+  test("sidebar import switches the active workspace and opens the imported default thread", () => {
+    render(<RepositoryShell urlThreadId={null} urlRepositoryId={null} />);
+
+    fireEvent.click(screen.getByTestId("sidebar-import"));
+
+    expect(localStorage.getItem("systify.activeWorkspaceId")).toBe("workspace_imported");
+    expect(navigateMock).toHaveBeenCalledWith("/t/thread_imported");
+  });
+
+  test("empty-state import follows the same workspace switch and thread navigation path", () => {
+    render(<RepositoryShell urlThreadId={null} urlRepositoryId={null} />);
+
+    fireEvent.click(screen.getByTestId("empty-state"));
+
+    expect(localStorage.getItem("systify.activeWorkspaceId")).toBe("workspace_empty");
+    expect(navigateMock).toHaveBeenCalledWith("/t/thread_empty");
   });
 });

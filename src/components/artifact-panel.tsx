@@ -14,7 +14,7 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -419,9 +419,11 @@ function formatRelative(timestamp: number) {
 
 function EmptyArtifactState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex animate-in flex-col gap-1 rounded-md border border-dashed border-border bg-background/50 p-4 text-center fade-in duration-300">
-      <p className="text-xs font-medium text-foreground">{title}</p>
-      <p className="text-[11px] text-muted-foreground">{description}</p>
-    </div>
+    <Card className="animate-in border-dashed bg-background/50 text-center fade-in duration-300">
+      <CardHeader className="gap-1 p-4">
+        <CardTitle className="text-xs">{title}</CardTitle>
+        <CardDescription className="text-[11px]">{description}</CardDescription>
+      </CardHeader>
+    </Card>
   );
 }

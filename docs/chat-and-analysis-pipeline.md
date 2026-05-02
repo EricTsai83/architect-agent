@@ -75,7 +75,7 @@ This allows the UI to immediately show a reply that is waiting to be generated.
 
 ### 2. Generate the assistant reply in the background
 
-`internal.chat.generateAssistantReply` takes over the rest of the flow. It starts by:
+`internal.chat.generation.generateAssistantReply` takes over the rest of the flow. It starts by:
 
 - marking the assistant message as `streaming`
 - marking the job as `running`

@@ -1,4 +1,5 @@
 import { Logo } from "@/components/logo";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function ScreenState({
   title,
@@ -11,13 +12,15 @@ export function ScreenState({
 }) {
   return (
     <div className="flex min-h-dvh w-full items-center justify-center px-6">
-      <div className="w-full max-w-md rounded-xl border border-border/60 bg-card p-8 text-center shadow-sm">
+      <Card className="w-full max-w-md p-8 text-center shadow-sm">
         <div className="mx-auto mb-5 flex justify-center">
           <Logo size={56} hero={isLoading} />
         </div>
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
-        {description ? <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p> : null}
-      </div>
+        <CardHeader className="p-0">
+          <CardTitle className="text-xl">{title}</CardTitle>
+          {description ? <CardDescription className="leading-relaxed">{description}</CardDescription> : null}
+        </CardHeader>
+      </Card>
     </div>
   );
 }

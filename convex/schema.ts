@@ -163,6 +163,7 @@ export default defineSchema({
     deletionRequestedAt: v.optional(v.number()),
   })
     .index("by_ownerTokenIdentifier", ["ownerTokenIdentifier"])
+    .index("by_ownerTokenIdentifier_and_lastImportedAt", ["ownerTokenIdentifier", "lastImportedAt"])
     .index("by_ownerTokenIdentifier_and_sourceUrl", ["ownerTokenIdentifier", "sourceUrl"])
     .index("by_sourceRepoFullName", ["sourceRepoFullName"]),
 

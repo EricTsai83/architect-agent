@@ -41,12 +41,31 @@ vi.mock("@/components/ui/sidebar", () => ({
   ),
 }));
 
+vi.mock("@/components/ui/dropdown-menu", () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <div />,
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
+}));
+
 vi.mock("@/components/logo", () => ({
   Logo: () => <div>logo</div>,
 }));
 
 vi.mock("@/components/import-repo-dialog", () => ({
   ImportRepoDialog: () => <div>import repo</div>,
+}));
+
+vi.mock("@/components/confirm-dialog", () => ({
+  ConfirmDialog: () => null,
 }));
 
 const threadOne = {
@@ -112,6 +131,13 @@ describe("AppSidebar", () => {
     threadsResult = [threadOne, threadTwo, threadThree];
     rerender(createSidebarElement());
     expect(screen.getByRole("status")).toHaveTextContent("1 new conversation. 3 total.");
+  });
+
+  test("offers repository import instead of manual workspace creation", () => {
+    renderSidebar();
+
+    expect(screen.queryByText(/new workspace/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/import repo/i)).toBeInTheDocument();
   });
 });
 

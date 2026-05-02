@@ -7,7 +7,7 @@ type NoticeTone = "info" | "warning" | "error";
 
 const toneClasses: Record<NoticeTone, string> = {
   info: "border-border bg-muted/50 text-foreground",
-  warning: "border-amber-500/30 bg-amber-500/10 text-foreground",
+  warning: "border-primary/30 bg-primary/10 text-foreground",
   error: "border-destructive/20 bg-destructive/5 text-destructive",
 };
 

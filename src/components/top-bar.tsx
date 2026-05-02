@@ -21,7 +21,7 @@ import { RepoInfoPopover } from "@/components/repo-info-popover";
 import { RepoStatusIndicator } from "@/components/repo-status-indicator";
 import { AttachRepoMenu } from "@/components/attach-repo-menu";
 import type { AttachedRepositorySummary } from "@/hooks/use-thread-capabilities";
-import type { SandboxModeStatus, ThreadId } from "@/lib/types";
+import type { SandboxModeStatus, ThreadId, WorkspaceId } from "@/lib/types";
 
 export type TopBarRepoDetail = {
   repository: {
@@ -49,6 +49,7 @@ export function TopBar({
   onSync,
   onDeleteRepo,
   onRunAnalysis,
+  onThreadMovedToWorkspace,
 }: {
   repoDetail?: TopBarRepoDetail;
   /** Immediate repo name from the already-loaded repository list so the title
@@ -69,6 +70,7 @@ export function TopBar({
   onSync: () => void;
   onDeleteRepo: () => void;
   onRunAnalysis: () => void;
+  onThreadMovedToWorkspace: (workspaceId: WorkspaceId | null) => void;
 }) {
   const title = repoDetail?.repository.sourceRepoFullName ?? repoName;
 
@@ -103,6 +105,7 @@ export function TopBar({
           threadId={threadId}
           attachedRepository={attachedRepository}
           availableRepositories={availableRepositories}
+          onMovedToWorkspace={onThreadMovedToWorkspace}
         />
       ) : null}
 
@@ -189,7 +192,7 @@ function SyncButton({
   const buttonClassName = isFailed
     ? "relative justify-start gap-1.5 text-xs text-destructive hover:text-destructive"
     : hasUpdates
-      ? "relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+      ? "relative justify-start gap-1.5 text-xs text-primary hover:text-primary"
       : "justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground";
 
   if (label === null && !repoDetail && !isBusy) {
@@ -227,10 +230,10 @@ function SyncButton({
           {(hasUpdates || isFailed) && (
             <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
               <span
-                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isFailed ? "bg-red-400" : "bg-orange-400"}`}
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isFailed ? "bg-destructive" : "bg-primary"}`}
               />
               <span
-                className={`relative inline-flex h-2 w-2 rounded-full ${isFailed ? "bg-red-500" : "bg-orange-500"}`}
+                className={`relative inline-flex h-2 w-2 rounded-full ${isFailed ? "bg-destructive" : "bg-primary"}`}
               />
             </span>
           )}

@@ -15,7 +15,7 @@ import { api } from "../../convex/_generated/api";
 import { AppNotice } from "@/components/app-notice";
 import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +26,14 @@ import {
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { ActiveMessageStream, RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
+import type {
+  ActiveMessageStream,
+  RepositoryId,
+  ThreadId,
+  ChatMode,
+  SandboxModeStatus,
+  WorkspaceId,
+} from "@/lib/types";
 
 /**
  * Static catalogue of every mode the selector can render. Order is stable and
@@ -90,6 +97,7 @@ export function ChatPanel({
   hasAttachedRepository = true,
   availableRepositories = [],
   onImported,
+  onThreadMovedToWorkspace,
 }: {
   selectedThreadId: ThreadId | null;
   messages: Doc<"messages">[] | undefined;
@@ -114,7 +122,8 @@ export function ChatPanel({
   /** All repositories the viewer owns — used to populate the attach dropdown. */
   availableRepositories?: ReadonlyArray<Doc<"repositories">>;
   /** Callback after a new repository is imported via the inline dialog. */
-  onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported?: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
+  onThreadMovedToWorkspace?: (workspaceId: WorkspaceId | null) => void;
 }) {
   const hasMessages = (messages?.length ?? 0) > 0;
   const availableModeSet = useMemo(() => new Set(availableModes), [availableModes]);
@@ -143,6 +152,7 @@ export function ChatPanel({
                 threadId={selectedThreadId}
                 availableRepositories={availableRepositories ?? []}
                 onImported={onImported}
+                onThreadMovedToWorkspace={onThreadMovedToWorkspace}
               />
             ) : (
               <EmptyChatHint />
@@ -195,21 +205,18 @@ export function ChatPanel({
               <div className="hidden md:flex md:min-w-0 md:items-center">
                 {showArtifactToggle && onToggleArtifactPanel ? (
                   <>
-                    <button
+                    <Button
                       type="button"
+                      variant={isArtifactPanelOpen ? "secondary" : "ghost"}
+                      size="xs"
                       onClick={onToggleArtifactPanel}
                       aria-label="Toggle artifacts panel"
                       aria-pressed={isArtifactPanelOpen}
-                      className={cn(
-                        "inline-flex h-7 items-center gap-1.5 rounded-sm bg-transparent px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                        isArtifactPanelOpen
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground/80 hover:bg-muted hover:text-foreground",
-                      )}
+                      className="gap-1.5"
                     >
                       <FileTextIcon size={14} weight="bold" />
                       <span>Artifacts</span>
-                    </button>
+                    </Button>
                     <span aria-hidden="true" className="mx-2 h-4 w-px bg-border/70" />
                   </>
                 ) : null}
@@ -344,7 +351,7 @@ function ModeCompactSelect({
 function EmptyChatHint() {
   return (
     <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
-      <div className="flex flex-col items-center text-center">
+      <Card className="border-transparent bg-transparent p-6 text-center">
         <div className="relative mb-1 inline-grid place-items-center">
           <pre
             aria-hidden="true"
@@ -359,11 +366,11 @@ function EmptyChatHint() {
             {EMPTY_CHAT_OWL_BLINK}
           </pre>
         </div>
-        <p className="mt-5 text-base font-medium text-foreground">Start a design conversation</p>
-        <p className="mt-2 max-w-sm text-xs text-muted-foreground">
-          Architecture · Module dependencies · Risk hotspots
-        </p>
-      </div>
+        <CardHeader className="items-center p-0 pt-5">
+          <CardTitle className="text-base">Start a design conversation</CardTitle>
+          <CardDescription className="text-xs">Architecture · Module dependencies · Risk hotspots</CardDescription>
+        </CardHeader>
+      </Card>
     </div>
   );
 }
@@ -372,20 +379,22 @@ function EmptyChatHint() {
  * Empty-state guidance for threads that have no attached repository yet.
  * Surfaces two clear paths:
  *
- * 1. Attach a repository — a dropdown listing the user's imported repos plus
- *    an "Import new repository" option that opens the ImportRepoDialog.
+ * 1. Move to a repository workspace — a dropdown listing the user's imported
+ *    repos plus an "Import new repository" option that opens the ImportRepoDialog.
  * 2. Free-form discussion — the user can just start typing.
  */
 function EmptyNoRepoHint({
   threadId,
   availableRepositories,
   onImported,
+  onThreadMovedToWorkspace,
 }: {
   threadId: ThreadId | null;
   availableRepositories: ReadonlyArray<Doc<"repositories">>;
-  onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported?: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
+  onThreadMovedToWorkspace?: (workspaceId: WorkspaceId | null) => void;
 }) {
-  const setThreadRepository = useMutation(api.chat.setThreadRepository);
+  const setThreadRepository = useMutation(api.chat.threads.setThreadRepository);
   const [isAttaching, setIsAttaching] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
 
@@ -394,7 +403,8 @@ function EmptyNoRepoHint({
     setIsAttaching(true);
     setAttachError(null);
     try {
-      await setThreadRepository({ threadId, repositoryId: repoId });
+      const result = await setThreadRepository({ threadId, repositoryId: repoId });
+      onThreadMovedToWorkspace?.(result.workspaceId);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to attach repository";
       setAttachError(message);
@@ -406,9 +416,9 @@ function EmptyNoRepoHint({
 
   return (
     <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
-      <div className="flex flex-col items-center text-center">
+      <Card className="w-full max-w-md border-transparent bg-transparent p-6 text-center">
         {attachError ? (
-          <div className="mb-4 w-full max-w-xs">
+          <div className="mb-4 w-full">
             <AppNotice
               title="Failed to attach repository"
               message={attachError}
@@ -433,14 +443,16 @@ function EmptyNoRepoHint({
           </pre>
         </div>
 
-        <p className="mt-5 text-base font-medium text-foreground">Start a design conversation</p>
+        <CardHeader className="items-center p-0 pt-5">
+          <CardTitle className="text-base">Start a design conversation</CardTitle>
+        </CardHeader>
 
         <div className="mt-4 flex flex-col items-center gap-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" disabled={isAttaching}>
                 <LinkIcon size={13} weight="bold" />
-                {isAttaching ? "Attaching…" : "Attach a repository"}
+                {isAttaching ? "Moving…" : "Move to repository"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="w-64">
@@ -483,11 +495,11 @@ function EmptyNoRepoHint({
           </DropdownMenu>
 
           <p className="max-w-xs text-xs text-muted-foreground">
-            Unlock Docs and Sandbox modes for code-grounded analysis, or just start typing below for a free-form
-            discussion.
+            Move this thread into a repository workspace to unlock Docs and Sandbox modes, or keep typing here for a
+            free-form discussion.
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

@@ -47,7 +47,7 @@ describe("chat streaming lifecycle", () => {
     });
 
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
-    const activeStream = await viewer.query(api.chat.getActiveMessageStream, { threadId });
+    const activeStream = await viewer.query(api.chat.streaming.getActiveMessageStream, { threadId });
 
     expect(activeStream).toMatchObject({
       assistantMessageId,
@@ -68,7 +68,7 @@ describe("chat streaming lifecycle", () => {
     for (let index = 0; index < MESSAGE_STREAM_COMPACT_CHUNK_THRESHOLD; index += 1) {
       const part = `chunk-${index}|`;
       compactedParts.push(part);
-      await t.mutation(internal.chat.appendAssistantStreamChunk, {
+      await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
         assistantMessageId,
         delta: part,
       });
@@ -86,7 +86,7 @@ describe("chat streaming lifecycle", () => {
     expect(afterCompaction.stream?.compactedThroughSequence).toBe(MESSAGE_STREAM_COMPACT_CHUNK_THRESHOLD - 1);
     expect(afterCompaction.tailChunks).toHaveLength(0);
 
-    await t.mutation(internal.chat.finalizeAssistantReply, {
+    await t.mutation(internal.chat.streaming.finalizeAssistantReply, {
       threadId,
       assistantMessageId,
       jobId,
@@ -127,12 +127,12 @@ describe("chat streaming lifecycle", () => {
       "stream-fail",
     );
 
-    await t.mutation(internal.chat.appendAssistantStreamChunk, {
+    await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
       assistantMessageId,
       delta: "partial ",
     });
 
-    await t.mutation(internal.chat.failAssistantReply, {
+    await t.mutation(internal.chat.streaming.failAssistantReply, {
       assistantMessageId,
       jobId,
       errorMessage: "stream failed",
@@ -165,7 +165,7 @@ describe("chat streaming lifecycle", () => {
     });
 
     await expect(
-      t.mutation(internal.chat.appendAssistantStreamChunk, {
+      t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
         assistantMessageId,
         delta: "orphaned chunk",
       }),
@@ -181,7 +181,7 @@ describe("chat streaming lifecycle", () => {
       "stream-cleanup-without-message",
     );
 
-    await t.mutation(internal.chat.appendAssistantStreamChunk, {
+    await t.mutation(internal.chat.streaming.appendAssistantStreamChunk, {
       assistantMessageId,
       delta: "partial ",
     });
@@ -190,7 +190,7 @@ describe("chat streaming lifecycle", () => {
       await ctx.db.delete(assistantMessageId);
     });
 
-    await t.mutation(internal.chat.failAssistantReply, {
+    await t.mutation(internal.chat.streaming.failAssistantReply, {
       assistantMessageId,
       jobId,
       errorMessage: "stream failed after message delete",

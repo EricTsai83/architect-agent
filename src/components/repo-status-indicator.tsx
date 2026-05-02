@@ -23,7 +23,7 @@ export function RepoStatusIndicator({ sandbox }: { sandbox: { status: string; tt
   if (sandbox?.status === "provisioning") {
     return (
       <Badge variant="muted" className={badgeClassName}>
-        <CircleIcon size={8} weight="fill" className="animate-pulse text-yellow-500" />
+        <CircleIcon size={8} weight="fill" className="animate-pulse text-primary" />
         Starting…
       </Badge>
     );

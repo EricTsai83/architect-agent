@@ -2,6 +2,7 @@ import { useAuth } from "@workos-inc/authkit-react";
 import { Moon, Sun, SignOut, UserCircle, Stack, ChartLineUp } from "@phosphor-icons/react";
 import { useTheme } from "@/providers/theme-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,10 +23,12 @@ export function ProfileCard() {
 
   if (!user) {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon"
         onClick={() => void signIn()}
-        className="flex shrink-0 items-center justify-center rounded-md transition-opacity hover:opacity-80"
+        className="size-8 shrink-0 p-0"
         aria-label="Sign in"
       >
         <Avatar className="h-8 w-8 shrink-0 rounded-md">
@@ -33,7 +36,7 @@ export function ProfileCard() {
             <UserCircle size={18} weight="bold" className="text-muted-foreground" />
           </AvatarFallback>
         </Avatar>
-      </button>
+      </Button>
     );
   }
 
@@ -46,18 +49,14 @@ export function ProfileCard() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="flex shrink-0 items-center justify-center rounded-md transition-opacity hover:opacity-80"
-          aria-label={displayName}
-        >
+        <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 p-0" aria-label={displayName}>
           <Avatar className="h-8 w-8 shrink-0 rounded-md">
             <AvatarImage src={avatarUrl ?? undefined} alt={displayName} className="rounded-md" />
             <AvatarFallback className="rounded-md bg-muted text-xs font-semibold uppercase">
               {displayName.charAt(0)}
             </AvatarFallback>
           </Avatar>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent side="top" align="start" className="w-56">

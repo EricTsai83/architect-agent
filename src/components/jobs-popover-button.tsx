@@ -1,5 +1,6 @@
 import { ListChecksIcon } from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { JobRow } from "@/components/job-row";
@@ -19,15 +20,16 @@ export function JobsPopoverButton({ jobs }: { jobs?: Doc<"jobs">[] }) {
           {activeJobCount > 0 && (
             <>
               <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
-              <span
+              <Badge
+                variant="accent"
                 data-testid="jobs-active-count"
-                className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 py-px text-[10px] font-semibold text-white"
+                className="absolute -right-1 -top-1 min-w-5 justify-center rounded-full bg-primary px-1 py-px text-[10px] text-primary-foreground"
               >
                 {activeJobCount}
-              </span>
+              </Badge>
             </>
           )}
           <ListChecksIcon weight="bold" />

@@ -96,6 +96,7 @@ function createTopBarProps(overrides: Partial<TopBarTestProps> = {}): TopBarTest
     onSync: vi.fn(),
     onDeleteRepo: vi.fn(),
     onRunAnalysis: vi.fn(),
+    onThreadMovedToWorkspace: vi.fn(),
     ...overrides,
   };
 }

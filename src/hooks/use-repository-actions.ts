@@ -51,9 +51,9 @@ export function useRepositoryActions({
   setShowAnalysisDialog: (value: boolean) => void;
 }) {
   const requestDeepAnalysis = useMutation(api.analysis.requestDeepAnalysis);
-  const sendMessageMutation = useMutation(api.chat.sendMessage);
+  const sendMessageMutation = useMutation(api.chat.send.sendMessage);
   const syncRepositoryMutation = useMutation(api.repositories.syncRepository);
-  const deleteThreadMutation = useMutation(api.chat.deleteThread);
+  const deleteThreadMutation = useMutation(api.chat.threads.deleteThread);
   const deleteRepositoryMutation = useMutation(api.repositories.deleteRepository);
 
   const [isSending, handleSendMessage] = useAsyncCallback(

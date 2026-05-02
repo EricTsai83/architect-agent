@@ -101,6 +101,14 @@ describe("repository deletion cleanup", () => {
         latestSandboxId: sandboxId,
       });
 
+      await ctx.db.insert("workspaces", {
+        ownerTokenIdentifier,
+        repositoryId,
+        name: "acme/delete-cleanup",
+        color: "blue",
+        lastAccessedAt: Date.now(),
+      });
+
       return repositoryId;
     });
 
@@ -120,12 +128,19 @@ describe("repository deletion cleanup", () => {
         .query("jobs")
         .withIndex("by_repositoryId", (q) => q.eq("repositoryId", repositoryId))
         .take(10);
+      const workspaces = await ctx.db
+        .query("workspaces")
+        .withIndex("by_ownerTokenIdentifier_and_repositoryId", (q) =>
+          q.eq("ownerTokenIdentifier", ownerTokenIdentifier).eq("repositoryId", repositoryId),
+        )
+        .take(10);
 
-      return { repository, sandboxes, jobs };
+      return { repository, sandboxes, jobs, workspaces };
     });
 
     expect(remainingState.repository).toBeNull();
     expect(remainingState.sandboxes).toHaveLength(0);
     expect(remainingState.jobs).toHaveLength(0);
+    expect(remainingState.workspaces).toHaveLength(0);
   });
 });
