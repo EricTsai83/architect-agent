@@ -77,7 +77,7 @@ export function Sidebar({ children, className }: { children: React.ReactNode; cl
         <SheetContent
           side="left"
           className={cn(
-            "w-[min(18rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0 data-[state=closed]:duration-200 data-[state=open]:duration-200",
+            "w-[min(18rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] bg-background p-0 data-[state=closed]:duration-200 data-[state=open]:duration-200",
             className,
           )}
           hideClose
