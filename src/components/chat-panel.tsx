@@ -226,10 +226,10 @@ export function ChatPanel({
               variant="default"
               size="sm"
               className="w-full sm:min-w-24 sm:w-auto"
-              disabled={isSending || !selectedThreadId || !chatInput.trim()}
+              disabled={isSending || isSyncing || !selectedThreadId || !chatInput.trim()}
             >
               <PaperPlaneTiltIcon weight="bold" />
-              {isSending ? "Sending…" : "Send"}
+              {isSyncing ? "Syncing…" : isSending ? "Sending…" : "Send"}
             </Button>
           </div>
         </form>

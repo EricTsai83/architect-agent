@@ -141,6 +141,8 @@ export function RepositoryShell({
     api.repositories.getRepositoryDetail,
     effectiveSelectedRepositoryId ? { repositoryId: effectiveSelectedRepositoryId } : "skip",
   );
+  const isRepositorySyncing =
+    repoDetail?.repository.importStatus === "queued" || repoDetail?.repository.importStatus === "running";
   const effectiveSandboxModeStatus: SandboxModeStatus | null =
     effectiveSelectedThreadId !== null ? capabilities.sandboxModeStatus : (repoDetail?.sandboxModeStatus ?? null);
 
@@ -335,7 +337,7 @@ export function RepositoryShell({
         <TopBar
           repoDetail={repoDetail}
           repoName={selectedRepoName}
-          isSyncing={isSyncing}
+          isSyncing={isSyncing || isRepositorySyncing}
           onSync={() => void handleSync()}
           onDeleteRepo={() => setShowDeleteRepoDialog(true)}
           onRunAnalysis={() => {
@@ -376,7 +378,7 @@ export function RepositoryShell({
                 isSending={isSending}
                 onSendMessage={handleSendMessage}
                 sandboxModeStatus={effectiveSandboxModeStatus}
-                isSyncing={isSyncing}
+                isSyncing={isSyncing || isRepositorySyncing}
                 onSync={() => void handleSync()}
                 isArtifactPanelOpen={isDesktopLayout ? isArtifactPanelOpen : isArtifactSheetOpen}
                 onToggleArtifactPanel={handleToggleArtifactPanel}
