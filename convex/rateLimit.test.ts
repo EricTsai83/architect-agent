@@ -237,6 +237,7 @@ describe("rate limits and interactive job guards", () => {
       repositories: 0,
       imports: 0,
       jobs: 0,
+      workspaces: 0,
     });
   });
 
@@ -451,11 +452,18 @@ async function getOwnerImportCounts(t: AppTestConvex, ownerTokenIdentifier: stri
       .query("jobs")
       .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", ownerTokenIdentifier))
       .take(20);
+    const workspaces = await ctx.db
+      .query("workspaces")
+      .withIndex("by_ownerTokenIdentifier_and_lastAccessedAt", (q) =>
+        q.eq("ownerTokenIdentifier", ownerTokenIdentifier),
+      )
+      .take(20);
 
     return {
       repositories: repositories.length,
       imports: imports.length,
       jobs: jobs.length,
+      workspaces: workspaces.length,
     };
   });
 }

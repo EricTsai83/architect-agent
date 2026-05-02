@@ -30,7 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useGitHubConnection } from "@/hooks/use-github-connection";
 import { useAsyncCallback } from "@/hooks/use-async-callback";
-import type { RepositoryId, ThreadId } from "@/lib/types";
+import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // sessionStorage flag: fallback for when the popup-based GitHub install is
@@ -201,7 +201,7 @@ export function ImportRepoDialog({
   onImported,
   trigger,
 }: {
-  onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
   /**
    * Optional custom trigger element. Used by the EmptyState's dual-CTA layout
    * (PRD US 9) where the "Import repository" button needs to read as a primary
@@ -497,7 +497,7 @@ export function ImportRepoDialog({
       setPublicInput("");
       setBranch("");
       setOpen(false);
-      onImported(result.repositoryId, result.defaultThreadId ?? null);
+      onImported(result.repositoryId, result.defaultThreadId ?? null, result.workspaceId);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Import failed.");
     } finally {
@@ -514,7 +514,7 @@ export function ImportRepoDialog({
         url: `https://github.com/${repo.fullName}`,
       });
       setOpen(false);
-      onImported(result.repositoryId, result.defaultThreadId ?? null);
+      onImported(result.repositoryId, result.defaultThreadId ?? null, result.workspaceId);
     } catch (error) {
       setImportError(error instanceof Error ? error.message : "Import failed.");
     } finally {

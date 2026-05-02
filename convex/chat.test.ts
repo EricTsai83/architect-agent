@@ -78,4 +78,45 @@ describe("chat thread defaults", () => {
     expect(thread?.mode).toBe("docs");
     expect(thread?.repositoryId).toBe(repositoryId);
   });
+
+  test("createThread rejects mismatched workspace and repository ids", async () => {
+    const ownerTokenIdentifier = "user|chat-workspace-mismatch";
+    const t = convexTest(schema, modules);
+    const workspaceRepositoryId = await insertRepository(t, ownerTokenIdentifier);
+    const otherRepositoryId = await t.run(async (ctx) => {
+      return await ctx.db.insert("repositories", {
+        ownerTokenIdentifier,
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/other-widget",
+        sourceRepoFullName: "acme/other-widget",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "other-widget",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+        fileCount: 0,
+      });
+    });
+    const workspaceId = await t.run(async (ctx) => {
+      return await ctx.db.insert("workspaces", {
+        ownerTokenIdentifier,
+        repositoryId: workspaceRepositoryId,
+        name: "acme/widget",
+        color: "blue",
+        lastAccessedAt: Date.now(),
+      });
+    });
+
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+    await expect(
+      viewer.mutation(api.chat.threads.createThread, {
+        workspaceId,
+        repositoryId: otherRepositoryId,
+      }),
+    ).rejects.toThrow("Thread repository must match the workspace repository.");
+  });
 });

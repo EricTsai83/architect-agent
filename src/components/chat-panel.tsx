@@ -26,7 +26,14 @@ import {
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { ActiveMessageStream, RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
+import type {
+  ActiveMessageStream,
+  RepositoryId,
+  ThreadId,
+  ChatMode,
+  SandboxModeStatus,
+  WorkspaceId,
+} from "@/lib/types";
 
 /**
  * Static catalogue of every mode the selector can render. Order is stable and
@@ -90,6 +97,7 @@ export function ChatPanel({
   hasAttachedRepository = true,
   availableRepositories = [],
   onImported,
+  onThreadMovedToWorkspace,
 }: {
   selectedThreadId: ThreadId | null;
   messages: Doc<"messages">[] | undefined;
@@ -114,7 +122,8 @@ export function ChatPanel({
   /** All repositories the viewer owns — used to populate the attach dropdown. */
   availableRepositories?: ReadonlyArray<Doc<"repositories">>;
   /** Callback after a new repository is imported via the inline dialog. */
-  onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported?: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
+  onThreadMovedToWorkspace?: (workspaceId: WorkspaceId | null) => void;
 }) {
   const hasMessages = (messages?.length ?? 0) > 0;
   const availableModeSet = useMemo(() => new Set(availableModes), [availableModes]);
@@ -143,6 +152,7 @@ export function ChatPanel({
                 threadId={selectedThreadId}
                 availableRepositories={availableRepositories ?? []}
                 onImported={onImported}
+                onThreadMovedToWorkspace={onThreadMovedToWorkspace}
               />
             ) : (
               <EmptyChatHint />
@@ -372,18 +382,20 @@ function EmptyChatHint() {
  * Empty-state guidance for threads that have no attached repository yet.
  * Surfaces two clear paths:
  *
- * 1. Attach a repository — a dropdown listing the user's imported repos plus
- *    an "Import new repository" option that opens the ImportRepoDialog.
+ * 1. Move to a repository workspace — a dropdown listing the user's imported
+ *    repos plus an "Import new repository" option that opens the ImportRepoDialog.
  * 2. Free-form discussion — the user can just start typing.
  */
 function EmptyNoRepoHint({
   threadId,
   availableRepositories,
   onImported,
+  onThreadMovedToWorkspace,
 }: {
   threadId: ThreadId | null;
   availableRepositories: ReadonlyArray<Doc<"repositories">>;
-  onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported?: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
+  onThreadMovedToWorkspace?: (workspaceId: WorkspaceId | null) => void;
 }) {
   const setThreadRepository = useMutation(api.chat.threads.setThreadRepository);
   const [isAttaching, setIsAttaching] = useState(false);
@@ -394,7 +406,8 @@ function EmptyNoRepoHint({
     setIsAttaching(true);
     setAttachError(null);
     try {
-      await setThreadRepository({ threadId, repositoryId: repoId });
+      const result = await setThreadRepository({ threadId, repositoryId: repoId });
+      onThreadMovedToWorkspace?.(result.workspaceId);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to attach repository";
       setAttachError(message);
@@ -440,7 +453,7 @@ function EmptyNoRepoHint({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" disabled={isAttaching}>
                 <LinkIcon size={13} weight="bold" />
-                {isAttaching ? "Attaching…" : "Attach a repository"}
+                {isAttaching ? "Moving…" : "Move to repository"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center" className="w-64">
@@ -483,8 +496,8 @@ function EmptyNoRepoHint({
           </DropdownMenu>
 
           <p className="max-w-xs text-xs text-muted-foreground">
-            Unlock Docs and Sandbox modes for code-grounded analysis, or just start typing below for a free-form
-            discussion.
+            Move this thread into a repository workspace to unlock Docs and Sandbox modes, or keep typing here for a
+            free-form discussion.
           </p>
         </div>
       </div>

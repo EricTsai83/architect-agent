@@ -7,6 +7,7 @@ import { requireViewerIdentity } from "./lib/auth";
 import { getSandboxModeStatus } from "./lib/sandboxAvailability";
 import { makeRepositoryTitle, parseGitHubUrl } from "./lib/github";
 import { CASCADE_BATCH_SIZE } from "./lib/constants";
+import { ensureRepositoryWorkspace } from "./lib/workspaces";
 import {
   consumeDaytonaGlobalRateLimit,
   consumeImportRateLimit,
@@ -277,21 +278,6 @@ export const createRepositoryImport = mutation({
         fileCount: 0,
       });
 
-      defaultThreadId = await ctx.db.insert("threads", {
-        repositoryId,
-        ownerTokenIdentifier: identity.tokenIdentifier,
-        title: `${makeRepositoryTitle(parsed.fullName)} chat`,
-        // Matches `resolveChatModes(true, 'none' | 'provisioning' | …).defaultMode`
-        // for any repo-attached thread, so the auto-created default thread
-        // and a manually-created one start on the same mode.
-        mode: getDefaultThreadMode(true),
-        lastMessageAt: Date.now(),
-      });
-
-      await ctx.db.patch(repositoryId, {
-        defaultThreadId,
-      });
-
       repository = await ctx.db.get(repositoryId);
     }
 
@@ -299,7 +285,34 @@ export const createRepositoryImport = mutation({
       throw new Error("Failed to create repository.");
     }
 
-    await ctx.db.patch(repositoryId, { accessMode });
+    const workspaceId = await ensureRepositoryWorkspace(ctx, {
+      repositoryId,
+      ownerTokenIdentifier: identity.tokenIdentifier,
+      name: repository.sourceRepoFullName,
+    });
+
+    const defaultThread = defaultThreadId ? await ctx.db.get(defaultThreadId) : null;
+    if (
+      !defaultThread ||
+      defaultThread.ownerTokenIdentifier !== identity.tokenIdentifier ||
+      defaultThread.repositoryId !== repositoryId
+    ) {
+      defaultThreadId = await ctx.db.insert("threads", {
+        workspaceId,
+        repositoryId,
+        ownerTokenIdentifier: identity.tokenIdentifier,
+        title: `${makeRepositoryTitle(repository.sourceRepoFullName)} chat`,
+        // Matches `resolveChatModes(true, 'none' | 'provisioning' | …).defaultMode`
+        // for any repo-attached thread, so the auto-created default thread
+        // and a manually-created one start on the same mode.
+        mode: getDefaultThreadMode(true),
+        lastMessageAt: Date.now(),
+      });
+    } else if (defaultThread.workspaceId !== workspaceId) {
+      await ctx.db.patch(defaultThread._id, { workspaceId });
+    }
+
+    await ctx.db.patch(repositoryId, { accessMode, defaultThreadId });
 
     const { jobId, importId } = await queueImportWorkflow(ctx, {
       repositoryId,
@@ -313,6 +326,7 @@ export const createRepositoryImport = mutation({
       importId,
       jobId,
       defaultThreadId,
+      workspaceId,
     };
   },
 });
@@ -583,6 +597,22 @@ export const cascadeDeleteRepository = internalMutation({
 
     const repository = await ctx.db.get(args.repositoryId);
     if (repository) {
+      const workspaces = await ctx.db
+        .query("workspaces")
+        .withIndex("by_ownerTokenIdentifier_and_repositoryId", (q) =>
+          q.eq("ownerTokenIdentifier", repository.ownerTokenIdentifier).eq("repositoryId", args.repositoryId),
+        )
+        .take(CASCADE_BATCH_SIZE);
+      for (const workspace of workspaces) {
+        await ctx.db.delete(workspace._id);
+      }
+      if (workspaces.length === CASCADE_BATCH_SIZE) {
+        await ctx.scheduler.runAfter(0, internal.repositories.cascadeDeleteRepository, {
+          repositoryId: args.repositoryId,
+        });
+        return;
+      }
+
       await ctx.db.delete(args.repositoryId);
     }
   },

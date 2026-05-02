@@ -1,8 +1,6 @@
-import { memo, useCallback, useState } from "react";
-import { useMutation } from "convex/react";
-import { CaretUpDown, CheckIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { memo } from "react";
+import { CaretUpDown, CheckIcon, GitBranchIcon } from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { api } from "../../convex/_generated/api";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,13 +8,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CreateWorkspaceDialog } from "@/components/create-workspace-dialog";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Workspace selector — a dropdown that shows the current workspace name and
-// lets the user switch, create, or delete workspaces. Sits next to the
+// lets the user switch workspaces or import repositories. Sits next to the
 // compact profile avatar in the sidebar footer row.
 // ---------------------------------------------------------------------------
 
@@ -24,34 +21,14 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
   workspaces,
   activeWorkspaceId,
   onSwitchWorkspace,
-  repositories,
   onImported,
 }: {
   workspaces: Doc<"workspaces">[] | undefined;
   activeWorkspaceId: WorkspaceId | null;
   onSwitchWorkspace: (id: WorkspaceId) => void;
-  repositories: Doc<"repositories">[] | undefined;
-  onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
 }) {
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [workspaceToDelete, setWorkspaceToDelete] = useState<WorkspaceId | null>(null);
-  const deleteWorkspaceMutation = useMutation(api.workspaces.deleteWorkspace);
-  const [isDeletingWorkspace, setIsDeletingWorkspace] = useState(false);
-
   const activeWorkspace = workspaces?.find((ws) => ws._id === activeWorkspaceId);
-
-  const handleDeleteWorkspace = useCallback(async () => {
-    if (!workspaceToDelete) return;
-    setIsDeletingWorkspace(true);
-    try {
-      await deleteWorkspaceMutation({ workspaceId: workspaceToDelete });
-      setWorkspaceToDelete(null);
-    } catch {
-      // Silently fail.
-    } finally {
-      setIsDeletingWorkspace(false);
-    }
-  }, [workspaceToDelete, deleteWorkspaceMutation]);
 
   if (workspaces === undefined) {
     return (
@@ -96,49 +73,17 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
 
           <DropdownMenuSeparator />
 
-          {/* Create new workspace */}
-          <DropdownMenuItem onClick={() => setShowCreateDialog(true)} className="gap-2">
-            <PlusIcon size={14} weight="bold" className="shrink-0" />
-            <span>New workspace</span>
-          </DropdownMenuItem>
-
-          {/* Delete current workspace — only repo-bound workspaces can be deleted */}
-          {activeWorkspace && activeWorkspace.repositoryId && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="gap-2 text-destructive focus:text-destructive"
-                onClick={() => setWorkspaceToDelete(activeWorkspace._id)}
-              >
-                <TrashIcon size={14} weight="bold" className="shrink-0" />
-                <span>Delete {activeWorkspace.name}</span>
+          <ImportRepoDialog
+            onImported={onImported}
+            trigger={
+              <DropdownMenuItem onSelect={(event) => event.preventDefault()} className="gap-2">
+                <GitBranchIcon size={14} weight="bold" className="shrink-0" />
+                <span>Import repository</span>
               </DropdownMenuItem>
-            </>
-          )}
+            }
+          />
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <CreateWorkspaceDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        repositories={repositories}
-        onCreated={(workspaceId) => {
-          onSwitchWorkspace(workspaceId);
-          setShowCreateDialog(false);
-        }}
-        onImported={onImported}
-      />
-
-      <ConfirmDialog
-        open={workspaceToDelete !== null}
-        onOpenChange={(open) => !open && setWorkspaceToDelete(null)}
-        title="Delete workspace"
-        description="This will delete the workspace. Threads inside it will be kept but unlinked. This action cannot be undone."
-        actionLabel="Delete workspace"
-        loadingLabel="Deleting..."
-        isPending={isDeletingWorkspace}
-        onConfirm={() => void handleDeleteWorkspace()}
-      />
     </>
   );
 });

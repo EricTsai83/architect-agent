@@ -46,6 +46,7 @@ import type * as lib_repoAnalysis from "../lib/repoAnalysis.js";
 import type * as lib_returnTo from "../lib/returnTo.js";
 import type * as lib_sandboxAvailability from "../lib/sandboxAvailability.js";
 import type * as lib_sandboxNames from "../lib/sandboxNames.js";
+import type * as lib_workspaces from "../lib/workspaces.js";
 import type * as ops from "../ops.js";
 import type * as opsNode from "../opsNode.js";
 import type * as repositories from "../repositories.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "lib/returnTo": typeof lib_returnTo;
   "lib/sandboxAvailability": typeof lib_sandboxAvailability;
   "lib/sandboxNames": typeof lib_sandboxNames;
+  "lib/workspaces": typeof lib_workspaces;
   ops: typeof ops;
   opsNode: typeof opsNode;
   repositories: typeof repositories;

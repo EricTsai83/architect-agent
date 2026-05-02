@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import { register as registerRateLimiter } from "@convex-dev/rate-limiter/test";
 import { convexTest } from "convex-test";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -201,6 +202,59 @@ describe("repository detail metadata", () => {
 });
 
 describe("repository import guards", () => {
+  test("createRepositoryImport creates a repo workspace and assigns the default thread to it", async () => {
+    const ownerTokenIdentifier = "user|import-workspace";
+    const t = createTestConvex();
+    await seedGithubInstallation(t, ownerTokenIdentifier);
+
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+    const result = await viewer.mutation(api.repositories.createRepositoryImport, {
+      url: "https://github.com/acme/import-workspace",
+    });
+
+    const state = await t.run(async (ctx) => {
+      const workspace = await ctx.db.get(result.workspaceId);
+      const thread = result.defaultThreadId ? await ctx.db.get(result.defaultThreadId) : null;
+      const workspaces = await ctx.db
+        .query("workspaces")
+        .withIndex("by_ownerTokenIdentifier_and_repositoryId", (q) =>
+          q.eq("ownerTokenIdentifier", ownerTokenIdentifier).eq("repositoryId", result.repositoryId),
+        )
+        .take(10);
+
+      return { workspace, thread, workspaces };
+    });
+
+    expect(state.workspace?.name).toBe("acme/import-workspace");
+    expect(state.workspace?.repositoryId).toBe(result.repositoryId);
+    expect(state.thread?.workspaceId).toBe(result.workspaceId);
+    expect(state.thread?.repositoryId).toBe(result.repositoryId);
+    expect(state.workspaces).toHaveLength(1);
+  });
+
+  test("completed repeated imports reuse the repo workspace", async () => {
+    const ownerTokenIdentifier = "user|repeat-import-workspace";
+    const t = createTestConvex();
+    await seedGithubInstallation(t, ownerTokenIdentifier);
+
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+    const first = await viewer.mutation(api.repositories.createRepositoryImport, {
+      url: "https://github.com/acme/repeat-import-workspace",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(first.repositoryId, { importStatus: "completed" });
+    });
+
+    const second = await viewer.mutation(api.repositories.createRepositoryImport, {
+      url: "https://github.com/acme/repeat-import-workspace",
+    });
+    const workspaceCount = await countRepositoryWorkspaces(t, ownerTokenIdentifier, first.repositoryId);
+
+    expect(second.repositoryId).toBe(first.repositoryId);
+    expect(second.workspaceId).toBe(first.workspaceId);
+    expect(workspaceCount).toBe(1);
+  });
+
   test("createRepositoryImport rejects duplicate imports while one is already running", async () => {
     const ownerTokenIdentifier = "user|duplicate-import";
     const t = createTestConvex();
@@ -243,3 +297,33 @@ describe("repository import guards", () => {
     ).rejects.toThrow("already in progress");
   });
 });
+
+async function seedGithubInstallation(t: ReturnType<typeof createTestConvex>, ownerTokenIdentifier: string) {
+  await t.run(async (ctx) => {
+    await ctx.db.insert("githubInstallations", {
+      ownerTokenIdentifier,
+      installationId: 123,
+      accountLogin: "acme",
+      accountType: "User",
+      status: "active",
+      repositorySelection: "all",
+      connectedAt: Date.now(),
+    });
+  });
+}
+
+async function countRepositoryWorkspaces(
+  t: ReturnType<typeof createTestConvex>,
+  ownerTokenIdentifier: string,
+  repositoryId: Id<"repositories">,
+) {
+  return await t.run(async (ctx) => {
+    const workspaces = await ctx.db
+      .query("workspaces")
+      .withIndex("by_ownerTokenIdentifier_and_repositoryId", (q) =>
+        q.eq("ownerTokenIdentifier", ownerTokenIdentifier).eq("repositoryId", repositoryId),
+      )
+      .take(10);
+    return workspaces.length;
+  });
+}

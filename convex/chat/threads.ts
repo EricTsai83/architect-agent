@@ -4,6 +4,7 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import { getDefaultThreadMode } from "../chatModeResolver";
 import { requireViewerIdentity } from "../lib/auth";
 import { MAX_VISIBLE_MESSAGES } from "../lib/constants";
+import { ensureRepositoryWorkspace, findHomeWorkspaceId } from "../lib/workspaces";
 import { loadRecentMessages } from "./context";
 import { deleteMessageStreamState } from "./streamStore";
 
@@ -98,6 +99,9 @@ export const createThread = mutation({
       if (!workspace || workspace.ownerTokenIdentifier !== identity.tokenIdentifier) {
         throw new Error("Workspace not found.");
       }
+      if (repositoryId !== undefined && workspace.repositoryId !== repositoryId) {
+        throw new Error("Thread repository must match the workspace repository.");
+      }
       if (repositoryId === undefined && workspace.repositoryId) {
         repositoryId = workspace.repositoryId;
       }
@@ -171,19 +175,26 @@ export const setThreadRepository = mutation({
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
         throw new Error("Repository not found.");
       }
-      await ctx.db.patch(args.threadId, { repositoryId: args.repositoryId });
-      return { repositoryId: args.repositoryId };
+      const workspaceId = await ensureRepositoryWorkspace(ctx, {
+        repositoryId: args.repositoryId,
+        ownerTokenIdentifier: identity.tokenIdentifier,
+        name: repository.sourceRepoFullName,
+      });
+      await ctx.db.patch(args.threadId, { repositoryId: args.repositoryId, workspaceId });
+      return { repositoryId: args.repositoryId, workspaceId };
     }
 
     // Detach atomically: dropping the repository while resetting the persisted
     // mode keeps the thread in the same repo-less default state as
     // `createThread`, so a racing `sendMessage` call never sees a stale
     // repo-dependent mode like `docs` / `sandbox`.
+    const workspaceId = await findHomeWorkspaceId(ctx, identity.tokenIdentifier);
     await ctx.db.patch(args.threadId, {
+      workspaceId: workspaceId ?? undefined,
       repositoryId: undefined,
       mode: getDefaultThreadMode(false),
     });
-    return { repositoryId: null as null };
+    return { repositoryId: null as null, workspaceId };
   },
 });
 

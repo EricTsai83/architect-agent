@@ -41,7 +41,7 @@ export function AppSidebar({
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
-  onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+  onImported: (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => void;
   onError: (message: string | null) => void;
 }) {
   const threads = useQuery(api.chat.threads.listThreads, activeWorkspaceId ? { workspaceId: activeWorkspaceId } : {});
@@ -119,7 +119,6 @@ export function AppSidebar({
             workspaces={workspaces}
             activeWorkspaceId={activeWorkspaceId}
             onSwitchWorkspace={onSwitchWorkspace}
-            repositories={repositories}
             onImported={onImported}
           />
         </div>
@@ -251,12 +250,11 @@ const ThreadsList = memo(function ThreadsList({
 });
 
 /**
- * Per-thread repo indicator. Only shown in workspaces without a bound repo
- * (e.g. "General") where threads might be attached to different repos.
+ * Per-thread repo indicator. Only shown in workspaces without a bound repo.
  */
 function ThreadRepoBadge({ repository }: { repository: Doc<"repositories"> | undefined }) {
   if (!repository) {
-    return <p className="mt-0.5 truncate text-[10px] uppercase tracking-wider text-muted-foreground/70">General</p>;
+    return <p className="mt-0.5 truncate text-[10px] uppercase tracking-wider text-muted-foreground/70">Home</p>;
   }
   const Icon = repository.visibility === "private" ? LockIcon : GlobeIcon;
   return (

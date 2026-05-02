@@ -24,16 +24,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toUserErrorMessage } from "@/lib/errors";
 import type { AttachedRepositorySummary } from "@/hooks/use-thread-capabilities";
-import type { RepositoryId, ThreadId } from "@/lib/types";
+import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
 /**
- * In-thread affordance to attach, swap, or detach the repository bound to
- * the current thread. PRD #19 user stories 2 and 3:
+ * In-thread affordance to move the current thread between Home and
+ * repository workspaces. PRD #19 user stories 2 and 3:
  *
- *   - Attach a repository to an existing design thread to move from abstract
+ *   - Move a design thread into a repository workspace to move from abstract
  *     discussion to grounded analysis without losing context.
- *   - Detach or swap the attached repository so the same thread can compare
- *     designs across codebases.
+ *   - Move back to Home or another repository workspace so the same thread can
+ *     compare designs across codebases.
  *
  * The trigger is a single button whose copy reflects the current state — this
  * keeps the affordance scannable without claiming sidebar real-estate. When a
@@ -46,10 +46,12 @@ export function AttachRepoMenu({
   threadId,
   attachedRepository,
   availableRepositories,
+  onMovedToWorkspace,
 }: {
   threadId: ThreadId;
   attachedRepository: AttachedRepositorySummary | null;
   availableRepositories: ReadonlyArray<Doc<"repositories">>;
+  onMovedToWorkspace: (workspaceId: WorkspaceId | null) => void;
 }) {
   const setThreadRepository = useMutation(api.chat.threads.setThreadRepository);
   const latestRequestRef = useRef(0);
@@ -70,7 +72,10 @@ export function AttachRepoMenu({
     setErrorState(null);
     setPendingRequest({ threadId, requestId });
     try {
-      await setThreadRepository({ threadId, repositoryId: repoId });
+      const result = await setThreadRepository({ threadId, repositoryId: repoId });
+      if (latestRequestRef.current === requestId) {
+        onMovedToWorkspace(result.workspaceId);
+      }
     } catch (err) {
       if (latestRequestRef.current === requestId) {
         setErrorState({
@@ -95,7 +100,7 @@ export function AttachRepoMenu({
             size="sm"
             disabled={isPending}
             className="gap-1.5 text-xs"
-            aria-label={attachedRepository ? "Change attached repository" : "Attach a repository"}
+            aria-label={attachedRepository ? "Change repository workspace" : "Move to a repository workspace"}
           >
             {attachedRepository ? (
               <>
@@ -105,7 +110,7 @@ export function AttachRepoMenu({
             ) : (
               <>
                 <LinkIcon size={12} weight="bold" />
-                <span className="font-medium">Attach repository</span>
+                <span className="font-medium">Move to repository</span>
               </>
             )}
             {isPending ? (
@@ -119,7 +124,7 @@ export function AttachRepoMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuLabel className="text-[11px] uppercase tracking-wider">
-            {attachedRepository ? "Swap repository" : "Attach a repository"}
+            {attachedRepository ? "Move to another repository" : "Move to repository workspace"}
           </DropdownMenuLabel>
           {swapTargets.length === 0 ? (
             // Empty-state copy is intentionally different from the sidebar's
@@ -162,7 +167,7 @@ export function AttachRepoMenu({
                 className="flex items-center gap-2 text-xs text-destructive focus:text-destructive"
               >
                 <LinkBreakIcon size={12} weight="bold" />
-                Detach repository
+                Move back to Home
               </DropdownMenuItem>
             </>
           ) : null}

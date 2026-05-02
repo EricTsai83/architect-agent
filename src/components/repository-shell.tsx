@@ -89,13 +89,13 @@ export function RepositoryShell({
     }
   }, [activeWorkspaceId]);
 
-  // Auto-initialize the default workspace on first load if none exist.
+  // Auto-initialize or repair the default Home workspace once per load. The
+  // mutation is idempotent, so existing users with legacy General workspaces
+  // get normalized without a separate migration step.
   useEffect(() => {
     if (workspaces === undefined || initializationAttemptedRef.current) return;
-    if (workspaces.length === 0) {
-      initializationAttemptedRef.current = true;
-      void initializeWorkspaces({});
-    }
+    initializationAttemptedRef.current = true;
+    void initializeWorkspaces({});
   }, [workspaces, initializeWorkspaces]);
 
   // Auto-select the most recent workspace if none is active or the active one
@@ -322,9 +322,11 @@ export function RepositoryShell({
   }, [handleToggleArtifactPanel, workspaceStatus]);
 
   const handleImported = useCallback(
-    (repoId: RepositoryId, threadId: ThreadId | null) => {
+    (repoId: RepositoryId, threadId: ThreadId | null, workspaceId: WorkspaceId) => {
       setActionError(null);
       setAnalysisError(null);
+      setActiveWorkspaceId(workspaceId);
+      void touchWorkspace({ workspaceId }).catch(() => {});
 
       if (threadId) {
         void navigate(`/t/${threadId}`);
@@ -332,7 +334,18 @@ export function RepositoryShell({
         void navigate(`/r/${repoId}`);
       }
     },
-    [navigate],
+    [navigate, touchWorkspace],
+  );
+
+  const handleThreadMovedToWorkspace = useCallback(
+    (workspaceId: WorkspaceId | null) => {
+      if (!workspaceId) {
+        return;
+      }
+      setActiveWorkspaceId(workspaceId);
+      void touchWorkspace({ workspaceId }).catch(() => {});
+    },
+    [touchWorkspace],
   );
 
   // Empty-state CTA: create a no-repo thread and navigate into it (PRD US 1
@@ -418,6 +431,7 @@ export function RepositoryShell({
           threadId={effectiveSelectedThreadId}
           attachedRepository={capabilities.attachedRepository}
           availableRepositories={repositories ?? []}
+          onThreadMovedToWorkspace={handleThreadMovedToWorkspace}
         />
 
         {actionError ? (
@@ -457,6 +471,7 @@ export function RepositoryShell({
                 hasAttachedRepository={capabilities.attachedRepository !== null}
                 availableRepositories={repositories ?? []}
                 onImported={handleImported}
+                onThreadMovedToWorkspace={handleThreadMovedToWorkspace}
               />
               {isDesktopLayout ? (
                 // Mirror left-sidebar behavior: animate container width while

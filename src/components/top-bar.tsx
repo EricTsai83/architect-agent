@@ -21,7 +21,7 @@ import { RepoInfoPopover } from "@/components/repo-info-popover";
 import { RepoStatusIndicator } from "@/components/repo-status-indicator";
 import { AttachRepoMenu } from "@/components/attach-repo-menu";
 import type { AttachedRepositorySummary } from "@/hooks/use-thread-capabilities";
-import type { SandboxModeStatus, ThreadId } from "@/lib/types";
+import type { SandboxModeStatus, ThreadId, WorkspaceId } from "@/lib/types";
 
 export type TopBarRepoDetail = {
   repository: {
@@ -49,6 +49,7 @@ export function TopBar({
   onSync,
   onDeleteRepo,
   onRunAnalysis,
+  onThreadMovedToWorkspace,
 }: {
   repoDetail?: TopBarRepoDetail;
   /** Immediate repo name from the already-loaded repository list so the title
@@ -69,6 +70,7 @@ export function TopBar({
   onSync: () => void;
   onDeleteRepo: () => void;
   onRunAnalysis: () => void;
+  onThreadMovedToWorkspace: (workspaceId: WorkspaceId | null) => void;
 }) {
   const title = repoDetail?.repository.sourceRepoFullName ?? repoName;
 
@@ -103,6 +105,7 @@ export function TopBar({
           threadId={threadId}
           attachedRepository={attachedRepository}
           availableRepositories={availableRepositories}
+          onMovedToWorkspace={onThreadMovedToWorkspace}
         />
       ) : null}
 
