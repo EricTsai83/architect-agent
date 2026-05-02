@@ -231,19 +231,21 @@ export const createRepositoryImport = mutation({
     // Installation tokens can access both public and private repos
     const accessMode = "private" as const;
 
-    let repository = await ctx.db
+    // There may be more than one record if a previous deletion is still
+    // cascading (soft-deleted row lingers until background cleanup finishes).
+    // Pick the first *active* (non-deleting) row; ignore tombstoned ones so
+    // the user can re-import immediately after pressing "Delete".
+    const matchingRepos = await ctx.db
       .query("repositories")
       .withIndex("by_ownerTokenIdentifier_and_sourceUrl", (q) =>
         q.eq("ownerTokenIdentifier", identity.tokenIdentifier).eq("sourceUrl", parsed.normalizedUrl),
       )
-      .unique();
+      .take(10);
+
+    let repository = matchingRepos.find((r) => !isRepositoryDeleting(r)) ?? null;
 
     let repositoryId = repository?._id;
     let defaultThreadId = repository?.defaultThreadId;
-
-    if (repository && isRepositoryDeleting(repository)) {
-      throw new Error("Repository deletion is already in progress.");
-    }
 
     if (repository && (repository.importStatus === "queued" || repository.importStatus === "running")) {
       throwOperationAlreadyInProgress(
