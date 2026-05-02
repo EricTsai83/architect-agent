@@ -160,6 +160,22 @@
   }
 }
 
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(200%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+@utility animate-indeterminate {
+  animation: indeterminate 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
 @keyframes terminal-owl-double-blink {
   0% {
     opacity: 0;

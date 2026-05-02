@@ -11,6 +11,7 @@ import { TopBar } from "@/components/top-bar";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { AppNotice } from "@/components/app-notice";
+import { ImportStatusBanner } from "@/components/import-status-banner";
 import { ChatPanel } from "@/components/chat-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -363,6 +364,14 @@ export function RepositoryShell({
             <AppNotice title="Action failed" message={actionError} tone="error" />
           </div>
         ) : null}
+
+        <ImportStatusBanner
+          importStatus={repoDetail?.repository.importStatus ?? "idle"}
+          latestImportJobId={repoDetail?.repository.latestImportJobId}
+          jobs={repoDetail?.jobs}
+          isSyncing={isSyncing}
+          onRetry={() => void handleSync()}
+        />
 
         <div className="flex min-h-0 min-w-0 flex-1">
           {workspaceStatus === "no-repo" ? (

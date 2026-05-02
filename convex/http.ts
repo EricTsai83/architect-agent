@@ -239,36 +239,36 @@ http.route({
     }
 
     // -----------------------------------------------------------------------
-    // Permission-update flow (no state parameter)
+    // Permission-update flow (no state parameter, setup_action=update)
     //
     // When a user adjusts repository access via "Adjust GitHub App
     // Permissions" (which opens GitHub's installation settings directly),
-    // GitHub redirects back with installation_id and setup_action but
-    // WITHOUT a state parameter because the flow was not initiated from
-    // our app.
-    //
-    // In this case we look up the existing installation by installationId,
-    // refresh its details from GitHub, and return a success page.
-    // -----------------------------------------------------------------------
-    // -----------------------------------------------------------------------
-    // Permission-update flow (no state parameter)
-    //
-    // When a user adjusts repository access via "Adjust GitHub App
-    // Permissions" (which opens GitHub's installation settings directly),
-    // GitHub redirects back with installation_id and setup_action but
-    // WITHOUT a state parameter because the flow was not initiated from
-    // our app.
+    // GitHub redirects back with installation_id and setup_action=update
+    // but WITHOUT a state parameter because the flow was not initiated
+    // from our app.
     //
     // We intentionally skip any DB queries/mutations here because this
     // endpoint is unauthenticated — no CSRF state, no session cookie.
     // The frontend already auto-refreshes the repo list via a window
     // focus event + GitHub API call, so no server-side work is needed.
     // -----------------------------------------------------------------------
-    if (!state) {
+    const setupAction = url.searchParams.get("setup_action");
+    if (!state && setupAction === "update") {
       logInfo("http", "github_callback_permissions_updated", {
         installationId,
       });
       return githubCallbackAutoCloseResponse();
+    }
+
+    // If no state but setup_action is not "update", treat as unexpected callback
+    if (!state) {
+      return redirectOrReturnError(
+        redirectTarget,
+        { github_error: "unexpected_callback" },
+        400,
+        "GitHub callback could not be completed.",
+        "GitHub sent an unexpected callback without setup context.",
+      );
     }
 
     // -----------------------------------------------------------------------

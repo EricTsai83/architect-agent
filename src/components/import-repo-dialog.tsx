@@ -125,7 +125,7 @@ function RepoRow({
 
   return (
     <div
-      className={`flex min-w-0 items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning ? "opacity-60" : ""}`}
+      className={`flex min-w-0 items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning && !hasUpdates && !canRetryFailedSync ? "opacity-60" : ""}`}
     >
       {/* Avatar */}
       {repo.ownerAvatarUrl ? (
@@ -173,15 +173,10 @@ function RepoRow({
             {isImporting ? "Syncing…" : "Retry sync"}
           </Button>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="pointer-events-none min-w-30 shrink-0 justify-center gap-1 border-transparent text-xs text-muted-foreground"
-            tabIndex={-1}
-          >
+          <div className="flex min-w-30 shrink-0 justify-center gap-1 rounded border border-input bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
             <CheckCircleIcon size={12} weight="fill" />
-            Imported
-          </Button>
+            <span>Imported</span>
+          </div>
         )
       ) : (
         <Button
@@ -297,9 +292,10 @@ export function ImportRepoDialog({
 
   // GitHub search results excluding repos already in the authorized list.
   const externalSearchResults = useMemo(() => {
-    if (!searchResults) return null;
-    return searchResults.filter((r) => !authorizedSet.has(r.fullName));
-  }, [searchResults, authorizedSet]);
+    if (!searchResults || !filteredAuthorizedRepos) return null;
+    const visibleAuthorizedSet = new Set(filteredAuthorizedRepos.map((r) => r.fullName));
+    return searchResults.filter((r) => !visibleAuthorizedSet.has(r.fullName));
+  }, [searchResults, filteredAuthorizedRepos]);
 
   // Open the GitHub App installation settings in a popup so the user can
   // grant access to additional repos. The existing window-focus listener
