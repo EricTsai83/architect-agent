@@ -352,7 +352,7 @@ export const createThread = mutation({
     // caller explicitly supplies one. This means threads created inside a
     // workspace automatically attach to the workspace's repo.
     let repositoryId = args.repositoryId;
-    let workspaceId = args.workspaceId;
+    const workspaceId = args.workspaceId;
     if (workspaceId) {
       const workspace = await ctx.db.get(workspaceId);
       if (!workspace || workspace.ownerTokenIdentifier !== identity.tokenIdentifier) {

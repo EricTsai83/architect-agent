@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { AppSidebar } from "./app-sidebar";
-import type { ThreadId } from "@/lib/types";
+import type { ThreadId, WorkspaceId } from "@/lib/types";
 
 const { createThreadMutationMock, useMutationMock, useQueryMock } = vi.hoisted(() => ({
   createThreadMutationMock: vi.fn(),
@@ -131,6 +131,9 @@ function createSidebarElement({
   return (
     <AppSidebar
       repositories={[] as Doc<"repositories">[]}
+      workspaces={[] as Doc<"workspaces">[]}
+      activeWorkspaceId={null as WorkspaceId | null}
+      onSwitchWorkspace={vi.fn()}
       selectedThreadId={null as ThreadId | null}
       onSelectThread={vi.fn()}
       onDeleteThread={vi.fn()}

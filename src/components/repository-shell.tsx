@@ -103,7 +103,8 @@ export function RepositoryShell({
   useEffect(() => {
     if (!workspaces || workspaces.length === 0) return;
     const activeExists = workspaces.some((ws) => ws._id === activeWorkspaceId);
-    if (!activeExists) {
+    if (!activeExists && activeWorkspaceId !== workspaces[0]._id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveWorkspaceId(workspaces[0]._id);
     }
   }, [workspaces, activeWorkspaceId]);
