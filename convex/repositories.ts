@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import type { GenericDatabaseWriter } from "convex/server";
-import type { DataModel, Id, TableNames } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { mutation, query, internalQuery, internalMutation, type MutationCtx } from "./_generated/server";
 import { getDefaultThreadMode } from "./chatModeResolver";
@@ -73,12 +72,13 @@ export const listRepositories = query({
     const identity = await requireViewerIdentity(ctx);
     const repositories = await ctx.db
       .query("repositories")
-      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", identity.tokenIdentifier))
+      .withIndex("by_ownerTokenIdentifier_and_lastImportedAt", (q) =>
+        q.eq("ownerTokenIdentifier", identity.tokenIdentifier),
+      )
+      .order("desc")
       .take(100);
 
-    return repositories
-      .filter((repository) => !isRepositoryDeleting(repository))
-      .sort((left, right) => (right.lastImportedAt ?? 0) - (left.lastImportedAt ?? 0));
+    return repositories.filter((repository) => !isRepositoryDeleting(repository));
   },
 });
 
@@ -395,23 +395,59 @@ export const deleteRepository = mutation({
   },
 });
 
-/**
- * Drains up to `batchSize` documents from a table using the given index,
- * deleting each one. Returns `true` if the table may still have more rows.
- */
-async function drainTable<T extends TableNames>(
-  db: GenericDatabaseWriter<DataModel>,
-  table: T,
-  indexName: string,
-  field: string,
-  value: string,
-  batchSize: number,
-): Promise<boolean> {
-  const docs = await (db.query(table).withIndex(indexName, (q: any) => q.eq(field, value)) as any).take(batchSize);
+async function drainArtifactsByRepositoryId(ctx: MutationCtx, repositoryId: Id<"repositories">): Promise<boolean> {
+  const docs = await ctx.db
+    .query("artifacts")
+    .withIndex("by_repositoryId", (q) => q.eq("repositoryId", repositoryId))
+    .take(CASCADE_BATCH_SIZE);
   for (const doc of docs) {
-    await db.delete(doc._id);
+    await ctx.db.delete(doc._id);
   }
-  return docs.length === batchSize;
+  return docs.length === CASCADE_BATCH_SIZE;
+}
+
+async function drainRepoChunksByRepositoryId(ctx: MutationCtx, repositoryId: Id<"repositories">): Promise<boolean> {
+  const docs = await ctx.db
+    .query("repoChunks")
+    .withIndex("by_repositoryId_and_path", (q) => q.eq("repositoryId", repositoryId))
+    .take(CASCADE_BATCH_SIZE);
+  for (const doc of docs) {
+    await ctx.db.delete(doc._id);
+  }
+  return docs.length === CASCADE_BATCH_SIZE;
+}
+
+async function drainRepoFilesByRepositoryId(ctx: MutationCtx, repositoryId: Id<"repositories">): Promise<boolean> {
+  const docs = await ctx.db
+    .query("repoFiles")
+    .withIndex("by_repositoryId_and_path", (q) => q.eq("repositoryId", repositoryId))
+    .take(CASCADE_BATCH_SIZE);
+  for (const doc of docs) {
+    await ctx.db.delete(doc._id);
+  }
+  return docs.length === CASCADE_BATCH_SIZE;
+}
+
+async function drainImportsByRepositoryId(ctx: MutationCtx, repositoryId: Id<"repositories">): Promise<boolean> {
+  const docs = await ctx.db
+    .query("imports")
+    .withIndex("by_repositoryId", (q) => q.eq("repositoryId", repositoryId))
+    .take(CASCADE_BATCH_SIZE);
+  for (const doc of docs) {
+    await ctx.db.delete(doc._id);
+  }
+  return docs.length === CASCADE_BATCH_SIZE;
+}
+
+async function drainJobsByRepositoryId(ctx: MutationCtx, repositoryId: Id<"repositories">): Promise<boolean> {
+  const docs = await ctx.db
+    .query("jobs")
+    .withIndex("by_repositoryId", (q) => q.eq("repositoryId", repositoryId))
+    .take(CASCADE_BATCH_SIZE);
+  for (const doc of docs) {
+    await ctx.db.delete(doc._id);
+  }
+  return docs.length === CASCADE_BATCH_SIZE;
 }
 
 export const cascadeDeleteRepository = internalMutation({
@@ -508,36 +544,10 @@ export const cascadeDeleteRepository = internalMutation({
     if (threads.length === CASCADE_BATCH_SIZE) more = true;
 
     // Drain remaining tables, but keep cleanup jobs until sandbox deletion has finished.
-    more =
-      (await drainTable(
-        ctx.db,
-        "artifacts",
-        "by_repositoryId",
-        "repositoryId",
-        args.repositoryId,
-        CASCADE_BATCH_SIZE,
-      )) || more;
-    more =
-      (await drainTable(
-        ctx.db,
-        "repoChunks",
-        "by_repositoryId_and_path",
-        "repositoryId",
-        args.repositoryId,
-        CASCADE_BATCH_SIZE,
-      )) || more;
-    more =
-      (await drainTable(
-        ctx.db,
-        "repoFiles",
-        "by_repositoryId_and_path",
-        "repositoryId",
-        args.repositoryId,
-        CASCADE_BATCH_SIZE,
-      )) || more;
-    more =
-      (await drainTable(ctx.db, "imports", "by_repositoryId", "repositoryId", args.repositoryId, CASCADE_BATCH_SIZE)) ||
-      more;
+    more = (await drainArtifactsByRepositoryId(ctx, args.repositoryId)) || more;
+    more = (await drainRepoChunksByRepositoryId(ctx, args.repositoryId)) || more;
+    more = (await drainRepoFilesByRepositoryId(ctx, args.repositoryId)) || more;
+    more = (await drainImportsByRepositoryId(ctx, args.repositoryId)) || more;
 
     const sandboxes = await ctx.db
       .query("sandboxes")
@@ -556,9 +566,7 @@ export const cascadeDeleteRepository = internalMutation({
     }
 
     if (!waitingOnSandboxCleanup) {
-      more =
-        (await drainTable(ctx.db, "jobs", "by_repositoryId", "repositoryId", args.repositoryId, CASCADE_BATCH_SIZE)) ||
-        more;
+      more = (await drainJobsByRepositoryId(ctx, args.repositoryId)) || more;
     }
 
     // Self-schedule if any table still has remaining records

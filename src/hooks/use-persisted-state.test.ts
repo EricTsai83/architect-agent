@@ -4,7 +4,57 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { useLocalStorageBoolean } from "./use-persisted-state";
 
+const localStorageBackingStore = new Map<string, string>();
+
+function ensureTestLocalStorage() {
+  if (typeof window.localStorage.clear !== "function" || !isUsableStorage(window.localStorage)) {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMemoryStorage(),
+    });
+  }
+}
+
+function isUsableStorage(storage: Storage) {
+  try {
+    storage.clear();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function createMemoryStorage(): Storage {
+  return {
+    get length() {
+      return localStorageBackingStore.size;
+    },
+    clear: () => {
+      localStorageBackingStore.clear();
+    },
+    getItem: (key: string) => localStorageBackingStore.get(key) ?? null,
+    key: (index: number) => Array.from(localStorageBackingStore.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      localStorageBackingStore.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      localStorageBackingStore.set(key, String(value));
+    },
+  };
+}
+
+function createStorageEvent(key: string, newValue: string | null): StorageEvent {
+  const event = new Event("storage") as StorageEvent;
+  Object.defineProperties(event, {
+    key: { value: key },
+    newValue: { value: newValue },
+    storageArea: { value: window.localStorage },
+  });
+  return event;
+}
+
 beforeEach(() => {
+  ensureTestLocalStorage();
   window.localStorage.clear();
 });
 
@@ -65,10 +115,10 @@ describe("useLocalStorageBoolean", () => {
     });
 
     test("falls back to in-memory state when localStorage throws", async () => {
-      const getItemSpy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      const getItemSpy = vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
         throw new Error("blocked");
       });
-      const setItemSpy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      const setItemSpy = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
         throw new Error("blocked");
       });
 
@@ -103,13 +153,7 @@ describe("useLocalStorageBoolean", () => {
       });
 
       act(() => {
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key: "systify.test.flag",
-            newValue: "false",
-            storageArea: window.localStorage,
-          }),
-        );
+        window.dispatchEvent(createStorageEvent("systify.test.flag", "false"));
       });
 
       await waitFor(() => {
@@ -126,13 +170,7 @@ describe("useLocalStorageBoolean", () => {
       });
 
       act(() => {
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key: "systify.test.flag",
-            newValue: null,
-            storageArea: window.localStorage,
-          }),
-        );
+        window.dispatchEvent(createStorageEvent("systify.test.flag", null));
       });
 
       await waitFor(() => {
