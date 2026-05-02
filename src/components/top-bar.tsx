@@ -192,7 +192,7 @@ function SyncButton({
   const buttonClassName = isFailed
     ? "relative justify-start gap-1.5 text-xs text-destructive hover:text-destructive"
     : hasUpdates
-      ? "relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+      ? "relative justify-start gap-1.5 text-xs text-primary hover:text-primary"
       : "justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground";
 
   if (label === null && !repoDetail && !isBusy) {
@@ -230,10 +230,10 @@ function SyncButton({
           {(hasUpdates || isFailed) && (
             <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
               <span
-                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isFailed ? "bg-red-400" : "bg-orange-400"}`}
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isFailed ? "bg-destructive" : "bg-primary"}`}
               />
               <span
-                className={`relative inline-flex h-2 w-2 rounded-full ${isFailed ? "bg-red-500" : "bg-orange-500"}`}
+                className={`relative inline-flex h-2 w-2 rounded-full ${isFailed ? "bg-destructive" : "bg-primary"}`}
               />
             </span>
           )}

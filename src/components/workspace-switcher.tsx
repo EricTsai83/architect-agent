@@ -8,6 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
@@ -33,7 +35,7 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
   if (workspaces === undefined) {
     return (
       <div className="min-w-0 flex-1">
-        <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+        <Skeleton className="h-4 w-20" />
       </div>
     );
   }
@@ -42,15 +44,17 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
+          <Button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 border border-border bg-background px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            variant="outline"
+            size="sm"
+            className="min-w-0 flex-1 justify-start gap-2 bg-background px-2"
           >
             <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {activeWorkspace?.name ?? "Select workspace"}
             </span>
             <CaretUpDown size={14} weight="bold" className="shrink-0 text-muted-foreground" />
-          </button>
+          </Button>
         </DropdownMenuTrigger>
 
         <DropdownMenuContent side="top" align="start" className="w-56">

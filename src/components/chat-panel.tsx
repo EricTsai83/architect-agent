@@ -15,7 +15,7 @@ import { api } from "../../convex/_generated/api";
 import { AppNotice } from "@/components/app-notice";
 import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -205,21 +205,18 @@ export function ChatPanel({
               <div className="hidden md:flex md:min-w-0 md:items-center">
                 {showArtifactToggle && onToggleArtifactPanel ? (
                   <>
-                    <button
+                    <Button
                       type="button"
+                      variant={isArtifactPanelOpen ? "secondary" : "ghost"}
+                      size="xs"
                       onClick={onToggleArtifactPanel}
                       aria-label="Toggle artifacts panel"
                       aria-pressed={isArtifactPanelOpen}
-                      className={cn(
-                        "inline-flex h-7 items-center gap-1.5 rounded-sm bg-transparent px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                        isArtifactPanelOpen
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground/80 hover:bg-muted hover:text-foreground",
-                      )}
+                      className="gap-1.5"
                     >
                       <FileTextIcon size={14} weight="bold" />
                       <span>Artifacts</span>
-                    </button>
+                    </Button>
                     <span aria-hidden="true" className="mx-2 h-4 w-px bg-border/70" />
                   </>
                 ) : null}
@@ -354,7 +351,7 @@ function ModeCompactSelect({
 function EmptyChatHint() {
   return (
     <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
-      <div className="flex flex-col items-center text-center">
+      <Card className="border-transparent bg-transparent p-6 text-center">
         <div className="relative mb-1 inline-grid place-items-center">
           <pre
             aria-hidden="true"
@@ -369,11 +366,11 @@ function EmptyChatHint() {
             {EMPTY_CHAT_OWL_BLINK}
           </pre>
         </div>
-        <p className="mt-5 text-base font-medium text-foreground">Start a design conversation</p>
-        <p className="mt-2 max-w-sm text-xs text-muted-foreground">
-          Architecture · Module dependencies · Risk hotspots
-        </p>
-      </div>
+        <CardHeader className="items-center p-0 pt-5">
+          <CardTitle className="text-base">Start a design conversation</CardTitle>
+          <CardDescription className="text-xs">Architecture · Module dependencies · Risk hotspots</CardDescription>
+        </CardHeader>
+      </Card>
     </div>
   );
 }
@@ -419,9 +416,9 @@ function EmptyNoRepoHint({
 
   return (
     <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
-      <div className="flex flex-col items-center text-center">
+      <Card className="w-full max-w-md border-transparent bg-transparent p-6 text-center">
         {attachError ? (
-          <div className="mb-4 w-full max-w-xs">
+          <div className="mb-4 w-full">
             <AppNotice
               title="Failed to attach repository"
               message={attachError}
@@ -446,7 +443,9 @@ function EmptyNoRepoHint({
           </pre>
         </div>
 
-        <p className="mt-5 text-base font-medium text-foreground">Start a design conversation</p>
+        <CardHeader className="items-center p-0 pt-5">
+          <CardTitle className="text-base">Start a design conversation</CardTitle>
+        </CardHeader>
 
         <div className="mt-4 flex flex-col items-center gap-3">
           <DropdownMenu>
@@ -500,7 +499,7 @@ function EmptyNoRepoHint({
             free-form discussion.
           </p>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

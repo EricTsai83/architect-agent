@@ -12,6 +12,8 @@ import {
   EyeIcon,
 } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,7 +29,6 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { useGitHubConnection } from "@/hooks/use-github-connection";
 import { useAsyncCallback } from "@/hooks/use-async-callback";
 import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
@@ -127,14 +128,12 @@ function RepoRow({
     <div
       className={`flex min-w-0 items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning && !hasUpdates && !canRetryFailedSync ? "opacity-60" : ""}`}
     >
-      {/* Avatar */}
-      {repo.ownerAvatarUrl ? (
-        <img src={repo.ownerAvatarUrl} alt="" className="h-8 w-8 shrink-0 rounded-full" />
-      ) : (
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+      <Avatar className="shrink-0">
+        <AvatarImage src={repo.ownerAvatarUrl} alt="" />
+        <AvatarFallback className="text-xs font-semibold">
           {ownerInitial}
-        </div>
-      )}
+        </AvatarFallback>
+      </Avatar>
 
       {/* Repo name + metadata */}
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -173,10 +172,10 @@ function RepoRow({
             {isImporting ? "Syncing…" : "Retry sync"}
           </Button>
         ) : (
-          <div className="flex min-w-30 shrink-0 justify-center gap-1 rounded border border-input bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
+          <Badge variant="outline" className="min-w-30 shrink-0 justify-center gap-1 px-2.5 py-1.5 text-xs">
             <CheckCircleIcon size={12} weight="fill" />
             <span>Imported</span>
-          </div>
+          </Badge>
         )
       ) : (
         <Button
@@ -800,13 +799,14 @@ export function ImportRepoDialog({
             {!isUrlMode && installationId && (
               <div className="shrink-0 border-t border-border/50 pt-3 text-[13px] text-muted-foreground">
                 Missing a repository?{" "}
-                <button
+                <Button
                   type="button"
-                  className="font-medium text-primary underline-offset-2 hover:underline"
+                  variant="link"
+                  className="h-auto p-0 text-[13px] font-medium"
                   onClick={handleAdjustPermissions}
                 >
                   Adjust GitHub App Permissions
-                </button>
+                </Button>
               </div>
             )}
           </>
