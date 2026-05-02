@@ -83,7 +83,7 @@ function Block({ step, index }: { step: Step; index: number }) {
       <div className="flex flex-col gap-2.5">
         {/* Step header — number, hairline rule, verb keyword */}
         <div className="flex items-center gap-3 font-mono text-[10.5px] uppercase tracking-[0.22em]">
-          <span className="text-primary">{entry.num}</span>
+          <span className="text-lg font-semibold leading-none text-primary">{entry.num}</span>
           <span aria-hidden className="block h-px flex-1 bg-border/60" />
           <span className="text-muted-foreground">{step.key}</span>
         </div>

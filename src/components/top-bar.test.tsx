@@ -3,7 +3,6 @@
 import type React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import type { Doc } from "../../convex/_generated/dataModel";
 import type { RepositoryId, ThreadId } from "@/lib/types";
 
 // Stub heavyweight UI primitives down to plain DOM so the test focuses on the
@@ -21,12 +20,6 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuLabel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DropdownMenuSeparator: () => <div />,
   DropdownMenuTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
-}));
-
-vi.mock("@/components/ui/popover", () => ({
-  Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  PopoverTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
 }));
 
 vi.mock("@/components/ui/tooltip", () => ({
@@ -75,19 +68,6 @@ afterEach(() => {
 });
 
 type TopBarTestProps = React.ComponentProps<typeof TopBar>;
-
-function makeJob(overrides: Partial<Doc<"jobs">>): Doc<"jobs"> {
-  return {
-    _id: "job_1",
-    _creationTime: Date.now(),
-    kind: "import",
-    stage: "cloning",
-    status: "running",
-    progress: 0.5,
-    repositoryId: repoId,
-    ...overrides,
-  } as unknown as Doc<"jobs">;
-}
 
 function makeRepoDetail(overrides: Partial<TopBarRepoDetail> = {}): TopBarRepoDetail {
   return {
@@ -151,46 +131,3 @@ describe("TopBar attach repo chip behavior", () => {
   });
 });
 
-describe("TopBar jobs badge behavior", () => {
-  test("shows active count when there are running or queued jobs", () => {
-    renderTopBar({
-      repoDetail: makeRepoDetail({
-        jobs: [
-          makeJob({ _id: "job_a" as Doc<"jobs">["_id"], status: "running" }),
-          makeJob({ _id: "job_b" as Doc<"jobs">["_id"], status: "queued" }),
-          makeJob({ _id: "job_c" as Doc<"jobs">["_id"], status: "completed" }),
-        ],
-      }),
-    });
-
-    // Only running + queued jobs feed the count badge — completed jobs are
-    // ignored so a finished-then-queued history doesn't keep nagging the user.
-    const badge = screen.getByText("2");
-    expect(badge).toBeInTheDocument();
-  });
-
-  test("hides active count when all jobs are finished", () => {
-    renderTopBar({
-      repoDetail: makeRepoDetail({
-        jobs: [
-          makeJob({ _id: "job_a" as Doc<"jobs">["_id"], status: "completed" }),
-          makeJob({ _id: "job_b" as Doc<"jobs">["_id"], status: "failed" }),
-        ],
-      }),
-    });
-
-    expect(screen.queryByTestId("jobs-active-count")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Jobs/ })).toBeInTheDocument();
-  });
-
-  test("keeps jobs button enabled and shows empty copy when no jobs exist", () => {
-    renderTopBar({
-      repoDetail: makeRepoDetail({ jobs: [] }),
-    });
-
-    const jobsButton = screen.getByRole("button", { name: "Jobs" });
-    expect(jobsButton).toBeInTheDocument();
-    expect(jobsButton).toBeEnabled();
-    expect(screen.getByText("No jobs yet.")).toBeInTheDocument();
-  });
-});

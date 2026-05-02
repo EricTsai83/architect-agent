@@ -13,7 +13,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useRelativeTime } from "@/hooks/use-relative-time";
 import { RepoInfoPopover } from "@/components/repo-info-popover";
 import { RepoStatusIndicator } from "@/components/repo-status-indicator";
-import { JobsPopoverButton } from "@/components/jobs-popover-button";
 import { AttachRepoMenu } from "@/components/attach-repo-menu";
 import type { AttachedRepositorySummary } from "@/hooks/use-thread-capabilities";
 import type { SandboxModeStatus, ThreadId } from "@/lib/types";
@@ -32,7 +31,6 @@ export type TopBarRepoDetail = {
   hasRemoteUpdates: boolean;
   fileCount: number;
   fileCountLabel: string;
-  jobs?: Doc<"jobs">[];
 };
 
 export function TopBar({
@@ -105,8 +103,6 @@ export function TopBar({
       ) : null}
 
       <div className="ml-auto flex items-center gap-1.5">
-        <JobsPopoverButton jobs={repoDetail?.jobs} />
-
         <TooltipProvider delayDuration={150}>
           <SyncButton repoDetail={repoDetail} isSyncing={isSyncing} onSync={onSync} />
 
