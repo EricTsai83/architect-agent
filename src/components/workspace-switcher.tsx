@@ -131,8 +131,8 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
             <span>New workspace</span>
           </DropdownMenuItem>
 
-          {/* Delete current workspace */}
-          {activeWorkspace && (
+          {/* Delete current workspace — only repo-bound workspaces can be deleted */}
+          {activeWorkspace && activeWorkspace.repositoryId && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem

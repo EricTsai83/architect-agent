@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireViewerIdentity } from "./lib/auth";
 
@@ -97,6 +96,11 @@ export const deleteWorkspace = mutation({
       throw new Error("Workspace not found.");
     }
 
+    // The default workspace (no bound repository) cannot be deleted.
+    if (!workspace.repositoryId) {
+      throw new Error("The default workspace cannot be deleted.");
+    }
+
     // Unlink threads from this workspace (don't delete them — just orphan them
     // so they become visible in a "General" context or can be re-assigned).
     const threads = await ctx.db
@@ -126,10 +130,9 @@ export const touchWorkspace = mutation({
 });
 
 /**
- * Bootstrap workspaces for existing users who have repositories but no
- * workspaces yet. Creates one workspace per imported repo and a "General"
- * workspace for repo-less threads. Assigns existing threads to matching
- * workspaces based on their `repositoryId`.
+ * Bootstrap a default workspace for new users. Creates a single "General"
+ * workspace that is not tied to any repository — the standard landing
+ * workspace every user starts with after onboarding.
  *
  * Idempotent: if the user already has at least one workspace, this is a no-op.
  */
@@ -149,11 +152,6 @@ export const initializeWorkspaces = mutation({
       return { created: 0 };
     }
 
-    const repositories = await ctx.db
-      .query("repositories")
-      .withIndex("by_ownerTokenIdentifier", (q) => q.eq("ownerTokenIdentifier", identity.tokenIdentifier))
-      .take(50);
-
     const threads = await ctx.db
       .query("threads")
       .withIndex("by_ownerTokenIdentifier_and_lastMessageAt", (q) =>
@@ -162,56 +160,22 @@ export const initializeWorkspaces = mutation({
       .take(200);
 
     const now = Date.now();
-    let colorIndex = 0;
-    const repoIdToWorkspaceId = new Map<string, string>();
 
-    // Create a workspace for each non-deleting repo.
-    for (const repo of repositories) {
-      if (typeof repo.deletionRequestedAt === "number") {
-        continue;
-      }
-      const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
-      colorIndex++;
-      const workspaceId = await ctx.db.insert("workspaces", {
-        ownerTokenIdentifier: identity.tokenIdentifier,
-        repositoryId: repo._id,
-        name: repo.sourceRepoName,
-        color,
-        lastAccessedAt: now - colorIndex, // slight offset for ordering
-      });
-      repoIdToWorkspaceId.set(repo._id, workspaceId);
-    }
+    // Always create a default "General" workspace. This is the workspace
+    // every new user lands in — it is not tied to any repository.
+    const color = COLOR_PALETTE[0];
+    const generalId = await ctx.db.insert("workspaces", {
+      ownerTokenIdentifier: identity.tokenIdentifier,
+      name: "General",
+      color,
+      lastAccessedAt: now,
+    });
 
-    // Check if any threads are repo-less.
-    const hasOrphanThreads = threads.some((t) => !t.repositoryId);
-
-    // Create a General workspace if there are orphan threads or no repos.
-    if (hasOrphanThreads || repositories.length === 0) {
-      const color = COLOR_PALETTE[colorIndex % COLOR_PALETTE.length];
-      const generalId = await ctx.db.insert("workspaces", {
-        ownerTokenIdentifier: identity.tokenIdentifier,
-        name: "General",
-        color,
-        lastAccessedAt: now,
-      });
-      // Assign orphan threads.
-      for (const thread of threads) {
-        if (!thread.repositoryId) {
-          await ctx.db.patch(thread._id, { workspaceId: generalId });
-        }
-      }
-    }
-
-    // Assign repo-attached threads to their corresponding workspace.
+    // Assign all existing threads to the default workspace.
     for (const thread of threads) {
-      if (thread.repositoryId) {
-        const wsId = repoIdToWorkspaceId.get(thread.repositoryId);
-        if (wsId) {
-          await ctx.db.patch(thread._id, { workspaceId: wsId as Id<"workspaces"> });
-        }
-      }
+      await ctx.db.patch(thread._id, { workspaceId: generalId });
     }
 
-    return { created: repoIdToWorkspaceId.size + (hasOrphanThreads || repositories.length === 0 ? 1 : 0) };
+    return { created: 1 };
   },
 });

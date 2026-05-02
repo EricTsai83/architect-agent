@@ -18,12 +18,10 @@ import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
  * Layout, top to bottom:
  *
  *   1. Header — logo + product name. Branding is "Systify".
- *   2. Workspace name indicator — shows which workspace is active.
- *   3. "+ New thread" CTA — creates a thread scoped to the active workspace.
- *   4. Threads section — threads belonging to the active workspace, sorted by
+ *   2. "+ New thread" CTA — creates a thread scoped to the active workspace.
+ *   3. Threads section — threads belonging to the active workspace, sorted by
  *      recency.
- *   5. Profile card — user avatar, name, sign-out.
- *   6. Workspace switcher bar — row of workspace avatars + "+" to create new.
+ *   4. Footer — profile card + workspace switcher dropdown side-by-side.
  */
 export function AppSidebar({
   repositories,
@@ -91,13 +89,8 @@ export function AppSidebar({
         </div>
       </SidebarHeader>
 
-      {/* Workspace name + new thread button */}
+      {/* New thread button */}
       <div className="border-b border-border px-3 py-2">
-        {activeWorkspace && (
-          <p className="mb-1.5 truncate px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {activeWorkspace.name}
-          </p>
-        )}
         <Button
           type="button"
           variant="default"

@@ -89,14 +89,14 @@ export function RepositoryShell({
     }
   }, [activeWorkspaceId]);
 
-  // Auto-initialize workspaces on first load if none exist.
+  // Auto-initialize the default workspace on first load if none exist.
   useEffect(() => {
     if (workspaces === undefined || initializationAttemptedRef.current) return;
-    if (workspaces.length === 0 && repositories !== undefined) {
+    if (workspaces.length === 0) {
       initializationAttemptedRef.current = true;
       void initializeWorkspaces({});
     }
-  }, [workspaces, repositories, initializeWorkspaces]);
+  }, [workspaces, initializeWorkspaces]);
 
   // Auto-select the most recent workspace if none is active or the active one
   // no longer exists (e.g. deleted).
@@ -320,26 +320,10 @@ export function RepositoryShell({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleToggleArtifactPanel, workspaceStatus]);
 
-  // Import success: auto-create a workspace for the new repo and switch to it.
-  // The backend's `createWorkspace` resolves the workspace name from the repo
-  // record, so we don't need to wait for the client-side query to refresh.
-  const createWorkspaceMutation = useMutation(api.workspaces.createWorkspace);
   const handleImported = useCallback(
     (repoId: RepositoryId, threadId: ThreadId | null) => {
       setActionError(null);
       setAnalysisError(null);
-
-      // Auto-create a workspace for the imported repo.
-      void (async () => {
-        try {
-          const workspaceId = await createWorkspaceMutation({
-            repositoryId: repoId,
-          });
-          setActiveWorkspaceId(workspaceId);
-        } catch {
-          // Non-fatal: workspace creation failure shouldn't block navigation.
-        }
-      })();
 
       if (threadId) {
         void navigate(`/t/${threadId}`);
@@ -347,7 +331,7 @@ export function RepositoryShell({
         void navigate(`/r/${repoId}`);
       }
     },
-    [navigate, createWorkspaceMutation],
+    [navigate],
   );
 
   // Empty-state CTA: create a no-repo thread and navigate into it (PRD US 1
