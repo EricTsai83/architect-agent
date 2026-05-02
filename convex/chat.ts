@@ -227,9 +227,23 @@ async function deleteMessageStreamState(ctx: MutationCtx, streamId: Id<"messageS
 export const listThreads = query({
   args: {
     repositoryId: v.optional(v.id("repositories")),
+    workspaceId: v.optional(v.id("workspaces")),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
+
+    // Workspace-scoped listing takes priority over repo-scoped listing.
+    if (args.workspaceId) {
+      const workspace = await ctx.db.get(args.workspaceId);
+      if (!workspace || workspace.ownerTokenIdentifier !== identity.tokenIdentifier) {
+        throw new Error("Workspace not found.");
+      }
+      return await ctx.db
+        .query("threads")
+        .withIndex("by_workspaceId_and_lastMessageAt", (q) => q.eq("workspaceId", args.workspaceId))
+        .order("desc")
+        .take(20);
+    }
 
     const filterRepositoryId = args.repositoryId;
     if (filterRepositoryId) {
@@ -327,11 +341,27 @@ export const getActiveMessageStream = query({
 export const createThread = mutation({
   args: {
     repositoryId: v.optional(v.id("repositories")),
+    workspaceId: v.optional(v.id("workspaces")),
     title: v.optional(v.string()),
     mode: v.optional(v.union(v.literal("discuss"), v.literal("docs"), v.literal("sandbox"))),
   },
   handler: async (ctx, args) => {
     const identity = await requireViewerIdentity(ctx);
+
+    // When a workspaceId is provided, inherit its repositoryId unless the
+    // caller explicitly supplies one. This means threads created inside a
+    // workspace automatically attach to the workspace's repo.
+    let repositoryId = args.repositoryId;
+    let workspaceId = args.workspaceId;
+    if (workspaceId) {
+      const workspace = await ctx.db.get(workspaceId);
+      if (!workspace || workspace.ownerTokenIdentifier !== identity.tokenIdentifier) {
+        throw new Error("Workspace not found.");
+      }
+      if (repositoryId === undefined && workspace.repositoryId) {
+        repositoryId = workspace.repositoryId;
+      }
+    }
 
     // `docs` and `sandbox` both require an attached repo; the resolver's
     // capability ladder already prevents the UI from offering them in the
@@ -339,13 +369,13 @@ export const createThread = mutation({
     // states) can't bypass it. We do NOT enforce sandbox-ready at thread
     // creation — the user may create a thread before sandbox provisioning
     // finishes; `sendMessage` re-validates at the actual send moment.
-    if ((args.mode === "docs" || args.mode === "sandbox") && !args.repositoryId) {
+    if ((args.mode === "docs" || args.mode === "sandbox") && !repositoryId) {
       throw new Error(`'${args.mode}' mode requires an attached repository.`);
     }
 
     let title = args.title;
-    if (args.repositoryId) {
-      const repository = await ctx.db.get(args.repositoryId);
+    if (repositoryId) {
+      const repository = await ctx.db.get(repositoryId);
       if (!repository || repository.ownerTokenIdentifier !== identity.tokenIdentifier) {
         throw new Error("Repository not found.");
       }
@@ -359,10 +389,11 @@ export const createThread = mutation({
     // `discuss` when there is no repo. Keeping this in lockstep with the
     // resolver means the persisted mode and the UI's preselected mode agree
     // on day one.
-    const defaultMode = getDefaultThreadMode(!!args.repositoryId);
+    const defaultMode = getDefaultThreadMode(!!repositoryId);
 
     return await ctx.db.insert("threads", {
-      repositoryId: args.repositoryId,
+      workspaceId,
+      repositoryId,
       ownerTokenIdentifier: identity.tokenIdentifier,
       title,
       mode: args.mode ?? defaultMode,

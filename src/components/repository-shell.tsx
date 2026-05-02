@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "convex/react";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -19,7 +19,7 @@ import { useCheckForUpdates } from "@/hooks/use-check-for-updates";
 import { useLocalStorageBoolean } from "@/hooks/use-persisted-state";
 import { useRepositoryActions } from "@/hooks/use-repository-actions";
 import { useThreadCapabilities } from "@/hooks/use-thread-capabilities";
-import type { RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
+import type { RepositoryId, ThreadId, WorkspaceId, ChatMode, SandboxModeStatus } from "@/lib/types";
 import { toUserErrorMessage } from "@/lib/errors";
 
 type RepositoryWorkspaceStatus = "initializing" | "no-repo" | "ready";
@@ -58,6 +58,67 @@ export function RepositoryShell({
   const repositories = useQuery(api.repositories.listRepositories);
   const createThreadMutation = useMutation(api.chat.createThread);
 
+  // -------------------------------------------------------------------------
+  // Workspace state — persisted in localStorage for cross-session continuity.
+  // -------------------------------------------------------------------------
+  const workspaces = useQuery(api.workspaces.listWorkspaces);
+  const initializeWorkspaces = useMutation(api.workspaces.initializeWorkspaces);
+  const touchWorkspace = useMutation(api.workspaces.touchWorkspace);
+  const initializationAttemptedRef = useRef(false);
+
+  // Persist active workspace in localStorage.
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId | null>(() => {
+    try {
+      const stored = localStorage.getItem("systify.activeWorkspaceId");
+      return stored ? (stored as WorkspaceId) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Sync to localStorage whenever it changes.
+  useEffect(() => {
+    try {
+      if (activeWorkspaceId) {
+        localStorage.setItem("systify.activeWorkspaceId", activeWorkspaceId);
+      } else {
+        localStorage.removeItem("systify.activeWorkspaceId");
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [activeWorkspaceId]);
+
+  // Auto-initialize workspaces on first load if none exist.
+  useEffect(() => {
+    if (workspaces === undefined || initializationAttemptedRef.current) return;
+    if (workspaces.length === 0 && repositories !== undefined) {
+      initializationAttemptedRef.current = true;
+      void initializeWorkspaces({});
+    }
+  }, [workspaces, repositories, initializeWorkspaces]);
+
+  // Auto-select the most recent workspace if none is active or the active one
+  // no longer exists (e.g. deleted).
+  useEffect(() => {
+    if (!workspaces || workspaces.length === 0) return;
+    const activeExists = workspaces.some((ws) => ws._id === activeWorkspaceId);
+    if (!activeExists) {
+      setActiveWorkspaceId(workspaces[0]._id);
+    }
+  }, [workspaces, activeWorkspaceId]);
+
+  const handleSwitchWorkspace = useCallback(
+    (workspaceId: WorkspaceId) => {
+      setActiveWorkspaceId(workspaceId);
+      void touchWorkspace({ workspaceId }).catch(() => {});
+      // Navigate to /chat so the redirect-to-most-recent-thread logic kicks in
+      // for the new workspace.
+      void navigate("/chat");
+    },
+    [navigate, touchWorkspace],
+  );
+
   // useThreadCapabilities is the canonical bridge between the resolver-side
   // ChatModeResolver / ThreadContextResolver and the UI's mode selector.
   // It also forwards the attached repository summary, so we do not need a
@@ -65,9 +126,15 @@ export function RepositoryShell({
   const capabilities = useThreadCapabilities(urlThreadId);
 
   // Loaded only on the no-selection landing (`/chat`) so we can redirect to
-  // the most recent thread when one exists. The query is owner-scoped via
-  // chat.listThreads's no-arg branch added in Phase 1.
-  const ownerThreads = useQuery(api.chat.listThreads, urlThreadId === null && urlRepositoryId === null ? {} : "skip");
+  // the most recent thread when one exists. Workspace-scoped when one is active.
+  const ownerThreads = useQuery(
+    api.chat.listThreads,
+    urlThreadId === null && urlRepositoryId === null
+      ? activeWorkspaceId
+        ? { workspaceId: activeWorkspaceId }
+        : {}
+      : "skip",
+  );
 
   const [threadToDelete, setThreadToDelete] = useState<ThreadId | null>(null);
   const [showDeleteRepoDialog, setShowDeleteRepoDialog] = useState(false);
@@ -253,20 +320,34 @@ export function RepositoryShell({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleToggleArtifactPanel, workspaceStatus]);
 
-  // Import success can produce either a fresh repo+thread (when the user
-  // imports their first repository) or just a repo (subsequent imports).
-  // We prefer the thread URL so the user lands directly in chatting context.
+  // Import success: auto-create a workspace for the new repo and switch to it.
+  // The backend's `createWorkspace` resolves the workspace name from the repo
+  // record, so we don't need to wait for the client-side query to refresh.
+  const createWorkspaceMutation = useMutation(api.workspaces.createWorkspace);
   const handleImported = useCallback(
     (repoId: RepositoryId, threadId: ThreadId | null) => {
       setActionError(null);
       setAnalysisError(null);
+
+      // Auto-create a workspace for the imported repo.
+      void (async () => {
+        try {
+          const workspaceId = await createWorkspaceMutation({
+            repositoryId: repoId,
+          });
+          setActiveWorkspaceId(workspaceId);
+        } catch {
+          // Non-fatal: workspace creation failure shouldn't block navigation.
+        }
+      })();
+
       if (threadId) {
         void navigate(`/t/${threadId}`);
       } else {
         void navigate(`/r/${repoId}`);
       }
     },
-    [navigate],
+    [navigate, createWorkspaceMutation],
   );
 
   // Empty-state CTA: create a no-repo thread and navigate into it (PRD US 1
@@ -280,12 +361,14 @@ export function RepositoryShell({
     useCallback(async () => {
       setActionError(null);
       try {
-        const newThreadId = await createThreadMutation({});
+        const newThreadId = await createThreadMutation({
+          workspaceId: activeWorkspaceId ?? undefined,
+        });
         void navigate(`/t/${newThreadId}`);
       } catch (error) {
         setActionError(toUserErrorMessage(error, "Failed to start a conversation."));
       }
-    }, [createThreadMutation, navigate]),
+    }, [createThreadMutation, navigate, activeWorkspaceId]),
   );
 
   const {
@@ -326,6 +409,9 @@ export function RepositoryShell({
     <>
       <AppSidebar
         repositories={repositories}
+        workspaces={workspaces}
+        activeWorkspaceId={activeWorkspaceId}
+        onSwitchWorkspace={handleSwitchWorkspace}
         selectedThreadId={effectiveSelectedThreadId}
         onSelectThread={handleSelectThread}
         onDeleteThread={setThreadToDelete}

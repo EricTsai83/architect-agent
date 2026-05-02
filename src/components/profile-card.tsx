@@ -1,7 +1,6 @@
 import { useAuth } from "@workos-inc/authkit-react";
-import { CaretUpDown, Moon, Sun, SignOut, UserCircle, Stack, ChartLineUp } from "@phosphor-icons/react";
+import { Moon, Sun, SignOut, UserCircle, Stack, ChartLineUp } from "@phosphor-icons/react";
 import { useTheme } from "@/providers/theme-provider";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,6 +10,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/**
+ * Compact profile avatar with dropdown menu. Shows only the avatar circle —
+ * no name or email. Designed to sit alongside the workspace selector in a
+ * single footer row.
+ */
 export function ProfileCard() {
   const { user, signIn, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -18,20 +22,18 @@ export function ProfileCard() {
 
   if (!user) {
     return (
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="sm"
         onClick={() => void signIn()}
-        className="h-auto w-full justify-start gap-3 px-2 py-2 text-left hover:bg-muted"
+        className="flex shrink-0 items-center justify-center rounded-md transition-opacity hover:opacity-80"
+        aria-label="Sign in"
       >
-        <Avatar className="shrink-0 rounded-md">
-          <AvatarFallback className="rounded-md">
-            <UserCircle size={20} weight="bold" className="text-muted-foreground" />
+        <Avatar className="h-8 w-8 shrink-0 rounded-md">
+          <AvatarFallback className="rounded-md bg-muted">
+            <UserCircle size={18} weight="bold" className="text-muted-foreground" />
           </AvatarFallback>
         </Avatar>
-        <span className="min-w-0 flex-1 text-sm font-medium">Sign in</span>
-      </Button>
+      </button>
     );
   }
 
@@ -44,27 +46,29 @@ export function ProfileCard() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          className="h-auto w-full justify-start gap-3 px-2 py-2 text-left hover:bg-muted"
+          className="flex shrink-0 items-center justify-center rounded-md transition-opacity hover:opacity-80"
+          aria-label={displayName}
         >
-          <Avatar className="shrink-0 rounded-md">
+          <Avatar className="h-8 w-8 shrink-0 rounded-md">
             <AvatarImage src={avatarUrl ?? undefined} alt={displayName} className="rounded-md" />
-            <AvatarFallback className="rounded-md text-xs font-semibold uppercase">
+            <AvatarFallback className="rounded-md bg-muted text-xs font-semibold uppercase">
               {displayName.charAt(0)}
             </AvatarFallback>
           </Avatar>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-semibold">{displayName}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{user.email ?? "Workspace shortcuts"}</p>
-          </div>
-          <CaretUpDown size={14} weight="bold" className="shrink-0 text-muted-foreground" />
-        </Button>
+        </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent side="top" align="start" className="w-56">
+        {/* User info header */}
+        <div className="px-2 py-1.5">
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          {user.email && (
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          )}
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuItem disabled title="Coming soon">
           <Stack weight="bold" />
           <span>Resources</span>

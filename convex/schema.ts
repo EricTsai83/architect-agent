@@ -110,7 +110,28 @@ const messageStatus = v.union(
   v.literal("failed"),
 );
 
+const workspaceColor = v.union(
+  v.literal("blue"),
+  v.literal("emerald"),
+  v.literal("amber"),
+  v.literal("violet"),
+  v.literal("rose"),
+  v.literal("cyan"),
+  v.literal("orange"),
+  v.literal("teal"),
+);
+
 export default defineSchema({
+  workspaces: defineTable({
+    ownerTokenIdentifier: v.string(),
+    repositoryId: v.optional(v.id("repositories")),
+    name: v.string(),
+    color: workspaceColor,
+    lastAccessedAt: v.number(),
+  })
+    .index("by_ownerTokenIdentifier_and_lastAccessedAt", ["ownerTokenIdentifier", "lastAccessedAt"])
+    .index("by_ownerTokenIdentifier_and_repositoryId", ["ownerTokenIdentifier", "repositoryId"]),
+
   repositories: defineTable({
     ownerTokenIdentifier: v.string(),
     sourceHost: v.literal("github"),
@@ -328,6 +349,7 @@ export default defineSchema({
     }),
 
   threads: defineTable({
+    workspaceId: v.optional(v.id("workspaces")),
     repositoryId: v.optional(v.id("repositories")),
     ownerTokenIdentifier: v.string(),
     title: v.string(),
@@ -336,7 +358,8 @@ export default defineSchema({
     lastAssistantMessageAt: v.optional(v.number()),
   })
     .index("by_repositoryId_and_lastMessageAt", ["repositoryId", "lastMessageAt"])
-    .index("by_ownerTokenIdentifier_and_lastMessageAt", ["ownerTokenIdentifier", "lastMessageAt"]),
+    .index("by_ownerTokenIdentifier_and_lastMessageAt", ["ownerTokenIdentifier", "lastMessageAt"])
+    .index("by_workspaceId_and_lastMessageAt", ["workspaceId", "lastMessageAt"]),
 
   messages: defineTable({
     repositoryId: v.optional(v.id("repositories")),
