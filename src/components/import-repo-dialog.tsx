@@ -2,22 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   PlusIcon,
-  GlobeIcon,
   LockIcon,
   MagnifyingGlassIcon,
   ShieldCheckIcon,
   CircleNotchIcon,
   CheckCircleIcon,
   ArrowsClockwiseIcon,
-  ArrowSquareOutIcon,
   GithubLogoIcon,
+  EyeIcon,
 } from "@phosphor-icons/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+// Tabs removed — connected state uses a single unified repo list (Vercel-style).
 import {
   Dialog,
   DialogContent,
@@ -31,14 +30,37 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useGitHubConnection } from "@/hooks/use-github-connection";
 import { useAsyncCallback } from "@/hooks/use-async-callback";
-import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
-import { useTypewriter } from "@/hooks/use-typewriter";
 import type { RepositoryId, ThreadId } from "@/lib/types";
 
-// Example queries the placeholder cycles through to suggest searchable repo
-// names. Picked to span popular shapes (single word, owner/name, kebab-case)
-// so the visitor sees a few different valid forms.
-const PLACEHOLDER_QUERIES = ["react", "shadcn-ui", "vercel/next.js", "systify"] as const;
+// ---------------------------------------------------------------------------
+// sessionStorage flag: fallback for when the popup-based GitHub install is
+// blocked. Persisted before a full-page redirect so the dialog can auto-open
+// when the user returns. This survives the multi-redirect chain
+// (GitHub → callback → / → /chat) that otherwise drops URL search params.
+// ---------------------------------------------------------------------------
+const PENDING_IMPORT_KEY = "systify.github.pendingImport";
+
+function markPendingImport() {
+  try {
+    sessionStorage.setItem(PENDING_IMPORT_KEY, "true");
+  } catch {
+    // Private-browsing modes may deny storage; best-effort.
+  }
+}
+
+/** Consume the flag. Returns `true` exactly once per redirect. */
+function consumePendingImport(): boolean {
+  try {
+    if (sessionStorage.getItem(PENDING_IMPORT_KEY) === "true") {
+      sessionStorage.removeItem(PENDING_IMPORT_KEY);
+      return true;
+    }
+  } catch {
+    // Ignore storage errors.
+  }
+  return false;
+}
+
 const STATIC_PLACEHOLDER = "Search any GitHub repo or paste a URL...";
 
 type ImportSummary = {
@@ -103,7 +125,7 @@ function RepoRow({
 
   return (
     <div
-      className={`flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning ? "opacity-60" : ""}`}
+      className={`flex min-w-0 items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0 ${hasCompletedImport && !isRunning ? "opacity-60" : ""}`}
     >
       {/* Avatar */}
       {repo.ownerAvatarUrl ? (
@@ -151,10 +173,15 @@ function RepoRow({
             {isImporting ? "Syncing…" : "Retry sync"}
           </Button>
         ) : (
-          <Badge variant="muted" className="shrink-0 gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="pointer-events-none min-w-30 shrink-0 justify-center gap-1 border-transparent text-xs text-muted-foreground"
+            tabIndex={-1}
+          >
             <CheckCircleIcon size={12} weight="fill" />
             Imported
-          </Badge>
+          </Button>
         )
       ) : (
         <Button
@@ -193,8 +220,31 @@ export function ImportRepoDialog({
   const searchReposAction = useAction(api.githubAppNode.searchGitHubRepos);
   const verifyAccess = useAction(api.githubAppNode.verifyRepoAccess);
   const importedSummaries = useQuery(api.repositories.getImportedRepoSummaries);
-  const { isConnected, installationId } = useGitHubConnection();
+  const { isConnected, installationId, isLoading: isConnectionLoading } = useGitHubConnection();
   const [open, setOpen] = useState(false);
+
+  // --- Auto-open after GitHub connection redirect (fallback path) ---
+  // When the popup is blocked, handleConnectGitHub falls back to a full-page
+  // redirect. Before leaving, it stashes a flag in sessionStorage. Once the
+  // redirect chain resolves and this component mounts with a confirmed
+  // connection, auto-open the dialog so the user can continue importing.
+  const pendingImportConsumedRef = useRef(false);
+  useEffect(() => {
+    // Wait for the connection query to settle so we know the install succeeded.
+    if (isConnectionLoading) return;
+    // Only run once per component lifecycle.
+    if (pendingImportConsumedRef.current) return;
+
+    if (consumePendingImport()) {
+      pendingImportConsumedRef.current = true;
+      if (isConnected) {
+        setOpen(true);
+        // Stay on the default "public" tab — the user might have connected
+        // GitHub to import any repo (public or private), and the public
+        // search already surfaces authorized private repos in results.
+      }
+    }
+  }, [isConnectionLoading, isConnected]);
 
   // --- Shared state ---
   const [importError, setImportError] = useState<string | null>(null);
@@ -212,13 +262,12 @@ export function ImportRepoDialog({
     return new Set(authorizedRepos.map((r) => r.fullName));
   }, [authorizedRepos]);
 
-  // Derived: authorized private repos for the Private tab, sorted so
-  // not-yet-imported repos appear first and imported ones sink to the bottom.
-  const authorizedPrivateRepos = useMemo(() => {
+  // Derived: all authorized repos sorted so not-yet-imported repos appear
+  // first and imported ones sink to the bottom.
+  const sortedAuthorizedRepos = useMemo(() => {
     if (!authorizedRepos) return null;
-    const privateRepos = authorizedRepos.filter((r) => r.isPrivate);
-    if (!importedSummaries) return privateRepos;
-    return privateRepos.slice().sort((a, b) => {
+    if (!importedSummaries) return authorizedRepos;
+    return authorizedRepos.slice().sort((a, b) => {
       const aImported = a.fullName in importedSummaries ? 1 : 0;
       const bImported = b.fullName in importedSummaries ? 1 : 0;
       return aImported - bImported;
@@ -232,43 +281,95 @@ export function ImportRepoDialog({
   const [searchResults, setSearchResults] = useState<RepoInfo[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+
 
   const isUrlMode = isGitHubUrl(publicInput);
 
-  // Animated placeholder for the search input. We only run the typewriter
-  // while the field is empty AND unfocused — the moment the user engages
-  // (focus or types) we yield to the native caret to avoid two carets
-  // showing at once. Reduced-motion users skip the animation entirely
-  // and see the static placeholder instead.
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const showTypewriter = !publicInput && !isSearchFocused && !prefersReducedMotion;
-  const typedPlaceholder = useTypewriter({
-    words: PLACEHOLDER_QUERIES,
-    active: showTypewriter,
-  });
+  // Client-side filtered authorized repos (filter by search input).
+  const filteredAuthorizedRepos = useMemo(() => {
+    if (!sortedAuthorizedRepos) return null;
+    const query = publicInput.trim().toLowerCase();
+    if (!query || isUrlMode) return sortedAuthorizedRepos;
+    return sortedAuthorizedRepos.filter((r) =>
+      r.fullName.toLowerCase().includes(query),
+    );
+  }, [sortedAuthorizedRepos, publicInput, isUrlMode]);
+
+  // GitHub search results excluding repos already in the authorized list.
+  const externalSearchResults = useMemo(() => {
+    if (!searchResults) return null;
+    return searchResults.filter((r) => !authorizedSet.has(r.fullName));
+  }, [searchResults, authorizedSet]);
+
+  // Open the GitHub App installation settings in a popup so the user can
+  // grant access to additional repos. The existing window-focus listener
+  // auto-refreshes the repo list when the user returns.
+  const handleAdjustPermissions = useCallback(() => {
+    if (!installationId) return;
+    const url = `https://github.com/settings/installations/${installationId}`;
+    window.open(url, "systify-github-permissions", "width=1020,height=720,popup=yes");
+  }, [installationId]);
 
   // Track the latest search request to avoid stale results
   const inputRef = useRef<HTMLInputElement>(null);
   const latestSearchRef = useRef(0);
 
+  // Track whether we're waiting for the popup-based GitHub install to
+  // complete. While `true`, the dialog shows a "Waiting for authorization…"
+  // state instead of the default "Connect GitHub" button.
+  const [isAwaitingPopup, setIsAwaitingPopup] = useState(false);
+  const popupRef = useRef<Window | null>(null);
+
+  // When the Convex subscription flips `isConnected` from false → true while
+  // we're still waiting on the popup, the install succeeded — clean up.
   useEffect(() => {
-    if (!open || !showTypewriter) return;
+    if (isAwaitingPopup && isConnected) {
+      setIsAwaitingPopup(false);
+      popupRef.current?.close();
+      popupRef.current = null;
+    }
+  }, [isAwaitingPopup, isConnected]);
 
-    const timer = window.setTimeout(() => {
-      inputRef.current?.focus();
-    }, 1800);
-
-    return () => window.clearTimeout(timer);
-  }, [open, showTypewriter]);
+  // Poll for popup closure so we can reset the waiting state if the user
+  // closes the popup without finishing (or if a popup blocker prevented it
+  // from opening in the first place).
+  useEffect(() => {
+    if (!isAwaitingPopup) return;
+    const timer = window.setInterval(() => {
+      if (popupRef.current && popupRef.current.closed) {
+        popupRef.current = null;
+        setIsAwaitingPopup(false);
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [isAwaitingPopup]);
 
   const [isConnectingGitHub, handleConnectGitHub] = useAsyncCallback(async () => {
     setConnectError(null);
     try {
       const redirectUrl = await initiateGitHubInstall({
-        returnTo: window.location.origin,
+        returnTo: window.location.href,
       });
-      window.location.assign(redirectUrl);
+
+      // Attempt popup first — dialog stays open, user never leaves the page.
+      // Falls back to full-page redirect when the popup is blocked.
+      const popup = window.open(
+        redirectUrl,
+        "systify-github-install",
+        "width=1020,height=720,popup=yes",
+      );
+
+      if (popup && !popup.closed) {
+        popupRef.current = popup;
+        setIsAwaitingPopup(true);
+        // The Convex reactive query will flip `isConnected` once the
+        // callback handler saves the installation — the effect above
+        // cleans up the popup and resets the state automatically.
+      } else {
+        // Popup blocked — fall back to full-page redirect.
+        markPendingImport();
+        window.location.assign(redirectUrl);
+      }
     } catch (error) {
       setConnectError(error instanceof Error ? error.message : "Failed to connect GitHub.");
     }
@@ -381,6 +482,12 @@ export function ImportRepoDialog({
         setSearchResults(null);
         setSearchError(null);
         setImportStage("idle");
+        // Clean up popup if the user closes the dialog mid-flow.
+        if (popupRef.current) {
+          popupRef.current.close();
+          popupRef.current = null;
+        }
+        setIsAwaitingPopup(false);
       }
     },
     [fetchAuthorizedRepos, isConnected],
@@ -435,272 +542,294 @@ export function ImportRepoDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="flex h-[560px] flex-col overflow-y-hidden">
+      <DialogContent className="flex h-[560px] flex-col overflow-y-hidden data-[state=open]:animate-none">
         <DialogHeader className="shrink-0">
-          <DialogTitle>Add a repository</DialogTitle>
-          <DialogDescription>
-            {!isConnected
-              ? "Connect your GitHub account to import repositories."
-              : "Import any public repo by URL or search, or add your private repos."}
-          </DialogDescription>
+          <DialogTitle>Import Repository</DialogTitle>
+          {!isConnected && (
+            <DialogDescription>
+              Install the Systify GitHub App to get started.
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {!isConnected ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-6">
-            <div className="relative flex items-center justify-center">
-              <div className="absolute h-28 w-28 rounded-full bg-primary/8 blur-2xl" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-gradient-to-b from-muted to-card shadow-lg ring-1 ring-white/[0.03]">
-                <GithubLogoIcon size={30} weight="fill" className="text-foreground" />
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="default"
-              className="gap-2 px-5 shadow-md shadow-primary/20"
-              disabled={isConnectingGitHub}
-              onClick={() => void handleConnectGitHub()}
-            >
-              {isConnectingGitHub ? (
-                <>
-                  <CircleNotchIcon size={15} className="animate-spin" />
-                  Connecting…
-                </>
-              ) : (
-                <>
-                  <GithubLogoIcon size={15} weight="fill" />
-                  Connect GitHub
-                </>
-              )}
-            </Button>
-            {connectError ? <p className="text-xs text-destructive">{connectError}</p> : null}
-          </div>
-        ) : (
-          <Tabs defaultValue="public" className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <TabsList className="w-full shrink-0 border-b border-border px-0">
-              <TabsTrigger value="public" className="gap-1.5">
-                <GlobeIcon size={14} weight="bold" />
-                Public Repo
-              </TabsTrigger>
-              <TabsTrigger value="private" className="gap-1.5">
-                <LockIcon size={14} weight="bold" />
-                Private Repo
-              </TabsTrigger>
-            </TabsList>
-
-            {/* ---- Tab 1: Public Repo (URL + Search) ---- */}
-            <TabsContent value="public" className="pt-3">
-              {/* Smart input. The visible placeholder is rendered as an
-                  absolutely-positioned overlay so we can type it out
-                  character-by-character with a caret tracking the last
-                  visible letter. The native `placeholder` attribute is
-                  left empty while the typewriter is active to avoid
-                  drawing two placeholders on top of each other; the
-                  `aria-label` keeps screen readers informed regardless. */}
-              <div className="relative shrink-0">
-                <MagnifyingGlassIcon
-                  size={14}
-                  weight="bold"
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  ref={inputRef}
-                  value={publicInput}
-                  onChange={(e) => {
-                    setPublicInput(e.target.value);
-                    setImportError(null);
-                  }}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
-                  placeholder={showTypewriter ? "" : STATIC_PLACEHOLDER}
-                  aria-label={STATIC_PLACEHOLDER}
-                  className="pl-8"
-                />
-                {showTypewriter && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-y-0 left-8 right-3 flex items-center text-sm text-muted-foreground"
-                  >
-                    {/* Typed text + caret. The caret is its own span placed
-                        immediately after the text in the DOM, so it sits
-                        flush against the last rendered character without any
-                        position math — no matter how long the current
-                        phrase is, the caret tracks it for free. */}
-                    <span className="truncate">{typedPlaceholder}</span>
-                    <span className="ml-px inline-block h-4 w-px shrink-0 animate-caret bg-primary" />
-                  </div>
-                )}
-              </div>
-
-              {/* URL import mode */}
-              {isUrlMode ? (
-                <form
-                  className="mt-3 flex min-h-0 flex-1 flex-col gap-3"
-                  onSubmit={(e) => {
-                    void handleImportByUrl(e);
+            {isAwaitingPopup ? (
+              /* ---- Waiting for popup authorization ---- */
+              <>
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <CircleNotchIcon size={28} className="animate-spin text-primary" />
+                  <p className="text-sm font-medium text-foreground">
+                    Waiting for GitHub&hellip;
+                  </p>
+                  <p className="max-w-xs text-xs text-muted-foreground">
+                    Complete the setup in the popup window.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground"
+                  onClick={() => {
+                    popupRef.current?.close();
+                    popupRef.current = null;
+                    setIsAwaitingPopup(false);
                   }}
                 >
-                  {urlRepoAuthorized && (
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <ShieldCheckIcon size={14} weight="fill" className="text-primary" />
-                      <span>This repo is in your authorized list.</span>
-                    </div>
-                  )}
-                  <Input
-                    value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
-                    placeholder="Branch (leave empty for repo default)"
-                  />
-
-                  {importError && <p className="text-xs text-destructive">{importError}</p>}
-
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button type="button" variant="secondary">
-                        Cancel
-                      </Button>
-                    </DialogClose>
-                    <Button
-                      type="submit"
-                      variant="default"
-                      className="min-w-36"
-                      disabled={importStage !== "idle" || !publicInput.trim()}
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              /* ---- Initial connect prompt ---- */
+              <>
+                {/* Feature highlights */}
+                <div className="flex w-full max-w-xs flex-col gap-3">
+                  {[
+                    {
+                      icon: <EyeIcon size={16} weight="duotone" className="text-primary" />,
+                      text: "Read-only access to your repository contents",
+                    },
+                    {
+                      icon: <ShieldCheckIcon size={16} weight="duotone" className="text-primary" />,
+                      text: "Code is never stored beyond the active session",
+                    },
+                    {
+                      icon: <ArrowsClockwiseIcon size={16} weight="duotone" className="text-primary" />,
+                      text: "Change repo access anytime in GitHub Settings",
+                    },
+                  ].map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 px-3.5 py-2.5"
                     >
-                      {importStage === "verifying"
-                        ? "Checking access…"
-                        : importStage === "importing"
-                          ? "Queuing import…"
-                          : "Import"}
+                      <span className="flex shrink-0 items-center justify-center rounded-md border border-border/60 bg-background p-1.5">
+                        {item.icon}
+                      </span>
+                      <span className="text-[13px] leading-snug text-muted-foreground">
+                        {item.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Connect button */}
+                <Button
+                  type="button"
+                  variant="default"
+                  className="gap-2 px-8 shadow-md shadow-primary/20"
+                  disabled={isConnectingGitHub}
+                  onClick={() => void handleConnectGitHub()}
+                >
+                  {isConnectingGitHub ? (
+                    <>
+                      <CircleNotchIcon size={15} className="animate-spin" />
+                      Connecting…
+                    </>
+                  ) : (
+                    <>
+                      <GithubLogoIcon size={15} weight="fill" />
+                      Install GitHub App
+                    </>
+                  )}
+                </Button>
+                {connectError ? <p className="text-xs text-destructive">{connectError}</p> : null}
+              </>
+            )}
+          </div>
+        ) : (
+          /* ---- Connected: unified repo list (Vercel-style) ---- */
+          <>
+            {/* Search / URL input */}
+            <div className="relative shrink-0">
+              <MagnifyingGlassIcon
+                size={14}
+                weight="bold"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                ref={inputRef}
+                value={publicInput}
+                onChange={(e) => {
+                  setPublicInput(e.target.value);
+                  setImportError(null);
+                }}
+                placeholder={STATIC_PLACEHOLDER}
+                aria-label={STATIC_PLACEHOLDER}
+                className="pl-8"
+              />
+            </div>
+
+            {/* URL import mode */}
+            {isUrlMode ? (
+              <form
+                className="mt-3 flex min-h-0 flex-1 flex-col gap-3"
+                onSubmit={(e) => {
+                  void handleImportByUrl(e);
+                }}
+              >
+                {urlRepoAuthorized && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ShieldCheckIcon size={14} weight="fill" className="text-primary" />
+                    <span>This repo is in your authorized list.</span>
+                  </div>
+                )}
+                <Input
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  placeholder="Branch (leave empty for repo default)"
+                />
+
+                {importError && <p className="text-xs text-destructive">{importError}</p>}
+
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button type="button" variant="secondary">
+                      Cancel
                     </Button>
-                  </DialogFooter>
-                </form>
-              ) : publicInput.trim().length >= 2 ? (
-                /* Search results */
-                <div className="mt-3 flex min-h-0 flex-1 flex-col">
-                  {isSearching && !searchResults ? (
-                    <div className="flex flex-1 items-center justify-center gap-2">
-                      <CircleNotchIcon size={16} className="animate-spin text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Searching…</p>
-                    </div>
-                  ) : searchError ? (
-                    <div className="flex flex-1 flex-col items-center justify-center gap-2">
-                      <p className="text-sm text-destructive">{searchError}</p>
-                    </div>
-                  ) : searchResults && searchResults.length === 0 ? (
-                    <div className="flex flex-1 animate-in flex-col items-center justify-center gap-2 text-center fade-in duration-300">
-                      <p className="text-sm text-muted-foreground">
-                        No repositories found for &ldquo;{publicInput.trim()}&rdquo;
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Try a different search term, or paste a full GitHub URL above.
-                      </p>
-                    </div>
-                  ) : searchResults ? (
-                    <ScrollArea className="min-h-0 flex-1">
-                      <div className="flex flex-col pr-3">
-                        {isSearching && (
-                          <div className="flex items-center justify-center gap-1.5 border-b border-border/50 py-2.5">
-                            <CircleNotchIcon size={12} className="animate-spin text-muted-foreground" />
-                            <span className="text-[11px] text-muted-foreground">Updating results…</span>
-                          </div>
-                        )}
-                        {searchResults.map((repo) => (
+                  </DialogClose>
+                  <Button
+                    type="submit"
+                    variant="default"
+                    className="min-w-36"
+                    disabled={importStage !== "idle" || !publicInput.trim()}
+                  >
+                    {importStage === "verifying"
+                      ? "Checking access…"
+                      : importStage === "importing"
+                        ? "Queuing import…"
+                        : "Import"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            ) : (
+              /* Repo list */
+              <div className="flex min-h-0 flex-1 flex-col pt-1">
+                {isLoadingAuthorized && !authorizedRepos ? (
+                  /* Loading skeletons */
+                  <div className="space-y-3 px-1">
+                    {Array.from({ length: 4 }, (_, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 border-b border-border/50 py-3 last:border-b-0"
+                      >
+                        <Skeleton className="h-8 w-8 rounded-full" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                        <Skeleton className="h-8 w-28" />
+                      </div>
+                    ))}
+                  </div>
+                ) : authorizedError ? (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-2">
+                    <p className="text-sm text-destructive">{authorizedError}</p>
+                    <Button variant="ghost" size="sm" onClick={() => void fetchAuthorizedRepos()}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <ScrollArea className="min-h-0 flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block">
+                    <div className="flex flex-col pr-3">
+                      {/* Authorized repos (filtered client-side by search input) */}
+                      {filteredAuthorizedRepos && filteredAuthorizedRepos.length > 0 &&
+                        filteredAuthorizedRepos.map((repo) => (
                           <RepoRow
                             key={repo.fullName}
                             repo={repo}
-                            isAuthorized={authorizedSet.has(repo.fullName)}
+                            isAuthorized={true}
                             isImporting={importingRepo === repo.fullName}
                             onImport={() => void handleImportFromList(repo)}
                             importSummary={importedSummaries?.[repo.fullName]}
                           />
                         ))}
-                      </div>
-                    </ScrollArea>
-                  ) : null}
 
-                  {importError && <p className="mt-2 shrink-0 text-xs text-destructive">{importError}</p>}
-                </div>
-              ) : (
-                /* Empty state / hint */
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Search any public repository on GitHub, or paste a URL to import directly.
-                  </p>
-                  <p className="text-xs text-muted-foreground">Type at least 2 characters to start searching.</p>
-                </div>
-              )}
-            </TabsContent>
+                      {/* GitHub-wide search results (excludes already-authorized) */}
+                      {publicInput.trim().length >= 2 && (
+                        <>
+                          {isSearching && !searchResults ? (
+                            <div className="flex items-center justify-center gap-2 py-6">
+                              <CircleNotchIcon size={16} className="animate-spin text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">Searching GitHub…</p>
+                            </div>
+                          ) : searchError ? (
+                            <p className="py-4 text-center text-sm text-destructive">{searchError}</p>
+                          ) : externalSearchResults && externalSearchResults.length > 0 ? (
+                            <>
+                              {isSearching && (
+                                <div className="flex items-center justify-center gap-1.5 border-b border-border/50 py-2.5">
+                                  <CircleNotchIcon size={12} className="animate-spin text-muted-foreground" />
+                                  <span className="text-[11px] text-muted-foreground">Updating…</span>
+                                </div>
+                              )}
+                              <p className="mb-1 mt-3 px-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                                More on GitHub
+                              </p>
+                              {externalSearchResults.map((repo) => (
+                                <RepoRow
+                                  key={repo.fullName}
+                                  repo={repo}
+                                  isAuthorized={false}
+                                  isImporting={importingRepo === repo.fullName}
+                                  onImport={() => void handleImportFromList(repo)}
+                                  importSummary={importedSummaries?.[repo.fullName]}
+                                />
+                              ))}
+                            </>
+                          ) : null}
+                        </>
+                      )}
 
-            {/* ---- Tab 2: Private Repo ---- */}
-            <TabsContent value="private" className="pt-3">
-              {installationId && (
-                <a
-                  href={`https://github.com/settings/installations/${installationId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mb-3 flex shrink-0 items-center gap-3 border-l-2 border-l-primary bg-muted px-3 py-2.5 transition-colors hover:bg-muted/80"
-                >
-                  <GithubLogoIcon size={20} weight="fill" className="shrink-0 text-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">Manage repo access</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Select which private repos are available for import
-                    </p>
-                  </div>
-                  <ArrowSquareOutIcon size={16} weight="bold" className="shrink-0 text-muted-foreground" />
-                </a>
-              )}
+                      {/* Empty state: no authorized repos and no search */}
+                      {(!filteredAuthorizedRepos || filteredAuthorizedRepos.length === 0) &&
+                        !isSearching &&
+                        publicInput.trim().length < 2 && (
+                          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                            <p className="text-sm text-muted-foreground">No repositories yet.</p>
+                            <p className="text-xs text-muted-foreground">
+                              Grant access below, or search any public repo above.
+                            </p>
+                          </div>
+                        )}
 
-              <p className="mb-2 shrink-0 text-[11px] text-muted-foreground">Your authorized private repositories</p>
-
-              {isLoadingAuthorized && !authorizedRepos ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 4 }, (_, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 border-b border-border/50 px-1 py-3 last:border-b-0"
-                    >
-                      <Skeleton className="h-8 w-8 rounded-full" />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <Skeleton className="h-4 w-40" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                      <Skeleton className="h-8 w-28" />
+                      {/* No results for a search query */}
+                      {publicInput.trim().length >= 2 &&
+                        (!filteredAuthorizedRepos || filteredAuthorizedRepos.length === 0) &&
+                        searchResults &&
+                        searchResults.length === 0 &&
+                        !isSearching && (
+                          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                            <p className="text-sm text-muted-foreground">
+                              No repositories found for &ldquo;{publicInput.trim()}&rdquo;
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Try a different term, or paste a full GitHub URL.
+                            </p>
+                          </div>
+                        )}
                     </div>
-                  ))}
-                </div>
-              ) : authorizedError ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2">
-                  <p className="text-sm text-destructive">{authorizedError}</p>
-                  <Button variant="ghost" size="sm" onClick={() => void fetchAuthorizedRepos()}>
-                    Retry
-                  </Button>
-                </div>
-              ) : authorizedPrivateRepos && authorizedPrivateRepos.length === 0 ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-                  <p className="text-sm text-muted-foreground">No private repos authorized yet.</p>
-                  <p className="text-xs text-muted-foreground">Use the link above to select repos on GitHub.</p>
-                </div>
-              ) : authorizedPrivateRepos ? (
-                <ScrollArea className="min-h-0 flex-1">
-                  <div className="flex flex-col pr-3">
-                    {authorizedPrivateRepos.map((repo) => (
-                      <RepoRow
-                        key={repo.fullName}
-                        repo={repo}
-                        isAuthorized={true}
-                        isImporting={importingRepo === repo.fullName}
-                        onImport={() => void handleImportFromList(repo)}
-                        importSummary={importedSummaries?.[repo.fullName]}
-                      />
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : null}
+                  </ScrollArea>
+                )}
 
-              {importError && <p className="mt-2 shrink-0 text-xs text-destructive">{importError}</p>}
-            </TabsContent>
-          </Tabs>
+                {importError && <p className="mt-2 shrink-0 text-xs text-destructive">{importError}</p>}
+              </div>
+            )}
+
+            {/* Footer: adjust permissions (Vercel-style) */}
+            {!isUrlMode && installationId && (
+              <div className="shrink-0 border-t border-border/50 pt-3 text-[13px] text-muted-foreground">
+                Missing a repository?{" "}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline-offset-2 hover:underline"
+                  onClick={handleAdjustPermissions}
+                >
+                  Adjust GitHub App Permissions
+                </button>
+              </div>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>

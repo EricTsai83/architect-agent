@@ -99,6 +99,59 @@ function githubCallbackSuccessResponse(title: string, message: string): Response
   return githubCallbackPageResponse(200, title, message);
 }
 
+/**
+ * Returns a page that immediately attempts `window.close()`. If the browser
+ * blocks it (e.g. the page was opened as a regular tab rather than a popup),
+ * a fallback success message is shown instead.
+ */
+function githubCallbackAutoCloseResponse(): Response {
+  const body = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Closing…</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0b1020;
+        color: #e5e7eb;
+      }
+      main {
+        max-width: 36rem;
+        padding: 2rem;
+        border: 1px solid rgba(229, 231, 235, 0.16);
+        border-radius: 1rem;
+        background: rgba(15, 23, 42, 0.92);
+        text-align: center;
+      }
+      p { margin: 0; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main id="fallback" style="display:none">
+      <p>GitHub permissions updated. You can close this tab.</p>
+    </main>
+    <script>
+      window.close();
+      // If the browser blocked window.close(), show the fallback message.
+      document.getElementById("fallback").style.display = "block";
+    </script>
+  </body>
+</html>`;
+
+  return new Response(body, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+}
+
 function redirectOrReturnPage(
   redirectTarget: string | null,
   params: Record<string, string>,
@@ -164,7 +217,7 @@ http.route({
       ? await ctx.runQuery(internal.github.getOAuthReturnToByState, { state })
       : null;
 
-    if (!installationIdParam || !state) {
+    if (!installationIdParam) {
       return redirectOrReturnError(
         redirectTarget,
         { github_error: "missing_params" },
@@ -185,6 +238,42 @@ http.route({
       );
     }
 
+    // -----------------------------------------------------------------------
+    // Permission-update flow (no state parameter)
+    //
+    // When a user adjusts repository access via "Adjust GitHub App
+    // Permissions" (which opens GitHub's installation settings directly),
+    // GitHub redirects back with installation_id and setup_action but
+    // WITHOUT a state parameter because the flow was not initiated from
+    // our app.
+    //
+    // In this case we look up the existing installation by installationId,
+    // refresh its details from GitHub, and return a success page.
+    // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // Permission-update flow (no state parameter)
+    //
+    // When a user adjusts repository access via "Adjust GitHub App
+    // Permissions" (which opens GitHub's installation settings directly),
+    // GitHub redirects back with installation_id and setup_action but
+    // WITHOUT a state parameter because the flow was not initiated from
+    // our app.
+    //
+    // We intentionally skip any DB queries/mutations here because this
+    // endpoint is unauthenticated — no CSRF state, no session cookie.
+    // The frontend already auto-refreshes the repo list via a window
+    // focus event + GitHub API call, so no server-side work is needed.
+    // -----------------------------------------------------------------------
+    if (!state) {
+      logInfo("http", "github_callback_permissions_updated", {
+        installationId,
+      });
+      return githubCallbackAutoCloseResponse();
+    }
+
+    // -----------------------------------------------------------------------
+    // New installation flow (with CSRF state)
+    // -----------------------------------------------------------------------
     try {
       // Validate and consume the CSRF state
       const oauthState: {
