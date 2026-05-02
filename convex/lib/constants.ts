@@ -31,6 +31,22 @@ export const CHAT_CANDIDATE_POOL_LIMIT = 90;
 /** Number of documents to delete per batch in cascade operations. */
 export const CASCADE_BATCH_SIZE = 200;
 
+/**
+ * Soft cap on the total `messageStreamChunks` rows a single thread-level
+ * cleanup mutation is allowed to delete. Each `deleteMessageStreamState`
+ * call fully drains its stream's chunks, so without a per-pass cap one
+ * mutation could fan out into thousands of deletes and approach Convex's
+ * per-transaction read/write limits. When the budget is hit the caller
+ * re-enqueues `cleanupOrphanedMessageStreams`; `deleteMessageStreamState`
+ * is idempotent on already-drained streams.
+ *
+ * Sized to stay roughly in line with `cascadeDeleteRepository`'s effective
+ * per-stream budget (`STREAM_CHUNK_DRAIN_PASS_LIMIT * CASCADE_BATCH_SIZE`)
+ * so both cleanup paths consume similar shares of a transaction's
+ * write capacity.
+ */
+export const MAX_STREAM_CHUNKS_PER_PASS = 1500;
+
 /** Minimum character delta before flushing a streaming assistant reply. */
 export const STREAM_FLUSH_THRESHOLD = 240;
 

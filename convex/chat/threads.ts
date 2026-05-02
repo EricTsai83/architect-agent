@@ -3,21 +3,10 @@ import { internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { getDefaultThreadMode } from "../chatModeResolver";
 import { requireViewerIdentity } from "../lib/auth";
-import { MAX_VISIBLE_MESSAGES } from "../lib/constants";
+import { MAX_STREAM_CHUNKS_PER_PASS, MAX_VISIBLE_MESSAGES } from "../lib/constants";
 import { ensureRepositoryWorkspace, findHomeWorkspaceId } from "../lib/workspaces";
 import { loadRecentMessages } from "./context";
 import { deleteMessageStreamState } from "./streamStore";
-
-/**
- * Soft cap on the number of `messageStreamChunks` rows a single thread
- * cleanup pass is allowed to delete. Each `deleteMessageStreamState` call
- * fully drains its stream's chunks, so without a per-pass cap one mutation
- * could try to fan out into thousands of deletes and exceed Convex's
- * per-transaction read/write limits. When this budget is hit we re-enqueue
- * `cleanupOrphanedMessageStreams` to continue on the next tick;
- * `deleteMessageStreamState` is idempotent on already-drained streams.
- */
-const MAX_STREAM_CHUNKS_PER_PASS = 1500;
 
 export const listThreads = query({
   args: {
@@ -191,10 +180,21 @@ export const setThreadRepository = mutation({
         ownerTokenIdentifier: identity.tokenIdentifier,
         name: repository.sourceRepoFullName,
       });
+      // Two transitions land in this branch:
+      //   1. no-repo  → has-repo:  the thread is in `discuss` (the only mode
+      //      a repo-less thread can hold per createThread + the detach path
+      //      below). Spec says discuss is "no repo, no sandbox", so leaving
+      //      it in `discuss` after attaching a repo would create the exact
+      //      stale-mode state the resolver is supposed to forbid. Lift the
+      //      thread into the repo default (`docs`) to mirror createThread.
+      //   2. repo-A   → repo-B:    the thread already has a repo and the user
+      //      may have explicitly chosen `docs` or `sandbox`. Preserve their
+      //      choice; only `repositoryId`/`workspaceId` need to change.
+      const nextMode = thread.repositoryId ? thread.mode : getDefaultThreadMode(true);
       await ctx.db.patch(args.threadId, {
         repositoryId: args.repositoryId,
         workspaceId,
-        mode: getDefaultThreadMode(true),
+        mode: nextMode,
       });
       return { repositoryId: args.repositoryId, workspaceId };
     }

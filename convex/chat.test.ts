@@ -105,6 +105,56 @@ describe("chat thread defaults", () => {
     expect(thread?.mode).toBe("docs");
   });
 
+  test("setThreadRepository preserves the user-chosen mode when swapping between repositories", async () => {
+    const ownerTokenIdentifier = "user|chat-swap-mode";
+    const t = convexTest(schema, modules);
+    const repositoryAId = await insertRepository(t, ownerTokenIdentifier);
+    // Second repo, distinct sourceUrl so insertRepository's hard-coded slug
+    // doesn't collide with the first.
+    const repositoryBId = await t.run(async (ctx) => {
+      return await ctx.db.insert("repositories", {
+        ownerTokenIdentifier,
+        sourceHost: "github",
+        sourceUrl: "https://github.com/acme/widget-fork",
+        sourceRepoFullName: "acme/widget-fork",
+        sourceRepoOwner: "acme",
+        sourceRepoName: "widget-fork",
+        defaultBranch: "main",
+        visibility: "private",
+        accessMode: "private",
+        importStatus: "completed",
+        detectedLanguages: [],
+        packageManagers: [],
+        entrypoints: [],
+        fileCount: 0,
+      });
+    });
+
+    // Thread is attached to repo A and the user explicitly chose `discuss`
+    // (allowed by the resolver when a repo+sandbox is bound). A repo-A →
+    // repo-B swap must not silently override that choice.
+    const threadId = await t.run(async (ctx) => {
+      return await ctx.db.insert("threads", {
+        repositoryId: repositoryAId,
+        ownerTokenIdentifier,
+        title: "Already grounded",
+        mode: "discuss",
+        lastMessageAt: Date.now(),
+      });
+    });
+
+    const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
+    await viewer.mutation(api.chat.threads.setThreadRepository, {
+      threadId,
+      repositoryId: repositoryBId,
+    });
+
+    const thread = await t.run(async (ctx) => await ctx.db.get(threadId));
+    expect(thread?.repositoryId).toBe(repositoryBId);
+    // Mode is preserved: only the repo/workspace pointer changed.
+    expect(thread?.mode).toBe("discuss");
+  });
+
   test("createThread rejects mismatched workspace and repository ids", async () => {
     const ownerTokenIdentifier = "user|chat-workspace-mismatch";
     const t = convexTest(schema, modules);
