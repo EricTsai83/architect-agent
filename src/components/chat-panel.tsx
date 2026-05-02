@@ -1,13 +1,32 @@
-import { useMemo, type FormEvent } from "react";
-import { ChatCircleIcon, CubeIcon, FileTextIcon, PaperPlaneTiltIcon } from "@phosphor-icons/react";
+import { useMemo, useState, type FormEvent } from "react";
+import { useMutation } from "convex/react";
+import {
+  ChatCircleIcon,
+  CubeIcon,
+  FileTextIcon,
+  GlobeIcon,
+  LinkIcon,
+  LockIcon,
+  PaperPlaneTiltIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
+import { api } from "../../convex/_generated/api";
 import { AppNotice } from "@/components/app-notice";
+import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { ActiveMessageStream, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
+import type { ActiveMessageStream, RepositoryId, ThreadId, ChatMode, SandboxModeStatus } from "@/lib/types";
 
 /**
  * Static catalogue of every mode the selector can render. Order is stable and
@@ -68,6 +87,9 @@ export function ChatPanel({
   isArtifactPanelOpen = false,
   onToggleArtifactPanel,
   showArtifactToggle = false,
+  hasAttachedRepository = true,
+  availableRepositories = [],
+  onImported,
 }: {
   selectedThreadId: ThreadId | null;
   messages: Doc<"messages">[] | undefined;
@@ -87,6 +109,12 @@ export function ChatPanel({
   isArtifactPanelOpen?: boolean;
   onToggleArtifactPanel?: () => void;
   showArtifactToggle?: boolean;
+  /** Whether the current thread has an attached repository. */
+  hasAttachedRepository?: boolean;
+  /** All repositories the viewer owns — used to populate the attach dropdown. */
+  availableRepositories?: ReadonlyArray<Doc<"repositories">>;
+  /** Callback after a new repository is imported via the inline dialog. */
+  onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
   const hasMessages = (messages?.length ?? 0) > 0;
   const availableModeSet = useMemo(() => new Set(availableModes), [availableModes]);
@@ -110,7 +138,15 @@ export function ChatPanel({
             />
           ) : null}
           {isChatLoading ? null : !hasMessages ? (
-            <EmptyChatHint />
+            !hasAttachedRepository ? (
+              <EmptyNoRepoHint
+                threadId={selectedThreadId}
+                availableRepositories={availableRepositories ?? []}
+                onImported={onImported}
+              />
+            ) : (
+              <EmptyChatHint />
+            )
           ) : (
             <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
               {messages!.map((message) => (
@@ -327,6 +363,113 @@ function EmptyChatHint() {
         <p className="mt-2 max-w-sm text-xs text-muted-foreground">
           Architecture · Module dependencies · Risk hotspots
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Empty-state guidance for threads that have no attached repository yet.
+ * Surfaces two clear paths:
+ *
+ * 1. Attach a repository — a dropdown listing the user's imported repos plus
+ *    an "Import new repository" option that opens the ImportRepoDialog.
+ * 2. Free-form discussion — the user can just start typing.
+ */
+function EmptyNoRepoHint({
+  threadId,
+  availableRepositories,
+  onImported,
+}: {
+  threadId: ThreadId | null;
+  availableRepositories: ReadonlyArray<Doc<"repositories">>;
+  onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
+}) {
+  const setThreadRepository = useMutation(api.chat.setThreadRepository);
+  const [isAttaching, setIsAttaching] = useState(false);
+
+  const handleAttachRepo = async (repoId: RepositoryId) => {
+    if (!threadId) return;
+    setIsAttaching(true);
+    try {
+      await setThreadRepository({ threadId, repositoryId: repoId });
+    } finally {
+      setIsAttaching(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-1 animate-in items-center justify-center fade-in duration-300">
+      <div className="flex flex-col items-center text-center">
+        <div className="relative mb-1 inline-grid place-items-center">
+          <pre
+            aria-hidden="true"
+            className="pointer-events-none col-start-1 row-start-1 select-none font-mono text-[12px] leading-4 tracking-tight text-muted-foreground"
+          >
+            {EMPTY_CHAT_OWL}
+          </pre>
+          <pre
+            aria-hidden="true"
+            className="animate-terminal-owl-double-blink pointer-events-none col-start-1 row-start-1 select-none bg-background font-mono text-[12px] leading-4 tracking-tight text-muted-foreground"
+          >
+            {EMPTY_CHAT_OWL_BLINK}
+          </pre>
+        </div>
+
+        <p className="mt-5 text-base font-medium text-foreground">Start a design conversation</p>
+
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" disabled={isAttaching}>
+                <LinkIcon size={13} weight="bold" />
+                {isAttaching ? "Attaching…" : "Attach a repository"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-64">
+              {availableRepositories.length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">No repositories imported yet.</div>
+              ) : (
+                availableRepositories.map((repo) => (
+                  <DropdownMenuItem
+                    key={repo._id}
+                    onSelect={() => void handleAttachRepo(repo._id)}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    {repo.visibility === "private" ? (
+                      <LockIcon size={12} weight="bold" className="shrink-0 text-muted-foreground" />
+                    ) : (
+                      <GlobeIcon size={12} weight="bold" className="shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{repo.sourceRepoFullName}</span>
+                  </DropdownMenuItem>
+                ))
+              )}
+              {onImported ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <ImportRepoDialog
+                    onImported={onImported}
+                    trigger={
+                      <DropdownMenuItem
+                        onSelect={(e) => e.preventDefault()}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <PlusIcon size={12} weight="bold" />
+                        Import new repository
+                      </DropdownMenuItem>
+                    }
+                  />
+                </>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Unlock Docs and Sandbox modes for code-grounded analysis, or just start typing below for a free-form
+            discussion.
+          </p>
+        </div>
       </div>
     </div>
   );

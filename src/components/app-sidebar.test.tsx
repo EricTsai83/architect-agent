@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { AppSidebar } from "./app-sidebar";
-import type { RepositoryId, ThreadId } from "@/lib/types";
+import type { ThreadId } from "@/lib/types";
 
 const { createThreadMutationMock, useMutationMock, useQueryMock } = vi.hoisted(() => ({
   createThreadMutationMock: vi.fn(),
@@ -26,12 +26,6 @@ vi.mock("@/components/ui/button", () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children?: React.ReactNode }) => (
     <button {...props}>{children}</button>
   ),
-}));
-
-vi.mock("@/components/ui/collapsible", () => ({
-  Collapsible: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  CollapsibleContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  CollapsibleTrigger: ({ children }: { children: React.ReactNode; asChild?: boolean }) => <>{children}</>,
 }));
 
 vi.mock("@/components/ui/sidebar", () => ({
@@ -80,7 +74,6 @@ let threadsResult: Doc<"threads">[] | undefined;
 
 beforeEach(() => {
   threadsResult = [];
-  window.localStorage.clear();
   createThreadMutationMock.mockReset();
   useMutationMock.mockReset();
   useQueryMock.mockReset();
@@ -138,8 +131,6 @@ function createSidebarElement({
   return (
     <AppSidebar
       repositories={[] as Doc<"repositories">[]}
-      selectedRepositoryId={null as RepositoryId | null}
-      onSelectRepository={vi.fn()}
       selectedThreadId={null as ThreadId | null}
       onSelectThread={vi.fn()}
       onDeleteThread={vi.fn()}

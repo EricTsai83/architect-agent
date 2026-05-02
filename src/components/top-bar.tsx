@@ -1,4 +1,4 @@
-import { DotsThreeVerticalIcon, SparkleIcon, TrashIcon, ArrowsClockwiseIcon } from "@phosphor-icons/react";
+import { DotsThreeVerticalIcon, SparkleIcon, TrashIcon, ArrowsClockwiseIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,9 +82,7 @@ export function TopBar({
           ) : (
             <h1 className="min-w-0 truncate text-sm font-semibold tracking-tight md:text-base">{title}</h1>
           )}
-          {repoDetail ? (
-            <RepoStatusIndicator importStatus={repoDetail.repository.importStatus} sandbox={repoDetail.sandbox} />
-          ) : null}
+          {repoDetail ? <RepoStatusIndicator sandbox={repoDetail.sandbox} /> : null}
         </div>
       ) : null}
 
@@ -143,8 +141,9 @@ export function TopBar({
 }
 
 /**
- * Unified sync button that combines the action with a live-updating
- * "Synced X ago" label, so there is one compact control instead of two.
+ * Unified sync button — the single source of truth for sync / import status.
+ * Covers idle, in-progress, failed, and update-available states so no other
+ * component needs to duplicate this information.
  */
 function SyncButton({
   repoDetail,
@@ -158,14 +157,17 @@ function SyncButton({
   const syncedLabel = useRelativeTime(repoDetail?.repository.lastImportedAt);
   const repositoryImportStatus = repoDetail?.repository.importStatus;
   const isRepositorySyncing = repositoryImportStatus === "queued" || repositoryImportStatus === "running";
+  const isFailed = repositoryImportStatus === "failed";
   const isBusy = isSyncing || isRepositorySyncing;
-  const hasUpdates = repoDetail?.hasRemoteUpdates && !isBusy;
-  const isExpanded = isBusy || hasUpdates;
+  const hasUpdates = repoDetail?.hasRemoteUpdates && !isBusy && !isFailed;
+  const isExpanded = isBusy || hasUpdates || isFailed;
 
   // Derive the text shown inside the button
   let label: string | null = null;
   if (isBusy) {
     label = "Syncing…";
+  } else if (isFailed) {
+    label = "Sync failed";
   } else if (hasUpdates) {
     label = "Update available";
   } else if (syncedLabel) {
@@ -175,11 +177,14 @@ function SyncButton({
   }
 
   const syncedTooltipLabel = syncedLabel ? `Synced ${syncedLabel}` : "Synced recently";
-  const updateTooltipLabel = "New commits available on remote - click to sync";
+  const updateTooltipLabel = "New commits available on remote — click to sync";
+  const failedTooltipLabel = "Import failed — click to retry";
 
-  const buttonClassName = hasUpdates
-    ? "relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
-    : "justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground";
+  const buttonClassName = isFailed
+    ? "relative justify-start gap-1.5 text-xs text-destructive hover:text-destructive"
+    : hasUpdates
+      ? "relative justify-start gap-1.5 text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300"
+      : "justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground";
 
   if (label === null && !repoDetail && !isBusy) {
     return (
@@ -213,21 +218,31 @@ function SyncButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button variant="ghost" size="sm" disabled={!repoDetail || isBusy} onClick={onSync} className={buttonClassName}>
-          {hasUpdates && (
+          {(hasUpdates || isFailed) && (
             <span className="absolute -right-0.5 -top-0.5 flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+              <span
+                className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${isFailed ? "bg-red-400" : "bg-orange-400"}`}
+              />
+              <span
+                className={`relative inline-flex h-2 w-2 rounded-full ${isFailed ? "bg-red-500" : "bg-orange-500"}`}
+              />
             </span>
           )}
           {label ? (
             <span className="inline-flex items-center gap-1.5 animate-in fade-in duration-300">
-              <ArrowsClockwiseIcon weight="bold" className={isBusy ? "animate-spin" : ""} />
+              {isFailed ? (
+                <WarningCircleIcon weight="fill" className="size-3.5" />
+              ) : (
+                <ArrowsClockwiseIcon weight="bold" className={isBusy ? "animate-spin" : ""} />
+              )}
               {label}
             </span>
           ) : null}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{hasUpdates ? updateTooltipLabel : syncedTooltipLabel}</TooltipContent>
+      <TooltipContent side="bottom">
+        {isFailed ? failedTooltipLabel : hasUpdates ? updateTooltipLabel : syncedTooltipLabel}
+      </TooltipContent>
     </Tooltip>
   );
 }

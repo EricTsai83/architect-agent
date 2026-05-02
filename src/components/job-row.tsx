@@ -1,25 +1,37 @@
 import type { Doc } from "../../convex/_generated/dataModel";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { formatTimestamp } from "@/lib/format";
 
+/**
+ * Minimal job row — status dot + text. No progress bar.
+ */
 export function JobRow({ job }: { job: Doc<"jobs"> }) {
+  const isError = job.status === "error" || job.status === "failed";
+  const isRunning = job.status === "running" || job.status === "queued";
+  const isComplete = job.status === "completed" || job.status === "success";
+
+  const dotColor = isError
+    ? "bg-red-500"
+    : isRunning
+      ? "bg-blue-500 animate-pulse"
+      : isComplete
+        ? "bg-green-500"
+        : "bg-muted-foreground/40";
+
   return (
-    <Card className="p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">{job.kind}</p>
-          <p className="text-xs text-muted-foreground">
-            {job.stage} · {Math.round(job.progress * 100)}%
-          </p>
+    <div className="flex items-start gap-3 py-2">
+      <span className={`mt-1.5 size-2 shrink-0 rounded-full ${dotColor}`} />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="text-xs font-medium">{job.kind}</span>
+          <span className="text-[11px] capitalize text-muted-foreground">{job.status}</span>
         </div>
-        <Badge variant="outline" className="uppercase">
-          {job.status}
-        </Badge>
+        {job.stage ? <p className="text-[11px] text-muted-foreground">{job.stage}</p> : null}
+        {job.errorMessage ? (
+          <p className="text-[11px] text-red-600 dark:text-red-400">{job.errorMessage}</p>
+        ) : null}
+        {job.outputSummary && !isError ? (
+          <p className="text-[11px] text-muted-foreground">{job.outputSummary}</p>
+        ) : null}
       </div>
-      {job.outputSummary ? <p className="mt-2 text-xs text-muted-foreground">{job.outputSummary}</p> : null}
-      {job.errorMessage ? <p className="mt-2 text-xs text-destructive">{job.errorMessage}</p> : null}
-      <p className="mt-2 text-[10px] text-muted-foreground">{formatTimestamp(job._creationTime)}</p>
-    </Card>
+    </div>
   );
 }

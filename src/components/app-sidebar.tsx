@@ -1,26 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery } from "convex/react";
-import {
-  CaretDownIcon,
-  ChatCircleIcon,
-  FolderIcon,
-  GlobeIcon,
-  LockIcon,
-  PlusIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+import { ChatCircleIcon, GlobeIcon, LockIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import { ProfileCard } from "@/components/profile-card";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton } from "@/components/ui/sidebar";
 import { Logo } from "@/components/logo";
 import { ImportRepoDialog } from "@/components/import-repo-dialog";
 import { useAsyncCallback } from "@/hooks/use-async-callback";
-import { useLocalStorageBoolean } from "@/hooks/use-persisted-state";
 import { toUserErrorMessage } from "@/lib/errors";
-import { cn } from "@/lib/utils";
 import type { RepositoryId, ThreadId } from "@/lib/types";
 
 /**
@@ -36,15 +25,14 @@ import type { RepositoryId, ThreadId } from "@/lib/types";
  *      row shows an attached-repo badge (or a "general" badge when none),
  *      satisfying US 5. The list is owner-scoped, not repo-filtered, which is
  *      the structural reversal at the heart of this PRD.
- *   4. Repositories section — collapsible, secondary. Foregrounds threads
- *      while still keeping repo import / selection one click away (US 6,
- *      US 7).
+ *   4. Import repository button — secondary action for adding new repos.
+ *      Repo selection/attachment is handled inline via the chat panel's empty
+ *      state and the TopBar's AttachRepoMenu, keeping threads as the primary
+ *      navigation primitive.
  *   5. Footer — profile card.
  */
 export function AppSidebar({
   repositories,
-  selectedRepositoryId,
-  onSelectRepository,
   selectedThreadId,
   onSelectThread,
   onDeleteThread,
@@ -52,8 +40,6 @@ export function AppSidebar({
   onError,
 }: {
   repositories: Doc<"repositories">[] | undefined;
-  selectedRepositoryId: RepositoryId | null;
-  onSelectRepository: (id: RepositoryId) => void;
   selectedThreadId: ThreadId | null;
   onSelectThread: (id: ThreadId | null) => void;
   onDeleteThread: (id: ThreadId) => void;
@@ -120,13 +106,7 @@ export function AppSidebar({
           onDeleteThread={onDeleteThread}
         />
 
-        <RepositoriesSection
-          repositories={repositories}
-          threadCount={threads?.length}
-          selectedRepositoryId={selectedRepositoryId}
-          onSelectRepository={onSelectRepository}
-          onImported={onImported}
-        />
+        <ImportRepositorySection onImported={onImported} />
       </SidebarContent>
 
       <SidebarFooter className="px-3 py-2">
@@ -273,80 +253,30 @@ function ThreadRepoBadge({ repository }: { repository: Doc<"repositories"> | und
 }
 
 // ---------------------------------------------------------------------------
-// Repositories section — secondary, collapsible.
+// Import repository — secondary action, replaces the former collapsible list.
 // ---------------------------------------------------------------------------
 
-function RepositoriesSection({
-  repositories,
-  threadCount,
-  selectedRepositoryId,
-  onSelectRepository,
+function ImportRepositorySection({
   onImported,
 }: {
-  repositories: Doc<"repositories">[] | undefined;
-  threadCount: number | undefined;
-  selectedRepositoryId: RepositoryId | null;
-  onSelectRepository: (id: RepositoryId) => void;
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
-  const defaultOpen = threadCount === undefined ? true : threadCount <= 3;
-  const [open, setOpen] = useLocalStorageBoolean("systify.sidebar.reposOpen", defaultOpen);
-  const count = repositories?.length;
-
   return (
-    <div className="border-t border-border">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <div className="flex items-center justify-between px-3 py-2">
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-auto flex-1 justify-start gap-1.5 px-0 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <CaretDownIcon
-                size={11}
-                weight="bold"
-                className={cn("transition-transform", open ? "rotate-0" : "-rotate-90")}
-              />
-              <FolderIcon size={11} weight="bold" />
-              <span>Repositories</span>
-              {typeof count === "number" ? (
-                <span className="ml-1 text-[10px] font-medium text-muted-foreground/70">{count}</span>
-              ) : null}
-            </Button>
-          </CollapsibleTrigger>
-          <ImportRepoDialog onImported={onImported} />
-        </div>
-
-        <CollapsibleContent>
-          <div className="flex flex-col gap-1 px-3 pb-3">
-            {repositories === undefined ? null : repositories.length === 0 ? (
-              <p className="px-1 pb-2 text-xs text-muted-foreground">Import a repository to ground a thread.</p>
-            ) : (
-              repositories.map((repository) => (
-                <SidebarMenuButton
-                  key={repository._id}
-                  selected={selectedRepositoryId === repository._id}
-                  onClick={() => onSelectRepository(repository._id)}
-                >
-                  {repository.visibility === "private" ? (
-                    <LockIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
-                  ) : (
-                    <GlobeIcon size={13} className="shrink-0 text-muted-foreground" weight="bold" aria-hidden="true" />
-                  )}
-                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{repository.sourceRepoFullName}</p>
-                  {repository.latestRemoteSha &&
-                    repository.lastSyncedCommitSha &&
-                    repository.latestRemoteSha !== repository.lastSyncedCommitSha && (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-orange-500" title="New commits available" />
-                    )}
-                </SidebarMenuButton>
-              ))
-            )}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+    <div className="border-t border-border px-3 py-2">
+      <ImportRepoDialog
+        onImported={onImported}
+        trigger={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 w-full justify-start gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <PlusIcon size={13} weight="bold" />
+            Import repository
+          </Button>
+        }
+      />
     </div>
   );
 }

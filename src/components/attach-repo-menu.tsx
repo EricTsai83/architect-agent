@@ -129,8 +129,8 @@ export function AttachRepoMenu({
             // duplicate that flow inside this menu.
             <div className="px-2 py-3 text-xs text-muted-foreground">
               {attachedRepository
-                ? "No other repositories to swap to. Import one from the sidebar."
-                : "You have no repositories yet. Import one from the sidebar."}
+                ? "No other repositories to swap to. Import one to get started."
+                : "You have no repositories yet. Import one to get started."}
             </div>
           ) : (
             swapTargets.map((repo) => (
