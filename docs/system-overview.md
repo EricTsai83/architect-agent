@@ -102,7 +102,7 @@ That means Convex simultaneously serves as the application database, application
 ### 3. Chat and analysis
 
 - The chat flow creates a `chat` job, a user message, and an assistant placeholder message.
-- `internal.chat.generateAssistantReply` loads context and produces a reply either through OpenAI streaming or a heuristic fallback.
+- `internal.chat.generation.generateAssistantReply` loads context and produces a reply either through OpenAI streaming or a heuristic fallback.
 - Durable chat history lives in `messages`, while active in-flight stream state lives in `messageStreams` and `messageStreamChunks`.
 - When provider usage is available, chat finalization also writes token counts to `messages` and `jobs`, plus an estimated job cost.
 - Deep analysis creates a `deep_analysis` job and runs focused inspection against the sandbox.

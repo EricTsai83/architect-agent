@@ -51,7 +51,7 @@ export function AttachRepoMenu({
   attachedRepository: AttachedRepositorySummary | null;
   availableRepositories: ReadonlyArray<Doc<"repositories">>;
 }) {
-  const setThreadRepository = useMutation(api.chat.setThreadRepository);
+  const setThreadRepository = useMutation(api.chat.threads.setThreadRepository);
   const latestRequestRef = useRef(0);
   const [pendingRequest, setPendingRequest] = useState<{
     threadId: ThreadId;

@@ -158,7 +158,7 @@ export const reconcileStaleInteractiveJobs = internalAction({
 
     for (const job of staleJobs) {
       if (job.kind === "chat") {
-        await ctx.runMutation(internal.chat.recoverStaleChatJob, {
+        await ctx.runMutation(internal.chat.streaming.recoverStaleChatJob, {
           jobId: job.jobId,
           errorMessage: STALE_CHAT_JOB_ERROR_MESSAGE,
         });

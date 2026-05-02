@@ -15,33 +15,6 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { RepositoryId, ThreadId, WorkspaceId } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// Color mapping — maps the schema's color literal to Tailwind classes.
-// ---------------------------------------------------------------------------
-
-const COLOR_MAP: Record<string, string> = {
-  blue: "bg-blue-500",
-  emerald: "bg-emerald-500",
-  amber: "bg-amber-500",
-  violet: "bg-violet-500",
-  rose: "bg-rose-500",
-  cyan: "bg-cyan-500",
-  orange: "bg-orange-500",
-  teal: "bg-teal-500",
-};
-
-function getColorBg(color: string) {
-  return COLOR_MAP[color] ?? COLOR_MAP.blue;
-}
-
-// ---------------------------------------------------------------------------
-// Small color dot — sits next to the workspace name in the dropdown list.
-// ---------------------------------------------------------------------------
-
-function WorkspaceDot({ color }: { color: string }) {
-  return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${getColorBg(color)}`} />;
-}
-
-// ---------------------------------------------------------------------------
 // Workspace selector — a dropdown that shows the current workspace name and
 // lets the user switch, create, or delete workspaces. Sits next to the
 // compact profile avatar in the sidebar footer row.
@@ -94,9 +67,8 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted"
+            className="flex min-w-0 flex-1 items-center gap-2 border border-border bg-background px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
           >
-            {activeWorkspace && <WorkspaceDot color={activeWorkspace.color} />}
             <span className="min-w-0 flex-1 truncate text-sm font-medium">
               {activeWorkspace?.name ?? "Select workspace"}
             </span>
@@ -116,7 +88,6 @@ export const WorkspaceSelector = memo(function WorkspaceSelector({
                 }}
                 className="gap-2"
               >
-                <WorkspaceDot color={ws.color} />
                 <span className="min-w-0 flex-1 truncate">{ws.name}</span>
                 {isActive && <CheckIcon size={14} weight="bold" className="shrink-0 text-primary" />}
               </DropdownMenuItem>

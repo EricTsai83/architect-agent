@@ -3,7 +3,7 @@
 import { describe, expect, test } from "vitest";
 import { convexTest } from "convex-test";
 import { internal } from "./_generated/api";
-import { selectRelevantChunks } from "./chat";
+import { selectRelevantChunks } from "./chat/relevance";
 import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
@@ -185,7 +185,7 @@ describe("chat reply context", () => {
       return threadId;
     });
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(context.chunks).toHaveLength(1);
     expect(context.chunks[0]?.path).toBe("src/current.ts");
@@ -344,7 +344,7 @@ describe("chat reply context", () => {
       return threadId;
     });
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(context.chunks.some((chunk) => chunk.path === "src/file-180-auth.ts")).toBe(true);
     expect(context.chunks.some((chunk) => chunk.path === "src/file-stale-auth.ts")).toBe(false);
@@ -449,7 +449,7 @@ describe("chat reply context", () => {
       return threadId;
     });
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(context.chunks).not.toHaveLength(0);
     expect(context.chunks.map((chunk) => chunk.path)).toContain("src/a.ts");
@@ -528,7 +528,7 @@ describe("chat reply context", () => {
       });
     });
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(context.sourceRepoFullName).toBeUndefined();
     expect(context.artifacts).toHaveLength(0);
@@ -644,7 +644,7 @@ describe("chat reply context", () => {
       return threadId;
     });
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
     expect(context.artifacts.map((artifact) => artifact.title)).toContain("Architecture diagram");
     expect(context.chunks).toHaveLength(0);
   });
@@ -706,7 +706,7 @@ describe("chat reply context", () => {
       return threadId;
     });
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(context.artifacts).toHaveLength(12);
     expect(context.artifacts[0]?.title).toBe("Architecture diagram 19");

@@ -56,7 +56,7 @@ export function RepositoryShell({
 }) {
   const navigate = useNavigate();
   const repositories = useQuery(api.repositories.listRepositories);
-  const createThreadMutation = useMutation(api.chat.createThread);
+  const createThreadMutation = useMutation(api.chat.threads.createThread);
 
   // -------------------------------------------------------------------------
   // Workspace state — persisted in localStorage for cross-session continuity.
@@ -129,7 +129,7 @@ export function RepositoryShell({
   // Loaded only on the no-selection landing (`/chat`) so we can redirect to
   // the most recent thread when one exists. Workspace-scoped when one is active.
   const ownerThreads = useQuery(
-    api.chat.listThreads,
+    api.chat.threads.listThreads,
     urlThreadId === null && urlRepositoryId === null
       ? activeWorkspaceId
         ? { workspaceId: activeWorkspaceId }
@@ -243,11 +243,11 @@ export function RepositoryShell({
   useCheckForUpdates(effectiveSelectedRepositoryId);
 
   const messages = useQuery(
-    api.chat.listMessages,
+    api.chat.threads.listMessages,
     effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : "skip",
   );
   const activeMessageStream = useQuery(
-    api.chat.getActiveMessageStream,
+    api.chat.streaming.getActiveMessageStream,
     effectiveSelectedThreadId ? { threadId: effectiveSelectedThreadId } : "skip",
   );
 

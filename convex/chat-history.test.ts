@@ -24,7 +24,7 @@ describe("chat history ordering", () => {
     const { threadId, contents } = await seedThreadWithMessages(t, ownerTokenIdentifier, MAX_VISIBLE_MESSAGES + 5);
 
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
-    const messages = await viewer.query(api.chat.listMessages, { threadId });
+    const messages = await viewer.query(api.chat.threads.listMessages, { threadId });
 
     expect(messages).toHaveLength(MAX_VISIBLE_MESSAGES);
     expect(messages.map((message) => message.content)).toEqual(contents.slice(-MAX_VISIBLE_MESSAGES));
@@ -35,7 +35,7 @@ describe("chat history ordering", () => {
     const t = convexTest(schema, modules);
     const { threadId, contents } = await seedThreadWithMessages(t, ownerTokenIdentifier, MAX_CONTEXT_MESSAGES + 5);
 
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(context.messages).toHaveLength(MAX_CONTEXT_MESSAGES);
     expect(context.messages.map((message) => message.content)).toEqual(contents.slice(-MAX_CONTEXT_MESSAGES));
@@ -59,8 +59,8 @@ describe("chat history ordering", () => {
     });
 
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
-    const messages = await viewer.query(api.chat.listMessages, { threadId });
-    const context = await t.query(internal.chat.getReplyContext, { threadId });
+    const messages = await viewer.query(api.chat.threads.listMessages, { threadId });
+    const context = await t.query(internal.chat.context.getReplyContext, { threadId });
 
     expect(messages.at(-1)?.content).toBe("");
     expect(context.messages.at(-1)?.content).toBe("message-3");

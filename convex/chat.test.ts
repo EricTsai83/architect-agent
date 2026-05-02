@@ -49,11 +49,11 @@ describe("chat thread defaults", () => {
     });
 
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
-    await viewer.mutation(api.chat.setThreadRepository, {
+    await viewer.mutation(api.chat.threads.setThreadRepository, {
       threadId,
       repositoryId: null,
     });
-    const emptyThreadId = await viewer.mutation(api.chat.createThread, {});
+    const emptyThreadId = await viewer.mutation(api.chat.threads.createThread, {});
 
     const { detachedThread, emptyThread } = await t.run(async (ctx) => ({
       detachedThread: await ctx.db.get(threadId),
@@ -72,7 +72,7 @@ describe("chat thread defaults", () => {
     const repositoryId = await insertRepository(t, ownerTokenIdentifier);
 
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
-    const threadId = await viewer.mutation(api.chat.createThread, { repositoryId });
+    const threadId = await viewer.mutation(api.chat.threads.createThread, { repositoryId });
 
     const thread = await t.run(async (ctx) => await ctx.db.get(threadId));
     expect(thread?.mode).toBe("docs");

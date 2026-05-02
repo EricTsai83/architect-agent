@@ -44,8 +44,8 @@ export function AppSidebar({
   onImported: (repoId: RepositoryId, threadId: ThreadId | null) => void;
   onError: (message: string | null) => void;
 }) {
-  const threads = useQuery(api.chat.listThreads, activeWorkspaceId ? { workspaceId: activeWorkspaceId } : {});
-  const createThreadMutation = useMutation(api.chat.createThread);
+  const threads = useQuery(api.chat.threads.listThreads, activeWorkspaceId ? { workspaceId: activeWorkspaceId } : {});
+  const createThreadMutation = useMutation(api.chat.threads.createThread);
 
   const activeWorkspace = useMemo(
     () => workspaces?.find((ws) => ws._id === activeWorkspaceId) ?? null,

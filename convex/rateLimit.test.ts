@@ -114,7 +114,7 @@ describe("rate limits and interactive job guards", () => {
     const before = await getThreadCounts(t, threadId);
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
     const error = await viewer
-      .mutation(api.chat.sendMessage, {
+      .mutation(api.chat.send.sendMessage, {
         threadId,
         content: "Can you answer this now?",
       })
@@ -131,7 +131,7 @@ describe("rate limits and interactive job guards", () => {
     const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
 
     for (let index = 0; index < 6; index += 1) {
-      const result = await viewer.mutation(api.chat.sendMessage, {
+      const result = await viewer.mutation(api.chat.send.sendMessage, {
         threadId,
         content: `message-${index}`,
       });
@@ -140,7 +140,7 @@ describe("rate limits and interactive job guards", () => {
 
     const before = await getThreadCounts(t, threadId);
     const error = await viewer
-      .mutation(api.chat.sendMessage, {
+      .mutation(api.chat.send.sendMessage, {
         threadId,
         content: "message-6",
       })
@@ -158,7 +158,7 @@ describe("rate limits and interactive job guards", () => {
 
     const before = await getThreadCounts(t, threadId);
     await expect(
-      viewer.mutation(api.chat.sendMessage, {
+      viewer.mutation(api.chat.send.sendMessage, {
         threadId,
         content: "   \n\t  ",
       }),
@@ -178,7 +178,7 @@ describe("rate limits and interactive job guards", () => {
       const { threadId } = await createRepositoryFixture(t, ownerTokenIdentifier, `chat-global-${index}`);
       const viewer = t.withIdentity({ tokenIdentifier: ownerTokenIdentifier });
       const result = await viewer
-        .mutation(api.chat.sendMessage, {
+        .mutation(api.chat.send.sendMessage, {
           threadId,
           content: `hello-${index}`,
         })

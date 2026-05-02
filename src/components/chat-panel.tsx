@@ -385,7 +385,7 @@ function EmptyNoRepoHint({
   availableRepositories: ReadonlyArray<Doc<"repositories">>;
   onImported?: (repoId: RepositoryId, threadId: ThreadId | null) => void;
 }) {
-  const setThreadRepository = useMutation(api.chat.setThreadRepository);
+  const setThreadRepository = useMutation(api.chat.threads.setThreadRepository);
   const [isAttaching, setIsAttaching] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
 
